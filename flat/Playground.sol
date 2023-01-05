@@ -370,6 +370,12 @@ library Base64 {
     }
 }
 
+/// @notice Kali DAO share manager interface
+interface IKaliShareManager {
+    function mintShares(address to, uint256 amount) external payable;
+    function burnShares(address from, uint256 amount) external payable;
+}
+
 interface IArm0ryTravellers {
     function ownerOf(uint256 id) external view returns (address);
 
@@ -491,6 +497,8 @@ interface IArm0ryTasks {
     function getTaskXp(uint16 taskId) external view returns (uint8);
 
     function getTaskExpiration(uint16 taskId) external view returns (uint40);
+
+    function getTaskCreator(uint16 taskId) external view returns (address);
 }
 
 /// @title Arm0ry tasks
@@ -500,13 +508,8 @@ interface IArm0ryTasks {
 struct Task {
     uint8 xp;
     uint40 expiration;
-    Validation val;
+    address creator;
     string details;
-}
-
-enum Validation {
-    ON_CHAIN,
-    OFF_CHAIN
 }
 
 contract Arm0ryTasks {
@@ -524,14 +527,14 @@ contract Arm0ryTasks {
     event TaskSet(
         uint40 expiration,
         uint8 points,
-        Validation val,
+        address creator,
         string details
     );
 
     event TasksUpdated(
         uint40 expiration,
         uint8 points,
-        Validation val,
+        address creator,
         string details
     );
 
@@ -581,19 +584,19 @@ contract Arm0ryTasks {
             (
                 uint40 expiration,
                 uint8 xp,
-                Validation val,
+                address creator,
                 string memory details
             ) = abi.decode(
                 taskData[i],
-                (uint40, uint8, Validation, string)
+                (uint40, uint8, address, string)
             );
 
             tasks[taskId].expiration = expiration;
             tasks[taskId].xp = xp;
-            tasks[taskId].val = val;
+            tasks[taskId].creator = creator;
             tasks[taskId].details = details;
 
-            emit TaskSet(expiration, xp, val, details);
+            emit TaskSet(expiration, xp, creator, details);
 
             // Unchecked because the only math done is incrementing
             // the array index counter which cannot possibly overflow.
@@ -614,19 +617,19 @@ contract Arm0ryTasks {
             (
                 uint40 expiration,
                 uint8 xp,
-                Validation val,
+                address creator,
                 string memory details
             ) = abi.decode(
                 taskData[i],
-                (uint40, uint8, Validation, string)
+                (uint40, uint8, address, string)
             );
 
             tasks[ids[i]].expiration = expiration;
             tasks[ids[i]].xp = xp;
-            tasks[ids[i]].val = val;
+            tasks[ids[i]].creator = creator;
             tasks[ids[i]].details = details;
 
-            emit TasksUpdated(expiration, xp, val, details);
+            emit TasksUpdated(expiration, xp, creator, details);
 
             // Unchecked because the only math done is incrementing
             // the array index counter which cannot possibly overflow.
@@ -642,6 +645,10 @@ contract Arm0ryTasks {
 
     function getTaskExpiration(uint16 _taskId) external view returns (uint40) {
         return tasks[_taskId].expiration;
+    }
+
+    function getTaskCreator(uint16 _taskId) external view returns (address) {
+        return tasks[_taskId].creator;
     }
     
     function updatePermission(address _admin, address _manager) public {
@@ -724,6 +731,8 @@ contract Arm0ryMissions {
 
     uint256 public immutable THRESHOLD = 10 * 10 ** 18;
 
+    uint256 public immutable CREATOR_REWARD = 10 ** 17;
+
     address public arm0ry;
 
     address public immutable WETH;
@@ -757,7 +766,10 @@ contract Arm0ryMissions {
     mapping(address => mapping(uint256 => mapping(address => uint8))) taskReviews; 
 
     // Status indicating if a Task of an active Mission is completed
-    mapping (address => mapping(uint256 => bool)) isTaskCompleted;
+    mapping(address => mapping(uint256 => bool)) isTaskCompleted;
+
+    // Rewards per creators
+    mapping(address => uint256) taskCreatorRewards;
 
     /// -----------------------------------------------------------------------
     /// Constructor
@@ -891,7 +903,7 @@ contract Arm0ryMissions {
     }
 
     /// -----------------------------------------------------------------------
-    /// Validation Functions
+    /// Review Functions
     /// -----------------------------------------------------------------------
 
     function reviewTasks(address traveller, uint16 taskId, uint8 review) external payable {
@@ -929,9 +941,14 @@ contract Arm0ryMissions {
             isTaskCompleted[msg.sender][taskId] = true;
             taskReadyForReview[traveller][taskId] = false;
 
-            
+            address creator = tasks.getTaskCreator(taskId);
+            taskCreatorRewards[creator] += CREATOR_REWARD;
         }
     }
+
+    /// -----------------------------------------------------------------------
+    /// Arm0ry Functions
+    /// ----------------------------------------------------------------------- 
 
     function updateMissionProgress(address traveller) external payable {
         Mission memory mission = missions[traveller][missionNonce[traveller]];
@@ -986,23 +1003,14 @@ contract Arm0ryMissions {
             travellers.transferFrom(address(this), traveller, uint256(uint160(traveller)));
         }
     }
-}
 
+    function RewardCreator(address creator) external payable {
+        if (msg.sender != arm0ry) revert NotAuthorized();
 
-// Stake SVG NFT + X $AMG
-contract Arm0ryGrants {
-        mapping(address => bool) grantsClaimed;
+        uint256 reward = taskCreatorRewards[creator];    
 
+        taskCreatorRewards[creator] = 0;    
 
-    // claim 0.15 ether
-    // function claimGrants() external payable {
-    //     uint256 grants = 15 * 10 ** 16;
-    //     if (!grantsClaimable[msg.sender]) revert InvalidClaim();
-    //     if (grantsClaimed[msg.sender]) revert AlreadyClaimed();
-    //     grantsClaimed[msg.sender] = true;
-    //     msg.sender._safeTransferETH(grants);
-    // }
-
-            // travellers.transferFrom(msg.sender, address(this), id);
-            // grantsClaimable[msg.sender] = true;
+        IKaliShareManager(msg.sender).mintShares(address(this), reward);
+    }
 }
