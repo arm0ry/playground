@@ -461,7 +461,7 @@ contract Arm0ryTravellers is ERC721("Arm0ry Travellers", "ArT") {
         );
     }
 
-    function _toString(address x) internal pure returns (string memory) {
+    function addressToString(address x) internal pure returns (string memory) {
         bytes memory s = new bytes(40);
         for (uint i = 0; i < 20; i++) {
             bytes1 b = bytes1(uint8(uint(uint160(x)) / (2**(8*(19 - i)))));
@@ -471,6 +471,24 @@ contract Arm0ryTravellers is ERC721("Arm0ry Travellers", "ArT") {
             s[2*i+1] = char(lo);            
         }
         return string(s);
+    }
+
+    /// @notice  Converts wei to ether string with 2 decimal places
+    function weiToEtherString(uint256 amountInWei)
+        public
+        pure
+        returns (string memory)
+    {
+        uint256 amountInFinney = amountInWei / 1e15; // 1 finney == 1e15
+        return
+            string(
+                abi.encodePacked(
+                    Strings.toString(amountInFinney / 1000), //left of decimal
+                    ".",
+                    Strings.toString((amountInFinney % 1000) / 100), //first decimal
+                    Strings.toString(((amountInFinney % 1000) % 100) / 10) // first decimal
+                )
+            );
     }
 
     function char(bytes1 b) internal pure returns (bytes1 c) {
