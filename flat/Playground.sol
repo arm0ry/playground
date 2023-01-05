@@ -417,26 +417,36 @@ contract Arm0ryTravellers is ERC721("Arm0ry Travellers", "ArT") {
 
         string memory metaSVG = string(
             abi.encodePacked(
-                '<text dominant-baseline="middle" text-anchor="middle" fill="white" x="50%" y="90px">',
+                '<text class="h1" dominant-baseline="middle" text-anchor="middle" fill="white" x="50%" y="10%">',
+                "Arm0ry MiniGrants Season 1",
+                "</text>"
+                '<text dominant-baseline="middle" text-anchor="middle" fill="white" x="50%" y="20%">',
                 "0x",
-                _toString(soul),
-                "'s SOUL",
+                addressToString(soul),
+                "</text>",
+                '<text dominant-baseline="middle" text-anchor="middle" fill="white" x="50%" y="30%">',
+                "Wallet Ξ",
+                weiToEtherString(soul.balance),
+                "</text>",
+                '<text dominant-baseline="middle" text-anchor="middle" fill="white" x="50%" y="90%">',
+                "I commit to completing arm0ry grants program",
                 "</text>"
             )
         );
         bytes memory svg = abi.encodePacked(
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" preserveAspectRatio="xMidYMid meet" style="font:14px serif"><rect width="400" height="400" fill="black" />',
+            '<style type="text/css"><![CDATA[text { font-family: monospace; font-size: 12px;} .h1 {font-size: 20px; font-weight: 600;}]]></style>',
             metaSVG,
             "</svg>"
         );
         bytes memory image = abi.encodePacked(
             "data:image/svg+xml;base64,",
-            Base64.encode(bytes(svg))
+            Base64._encode(bytes(svg))
         );
         return string(
             abi.encodePacked(
                 "data:application/json;base64,",
-                Base64.encode(
+                Base64._encode(
                     bytes(
                         abi.encodePacked(
                             '{"name":"',
