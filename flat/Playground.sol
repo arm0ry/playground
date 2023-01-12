@@ -823,7 +823,7 @@ contract Arm0ryTravellers is ERC721("Arm0ry Travellers", "ArT") {
         string memory metaSVG = string(
             abi.encodePacked(
                 '<text class="h1" dominant-baseline="middle" text-anchor="middle" fill="white" x="50%" y="10%">',
-                "Arm0ry MiniGrants Season 1",
+                "Arm0ry Playground Season 1",
                 "</text>"
                 '<text dominant-baseline="middle" text-anchor="middle" fill="white" x="50%" y="20%">',
                 "0x",
@@ -836,6 +836,11 @@ contract Arm0ryTravellers is ERC721("Arm0ry Travellers", "ArT") {
                 '<text dominant-baseline="middle" text-anchor="middle" fill="white" x="50%" y="90%">',
                 "I commit to completing arm0ry grants program",
                 "</text>"
+                // TASK NAME ---- TASK STATUS [ ] PASS [ ] FAIL
+                // NAME - IArm0ryTask Task.name via taskId
+                // STATUS - IArm0ryMission taskReviews(address traveller, uint256 taskId, address reviewer)     
+                // mapping(address => mapping(uint256 => mapping(address => uint8))) taskReviews; 
+
             )
         );
         bytes memory svg = abi.encodePacked(
@@ -924,8 +929,12 @@ interface IERC20 {
     event Approval(address indexed owner, address indexed spender, uint value);
 }
 
-interface IArm0ryTasks {
-    function tasks(uint16 taskId) external view returns (Task calldata);
+interface IArm0ryMission {
+    function missions(uint8 missionId) external view returns (Mission calldata);
+
+    function tasks(uint8 taskId) external view returns (Task calldata);
+
+    function isTaskInMission(uint8 missionId, uint8 taskId) external returns (bool);
 
     function getTaskXp(uint16 taskId) external view returns (uint8);
 
@@ -938,6 +947,12 @@ interface IArm0ryTasks {
 /// @notice A list of tasks. 
 /// @author audsssy.eth
 
+struct Mission {
+    uint40 expiration;
+    uint8[] taskIds;
+    string details;
+}
+
 struct Task {
     uint8 xp;
     uint40 expiration;
@@ -945,16 +960,16 @@ struct Task {
     string details;
 }
 
-contract Arm0ryTasks {
+contract Arm0ryMission {
 
     /// -----------------------------------------------------------------------
     /// Events
     /// -----------------------------------------------------------------------
 
-    event PermissionUpdated (
-        address indexed caller,
-        address indexed admin,
-        address indexed manager
+    event MissionSet (
+        uint8 missionId,
+        uint8[] indexed taskIds,
+        string details
     );
 
     event TaskSet(
@@ -969,6 +984,12 @@ contract Arm0ryTasks {
         uint8 points,
         address creator,
         string details
+    );
+
+    event PermissionUpdated (
+        address indexed caller,
+        address indexed admin,
+        address indexed manager
     );
 
     /// -----------------------------------------------------------------------
@@ -987,9 +1008,16 @@ contract Arm0ryTasks {
 
     address public manager;
 
-    uint16 public taskId;
+    uint8 public taskId;
 
-    mapping(uint16 => Task) public tasks;
+    mapping(uint8 => Task) public tasks;
+
+    uint8 public missionId;
+
+    mapping(uint8 => Mission) public missions;
+
+    // Status indicating if a Task is part of a Mission
+    mapping(uint8 => mapping(uint8 => bool)) public isTaskInMission;
 
     /// -----------------------------------------------------------------------
     /// Constructor
@@ -1000,7 +1028,7 @@ contract Arm0ryTasks {
     }
 
     /// -----------------------------------------------------------------------
-    /// Task Logic
+    /// Mission / Task Logic
     /// -----------------------------------------------------------------------
 
     function setTasks(bytes[] calldata taskData) external payable {
@@ -1039,7 +1067,7 @@ contract Arm0ryTasks {
         }
     }
 
-    function updateTasks(uint16[] calldata ids, bytes[] calldata taskData) external payable  {
+    function updateTasks(uint8[] calldata ids, bytes[] calldata taskData) external payable  {
         if (msg.sender != admin && msg.sender != manager) revert NotAuthorized();
 
         uint256 length = ids.length;
@@ -1072,19 +1100,42 @@ contract Arm0ryTasks {
         }
     }
 
-    function getTaskXp(uint16 _taskId) external view returns (uint8) {
-        return tasks[_taskId].xp;
+    function setMission(uint8 _missionId, uint8[] calldata _taskIds, string calldata _details) external payable {
+        if (msg.sender != admin && msg.sender != manager) revert NotAuthorized();
+
+        if (_missionId == 0) {
+            missions[_missionId] = Mission({
+                expiration: 2524626000, // 01/01/2050
+                taskIds: _taskIds,
+                details: _details
+            });
+        } else {
+            uint40 expiration;
+            for (uint256 i = 0; i < _taskIds.length;) {
+                // Calculate expiration
+                uint40 _expiration = this.getTaskExpiration(_taskIds[i]);
+                expiration = (_expiration > expiration) ? _expiration : expiration;
+
+                // Update task status
+                isTaskInMission[_missionId][_taskIds[i]] = true;
+
+                // cannot possibly overflow
+                unchecked{
+                    ++i;
+                }
+            }
+
+            missions[_missionId] = Mission({
+                expiration: expiration,
+                taskIds: _taskIds,
+                details: _details
+            });
+        }
+
+        emit MissionSet(_missionId, _taskIds, _details);
     }
 
-    function getTaskExpiration(uint16 _taskId) external view returns (uint40) {
-        return tasks[_taskId].expiration;
-    }
-
-    function getTaskCreator(uint16 _taskId) external view returns (address) {
-        return tasks[_taskId].creator;
-    }
-    
-    function updatePermission(address _admin, address _manager) public {
+    function updatePermission(address _admin, address _manager) external payable { 
         if (admin != msg.sender) revert NotAuthorized();
         
         if (_admin != admin) {
@@ -1097,20 +1148,46 @@ contract Arm0ryTasks {
 
         emit PermissionUpdated(msg.sender, admin, manager);
     }
+
+    /// -----------------------------------------------------------------------
+    /// Getter Functions
+    /// -----------------------------------------------------------------------
+
+    function getTaskXp(uint8 _taskId) external view returns (uint8) {
+        return tasks[_taskId].xp;
+    }
+
+    function getTaskExpiration(uint8 _taskId) external view returns (uint40) {
+        return tasks[_taskId].expiration;
+    }
+
+    function getTaskCreator(uint8 _taskId) external view returns (address) {
+        return tasks[_taskId].creator;
+    }
+
+    function getMissionTasks(uint8 _missionId) external view returns (uint8[] memory) {
+        return missions[_missionId].taskIds;
+    }
+    
 }
 
-/// @title Arm0ry Missions
+/// @title Arm0ry Quests
 /// @notice .
 /// @author audsssy.eth
 
-struct Mission {
-    Phase phase;
-    // Status status;
+enum Status {
+    ACTIVE,
+    INACTIVE
+}
+
+struct Quest {
+    Status status;
     uint8 progress;
-    uint8 xpGained;
+    uint8 xp;
     address[] buddies;
-    uint16[] taskIds;
+    uint8 missionId;
     uint40 expiration;
+    uint256 claimed;
 }
 
 struct Deliverable {
@@ -1119,18 +1196,17 @@ struct Deliverable {
     bool[] results; 
 }
 
-enum Phase {
-    PLAYGROUND_BASICS, 
-    PLAYGROUND_TRACKS
-}
-
-contract Arm0ryMissions {
+contract Arm0ryQuests {
     using SafeTransferLib for address;
 
     /// -----------------------------------------------------------------------
     /// Events
     /// -----------------------------------------------------------------------
 
+    event QuestCancelled(
+        address indexed traveller,
+        uint8 missionId
+    );
 
     /// -----------------------------------------------------------------------
     /// Custom Errors
@@ -1142,6 +1218,10 @@ contract Arm0ryMissions {
 
     error InvalidClaim();
 
+    error InactiveQuest();
+
+    error ActiveQuest();
+    
     error InvalidBuddy();
 
     error InvalidReview();
@@ -1159,12 +1239,12 @@ contract Arm0ryMissions {
     error NeedMoreCoins();
     
     /// -----------------------------------------------------------------------
-    /// Mission Storage
+    /// Quest Storage
     /// -----------------------------------------------------------------------
 
-    uint256 public immutable THRESHOLD = 10 * 10 ** 18;
+    uint256 public immutable THRESHOLD = 10 * 1e18;
 
-    uint256 public immutable CREATOR_REWARD = 10 ** 17;
+    uint256 public immutable CREATOR_REWARD = 1e17;
 
     address public arm0ry;
 
@@ -1172,33 +1252,30 @@ contract Arm0ryMissions {
         
     IArm0ryTravellers public travellers;
 
-    IArm0ryTasks public tasks;
+    IArm0ryMission public mission;
 
-    // Traveller's history of missions
-    mapping(address => mapping(uint256 => Mission)) public missions;
+    // Traveller's history of quests
+    mapping(address => mapping(uint256 => Quest)) public quests;
 
-    // Counter indicating Mission count per Traveller
-    mapping(address => uint256) public missionNonce;
+    // Counter indicating Quest count per Traveller
+    mapping(address => uint256) public questNonce;
 
-    // Status indicating if a Task is part of an active Mission
-    mapping(address => mapping(uint256 => bool)) public isMissionTask;
+    // Status indicating if an address belongs to a Buddy of an active Quest
+    mapping(address => mapping(address => bool)) public isQuestBuddy;
 
-    // Status indicating if an address belongs to a Buddy of an active Mission
-    mapping(address => mapping(address => bool)) public isMissionBuddy;
-
-    // Deliverable per Task of an active Mission
+    // Deliverable per Task of an active Quest
     mapping(address => mapping(uint256 => string)) public taskDeliverables;
 
-    // Status indicating if a Task of an active Mission is ready for review
+    // Status indicating if a Task of an active Quest is ready for review
     mapping(address => mapping(uint256 => bool)) public taskReadyForReview;
 
-    // Review results of a Task of an active Mission
+    // Review results of a Task of an active Quest
     // 0 - not yet reviewed
     // 1 - reviewed with a check
     // 2 - reviewed with an x
     mapping(address => mapping(uint256 => mapping(address => uint8))) taskReviews; 
 
-    // Status indicating if a Task of an active Mission is completed
+    // Status indicating if a Task of an active Quest is completed
     mapping(address => mapping(uint256 => bool)) isTaskCompleted;
 
     // Rewards per creators
@@ -1210,55 +1287,39 @@ contract Arm0ryMissions {
 
     constructor(
         IArm0ryTravellers _travellers, 
-        IArm0ryTasks _tasks, 
+        IArm0ryMission _mission, 
         address _weth
     ) {
         travellers = _travellers;
-        tasks = _tasks;
+        mission = _mission;
         WETH = _weth;
     }
 
     /// -----------------------------------------------------------------------
-    /// Mission Logic
+    /// Quest Logic
     /// -----------------------------------------------------------------------
 
-    // 
-    function startMission(
-        Phase phase,
+    function startQuest(
         address[] calldata buddies, 
-        uint16[] calldata taskIds
+        uint8 missionId
     ) external payable {
         if (travellers.balanceOf(msg.sender) == 0) revert InvalidTraveller();
         uint256 id = uint256(uint160(msg.sender));
-
-        // Calculate expiration
-        uint40 exp;
-        for (uint256 i = 0; i < taskIds.length;) {
-            uint40 _exp = tasks.getTaskExpiration(taskIds[i]);
-            exp = (_exp > exp) ? _exp : exp;
-
-            // cannot possibly overflow
-            unchecked{
-                ++i;
-            }
-        }
+        uint8[] memory _taskIds = mission.missions(missionId).taskIds;
+        uint40 _expiration = mission.missions(missionId).expiration;
 
         // Lock Traveller's NFT 
-        if (phase == Phase.PLAYGROUND_BASICS) {
+        if (missionId == 0) {
             travellers.transferFrom(msg.sender, address(this), id);
-        } 
-        
-        // Lock Traveller's NFT + 10 arm0ry token
-        if (phase == Phase.PLAYGROUND_TRACKS) {
-            if (IERC20(arm0ry).balanceOf(msg.sender) < THRESHOLD) revert NeedMoreCoins();
+        } else {
+            if (IERC20(arm0ry).balanceOf(msg.sender) < THRESHOLD || msg.value >= 0.05 ether) revert NeedMoreCoins();
             IERC20(arm0ry).transferFrom(msg.sender, address(this), THRESHOLD);
             travellers.transferFrom(msg.sender, address(this), id);
-        } 
+        }
 
-        // Update active tasks
-        for (uint256 i = 0; i < taskIds.length;){
-            isMissionTask[msg.sender][taskIds[i]] = true;
-            taskReadyForReview[msg.sender][taskIds[i]] = false;
+        // Update tasks review status
+        for (uint256 i = 0; i < _taskIds.length;){
+            taskReadyForReview[msg.sender][_taskIds[i]] = false;
 
             unchecked{ 
                 ++i;
@@ -1267,30 +1328,66 @@ contract Arm0ryMissions {
 
         // Update buddies
         for (uint256 i = 0; i < buddies.length;){
-            isMissionBuddy[msg.sender][buddies[i]] = true;
+            isQuestBuddy[msg.sender][buddies[i]] = true;
             
             unchecked{ 
                 ++i;
             }
         }
         
-        // Create a Mission
-        missions[msg.sender][missionNonce[msg.sender]] = Mission({
-            phase: phase,
+        // Create a Quest
+        quests[msg.sender][questNonce[msg.sender]] = Quest({
+            status: Status.ACTIVE,
             progress: 0,
-            xpGained: 0,
+            xp: 0,
             buddies: buddies,
-            taskIds: taskIds,
-            expiration: exp
+            missionId: missionId,
+            expiration: _expiration,
+            claimed: 0
         });
 
         // Cannot possibly overflow.
         unchecked{
-            ++missionNonce[msg.sender];
+            ++questNonce[msg.sender];
         }
     }
 
+    function continueQuest(uint8 _missionId) external payable {
+        if (travellers.balanceOf(msg.sender) == 0) revert InvalidTraveller();
+        if (quests[msg.sender][_missionId].status == Status.ACTIVE) revert ActiveQuest();
+
+        // Mark Quest as active
+        quests[msg.sender][_missionId].status = Status.ACTIVE;
+    }
+
+    function leaveQuest(
+        uint8 _missionId
+    ) external payable {
+        uint256 id = uint256(uint160(msg.sender));
+        if (travellers.ownerOf(id) != address(this)) revert InvalidTraveller();
+        if (quests[msg.sender][_missionId].status == Status.INACTIVE) revert InactiveQuest();
+
+        // Mark Quest as inactive
+        quests[msg.sender][_missionId].status = Status.INACTIVE;
+
+        // Airdrop any unclaimed rewards
+        uint8 reward = quests[msg.sender][_missionId].xp;
+        if (reward != 0) {
+            IERC20(arm0ry).transfer(msg.sender, reward * 1e18);
+            quests[msg.sender][_missionId].claimed += reward;
+        }
+
+        // Return locked NFT & arm0ry token when cancelling a Quest
+        if (questNonce[msg.sender] != 0) {
+            IERC20(arm0ry).transfer(msg.sender, THRESHOLD);
+        }
+        travellers.transferFrom(address(this), msg.sender, id);
+
+        emit QuestCancelled(msg.sender, _missionId);
+    }
+
     function updateBuddies(
+        uint8 _missionId,
         address[] calldata preBuddies,
         address[] calldata newBuddies
     ) external payable {
@@ -1299,7 +1396,7 @@ contract Arm0ryMissions {
 
         // Remove previous buddies
         for (uint256 i = 0; i < preBuddies.length;){
-            isMissionBuddy[msg.sender][preBuddies[i]] = false;
+            isQuestBuddy[msg.sender][preBuddies[i]] = false;
             
             unchecked{ 
                 ++i;
@@ -1308,31 +1405,39 @@ contract Arm0ryMissions {
 
         // Add new buddies
         for (uint256 i = 0; i < newBuddies.length;){
-            isMissionBuddy[msg.sender][newBuddies[i]] = true;
+            isQuestBuddy[msg.sender][newBuddies[i]] = true;
             
             unchecked{ 
                 ++i;
             }
         }
 
-        missions[msg.sender][missionNonce[msg.sender]] = Mission({
-            phase: missions[msg.sender][missionNonce[msg.sender]].phase,
-            progress: missions[msg.sender][missionNonce[msg.sender]].progress,
-            xpGained: missions[msg.sender][missionNonce[msg.sender]].xpGained,
-            buddies: newBuddies,
-            taskIds: missions[msg.sender][missionNonce[msg.sender]].taskIds,
-            expiration: missions[msg.sender][missionNonce[msg.sender]].expiration
-        });
+        quests[msg.sender][_missionId].buddies = newBuddies;
     }
 
-    function submitTasks(uint16 taskId, string calldata deliverable) external payable {
+    function submitTasks(uint8 _missionId, uint8 _taskId, string calldata deliverable) external payable {
         uint256 id = uint256(uint160(msg.sender));
         if (travellers.ownerOf(id) != address(this)) revert InvalidTraveller();
-        if (!isMissionTask[msg.sender][taskId]) revert TaskNotActive();
-        if (!isTaskCompleted[msg.sender][taskId]) revert IncompleteTask();
+        if (!mission.isTaskInMission(_missionId, _taskId)) revert TaskNotActive();
+        if (!isTaskCompleted[msg.sender][_taskId]) revert IncompleteTask();
+        if (quests[msg.sender][_missionId].status == Status.INACTIVE) revert InactiveQuest();
 
-        taskDeliverables[msg.sender][taskId] = deliverable;
-        taskReadyForReview[msg.sender][taskId] = true;
+        taskDeliverables[msg.sender][_taskId] = deliverable;
+        taskReadyForReview[msg.sender][_taskId] = true;
+    }
+
+    /// -----------------------------------------------------------------------
+    /// Reward Functions
+    /// -----------------------------------------------------------------------
+
+    function claimCreatorReward() external payable {
+        if (taskCreatorRewards[msg.sender] == 0) revert InvalidClaim();
+
+        uint256 reward = taskCreatorRewards[msg.sender];    
+
+        taskCreatorRewards[msg.sender] = 0;    
+
+        IERC20(arm0ry).transfer(msg.sender, reward);
     }
 
     /// -----------------------------------------------------------------------
@@ -1340,14 +1445,14 @@ contract Arm0ryMissions {
     /// -----------------------------------------------------------------------
 
     function reviewTasks(address traveller, uint16 taskId, uint8 review) external payable {
-        if (!isMissionBuddy[traveller][msg.sender]) revert InvalidBuddy();
+        if (!isQuestBuddy[traveller][msg.sender]) revert InvalidBuddy();
         if (!taskReadyForReview[msg.sender][taskId]) revert TaskNotReadyForReview();
         if (review == 0) revert InvalidReview();
 
         taskReviews[traveller][taskId][msg.sender] = review;
 
-        Mission memory mission = missions[traveller][missionNonce[traveller]];
-        address[] memory buddies = mission.buddies;
+        Quest memory quest = quests[traveller][questNonce[traveller]];
+        address[] memory buddies = quest.buddies;
         bool check;
 
         if (review == 1) {
@@ -1374,36 +1479,37 @@ contract Arm0ryMissions {
             isTaskCompleted[msg.sender][taskId] = true;
             taskReadyForReview[traveller][taskId] = false;
 
-            address creator = tasks.getTaskCreator(taskId);
+            updateQuestProgress(traveller);
+
+            address creator = mission.getTaskCreator(taskId);
             taskCreatorRewards[creator] += CREATOR_REWARD;
         }
     }
 
     /// -----------------------------------------------------------------------
-    /// Arm0ry Functions
+    /// Internal Functions
     /// ----------------------------------------------------------------------- 
 
-    function updateMissionProgress(address traveller) external payable {
-        Mission memory mission = missions[traveller][missionNonce[traveller]];
-        uint16[] memory taskIds = mission.taskIds;
+    function updateQuestProgress(address traveller) internal {
+        uint8[] memory _taskIds = mission.missions(uint8(questNonce[traveller])).taskIds;
 
-        uint8 completedCount;
-        uint8 incompleteCount;
+        uint8 completedTasksCount;
+        uint8 incompleteTasksCount;
         uint8 progress;
         uint8 xpEarned;
 
-        for (uint256 i = 0; i < taskIds.length; ) {
-            uint8 xp = tasks.getTaskXp(taskIds[i]);
+        for (uint256 i = 0; i < _taskIds.length; ) {
+            uint8 xp = mission.getTaskXp(_taskIds[i]);
 
-            if (!isTaskCompleted[traveller][taskIds[i]]) {
+            if (!isTaskCompleted[traveller][_taskIds[i]]) {
                 // cannot possibly overflow 
                 unchecked {
-                    ++incompleteCount;
+                    ++incompleteTasksCount;
                 }
             } else {
                 // cannot possibly overflow 
                 unchecked {
-                    ++completedCount;
+                    ++completedTasksCount;
                     xpEarned += xp;
                 }
             }
@@ -1416,34 +1522,24 @@ contract Arm0ryMissions {
 
         // cannot possibly overflow
         unchecked {
-            progress = completedCount / (completedCount + incompleteCount) * 100;
+            progress = completedTasksCount / (completedTasksCount + incompleteTasksCount) * 100;
         }
 
-        missions[msg.sender][missionNonce[msg.sender]] = Mission({
-            phase: missions[msg.sender][missionNonce[msg.sender]].phase,
-            progress: progress,
-            xpGained: xpEarned,
-            buddies: missions[msg.sender][missionNonce[msg.sender]].buddies,
-            taskIds: missions[msg.sender][missionNonce[msg.sender]].taskIds,
-            expiration: missions[msg.sender][missionNonce[msg.sender]].expiration
-        });
+        // Update progress and xp
+        quests[msg.sender][questNonce[msg.sender]].progress = progress;
+        quests[msg.sender][questNonce[msg.sender]].xp = xpEarned;
 
-        // Return locked NFT & arm0ry token when Mission is completed
+        uint256 claimed = quests[msg.sender][questNonce[msg.sender]].claimed;
+        uint256 reward = (xpEarned - claimed) * 1e18;
+        // Return locked NFT & arm0ry token when Quest is completed
         if (progress == 100) {
-            if (mission.phase == Phase.PLAYGROUND_TRACKS) {
+            
+            if (questNonce[traveller] != 0) {
                 IERC20(arm0ry).transfer(traveller, THRESHOLD);
             }
+
+            IERC20(arm0ry).transfer(traveller, reward);
             travellers.transferFrom(address(this), traveller, uint256(uint160(traveller)));
         }
-    }
-
-    function RewardCreator(address creator) external payable {
-        if (msg.sender != arm0ry) revert NotAuthorized();
-
-        uint256 reward = taskCreatorRewards[creator];    
-
-        taskCreatorRewards[creator] = 0;    
-
-        IKaliShareManager(msg.sender).mintShares(address(this), reward);
     }
 }
