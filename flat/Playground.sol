@@ -405,11 +405,9 @@ interface ERC721TokenReceiver {
     ) external returns (bytes4);
 }
 
-/**
- * @dev Implementation of https://eips.ethereum.org/EIPS/eip-721[ERC721] Non-Fungible Token Standard, including
- * the Metadata extension, but not including the Enumerable extension, which is available separately as
- * {ERC721Enumerable}.
- */
+//// @title Arm0ry Travelers
+/// @notice NFTs for Arm0ry participants.
+/// credit: z0r0z.eth https://gist.github.com/z0r0z/6ca37df326302b0ec8635b8796a4fdbb
 contract Arm0ryTravelers is ERC721 {
     // todo, change to UF specific owner.
     address payable public arm0ry; // Untitled Frontier collection address
@@ -1050,6 +1048,18 @@ contract Arm0ryMission {
     }
 }
 
+interface IArm0ryQuests {
+    function getQuestXp(address traveler, uint8 missionId) external view returns (uint8);
+
+    function getQuestExpiration(address traveler, uint8 missionId) external view returns (uint40);
+
+    function getQuestProgress(address traveler, uint8 missionId) external view returns (uint8);
+
+    function getQuestBuddyOne(address traveler, uint8 missionId) external view returns (address);
+
+    function getQuestBuddyTwo(address traveler, uint8 missionId) external view returns (address);
+}
+
 /// @title Arm0ry Quests
 /// @notice .
 /// @author audsssy.eth
@@ -1206,7 +1216,13 @@ contract Arm0ryQuests {
         }
 
         // Update buddies
+        bool haveBuddies;
         for (uint256 i = 0; i < buddies.length; ) {
+            if (buddies[i] == address(0)) {
+                haveBuddies = false;
+            }
+
+            haveBuddies = true;
             isQuestBuddy[msg.sender][buddies[i]] = true;
 
             unchecked {
@@ -1219,7 +1235,7 @@ contract Arm0ryQuests {
             status: Status.ACTIVE,
             progress: 0,
             xp: 0,
-            buddies: buddies,
+            buddies: haveBuddies ? buddies : [arm0ry, address(0)],
             missionId: missionId,
             expiration: _expiration,
             claimed: 0
@@ -1309,6 +1325,33 @@ contract Arm0ryQuests {
 
         taskDeliverables[msg.sender][_taskId] = deliverable;
         taskReadyForReview[msg.sender][_taskId] = true;
+    }
+
+    /// -----------------------------------------------------------------------
+    /// Getter Functions
+    /// -----------------------------------------------------------------------
+
+    function getQuestXp(address _traveler, uint8 _missionId) external view returns (uint8) {
+        return quests[_traveler][_missionId].xp;
+    }
+
+    function getQuestExpiration(address _traveler, uint8 _missionId) external view returns (uint40) {
+        return quests[_traveler][_missionId].expiration;
+    }
+    
+    function getQuestProgress(address _traveler, uint8 _missionId) external view returns (uint8) {
+        return quests[_traveler][_missionId].progress;
+    }
+
+    function getQuestBuddyOne(address _traveler, uint8 _missionId) external payable returns(address) {
+        return quests[_traveler][_missionId].buddies[0];    
+    }
+
+    function getQuestBuddyTwo(address _traveler, uint8 _missionId) external payable returns(address) {
+        if (quests[_traveler][_missionId].buddies[1] != address(0)) 
+            return quests[_traveler][_missionId].buddies[1];
+            
+        return address(0);
     }
 
     /// -----------------------------------------------------------------------
