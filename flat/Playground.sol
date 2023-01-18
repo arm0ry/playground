@@ -836,7 +836,7 @@ contract Arm0ryMission {
     event PermissionUpdated(
         address indexed caller,
         address indexed admin,
-        address indexed manager
+        address[] indexed managers
     );
 
     /// -----------------------------------------------------------------------
@@ -853,7 +853,9 @@ contract Arm0ryMission {
 
     address public admin;
 
-    address public manager;
+    address[] public managers;
+
+    mapping(address => bool) isManager;
 
     uint8 public taskId;
 
@@ -879,7 +881,7 @@ contract Arm0ryMission {
     /// -----------------------------------------------------------------------
 
     function setTasks(bytes[] calldata taskData) external payable {
-        if (msg.sender != admin && msg.sender != manager)
+        if (msg.sender != admin && !isManager[msg.sender])
             revert NotAuthorized();
 
         uint256 length = taskData.length;
@@ -915,7 +917,7 @@ contract Arm0ryMission {
         external
         payable
     {
-        if (msg.sender != admin && msg.sender != manager)
+        if (msg.sender != admin && !isManager[msg.sender])
             revert NotAuthorized();
 
         uint256 length = ids.length;
@@ -950,7 +952,7 @@ contract Arm0ryMission {
         uint8[] calldata _taskIds,
         string calldata _details
     ) external payable {
-        if (msg.sender != admin && msg.sender != manager)
+        if (msg.sender != admin && !isManager[msg.sender])
             revert NotAuthorized();
 
         if (_missionId == 0) {
@@ -987,7 +989,7 @@ contract Arm0ryMission {
         emit MissionSet(_missionId, _taskIds, _details);
     }
 
-    function updatePermission(address _admin, address _manager)
+    function updateAdmin(address _admin)
         external
         payable
     {
@@ -997,11 +999,30 @@ contract Arm0ryMission {
             admin = _admin;
         }
 
-        if (_manager != address(0)) {
-            manager = _manager;
+        emit PermissionUpdated(msg.sender, admin, managers);
+    }
+
+    function updateManagers(address[] calldata _managers)
+        external
+        payable
+    {
+        if (admin != msg.sender) revert NotAuthorized();
+
+        delete managers;
+
+        for (uint8 i = 0 ; i < _managers.length;) {
+
+            if (_managers[i] != address(0)) {
+                managers.push(_managers[i]);
+                isManager[_managers[i]] = true;
+            }
+
+            unchecked {
+                ++i;
+            }
         }
 
-        emit PermissionUpdated(msg.sender, admin, manager);
+        emit PermissionUpdated(msg.sender, admin, managers);
     }
 
     /// -----------------------------------------------------------------------
