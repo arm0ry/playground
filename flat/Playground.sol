@@ -51,7 +51,11 @@ library Strings {
     /**
      * @dev Converts a `uint256` to its ASCII `string` hexadecimal representation with fixed length.
      */
-    function toHexString(uint256 value, uint256 length) internal pure returns (string memory) {
+    function toHexString(uint256 value, uint256 length)
+        internal
+        pure
+        returns (string memory)
+    {
         bytes memory buffer = new bytes(2 * length + 2);
         buffer[0] = "0";
         buffer[1] = "x";
@@ -62,18 +66,18 @@ library Strings {
         require(value == 0, "Strings: hex length insufficient");
         return string(buffer);
     }
-
 }
 
 /// @title Base64
 /// @author Brecht Devos - <brecht@loopring.org>
 /// @notice Provides a function for encoding some bytes in base64
 library Base64 {
-    string internal constant TABLE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    string internal constant TABLE =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
     function encode(bytes memory data) internal pure returns (string memory) {
-        if (data.length == 0) return '';
-        
+        if (data.length == 0) return "";
+
         // load the table into memory
         string memory table = TABLE;
 
@@ -86,46 +90,64 @@ library Base64 {
         assembly {
             // set the actual output length
             mstore(result, encodedLen)
-            
+
             // prepare the lookup table
             let tablePtr := add(table, 1)
-            
+
             // input ptr
             let dataPtr := data
             let endPtr := add(dataPtr, mload(data))
-            
+
             // result ptr, jump over length
             let resultPtr := add(result, 32)
-            
+
             // run over the input, 3 bytes at a time
-            for {} lt(dataPtr, endPtr) {}
-            {
-               dataPtr := add(dataPtr, 3)
-               
-               // read 3 bytes
-               let input := mload(dataPtr)
-               
-               // write 4 characters
-               mstore(resultPtr, shl(248, mload(add(tablePtr, and(shr(18, input), 0x3F)))))
-               resultPtr := add(resultPtr, 1)
-               mstore(resultPtr, shl(248, mload(add(tablePtr, and(shr(12, input), 0x3F)))))
-               resultPtr := add(resultPtr, 1)
-               mstore(resultPtr, shl(248, mload(add(tablePtr, and(shr( 6, input), 0x3F)))))
-               resultPtr := add(resultPtr, 1)
-               mstore(resultPtr, shl(248, mload(add(tablePtr, and(        input,  0x3F)))))
-               resultPtr := add(resultPtr, 1)
+            for {
+
+            } lt(dataPtr, endPtr) {
+
+            } {
+                dataPtr := add(dataPtr, 3)
+
+                // read 3 bytes
+                let input := mload(dataPtr)
+
+                // write 4 characters
+                mstore(
+                    resultPtr,
+                    shl(248, mload(add(tablePtr, and(shr(18, input), 0x3F))))
+                )
+                resultPtr := add(resultPtr, 1)
+                mstore(
+                    resultPtr,
+                    shl(248, mload(add(tablePtr, and(shr(12, input), 0x3F))))
+                )
+                resultPtr := add(resultPtr, 1)
+                mstore(
+                    resultPtr,
+                    shl(248, mload(add(tablePtr, and(shr(6, input), 0x3F))))
+                )
+                resultPtr := add(resultPtr, 1)
+                mstore(
+                    resultPtr,
+                    shl(248, mload(add(tablePtr, and(input, 0x3F))))
+                )
+                resultPtr := add(resultPtr, 1)
             }
-            
+
             // padding with '='
             switch mod(mload(data), 3)
-            case 1 { mstore(sub(resultPtr, 2), shl(240, 0x3d3d)) }
-            case 2 { mstore(sub(resultPtr, 1), shl(248, 0x3d)) }
+            case 1 {
+                mstore(sub(resultPtr, 2), shl(240, 0x3d3d))
+            }
+            case 2 {
+                mstore(sub(resultPtr, 1), shl(248, 0x3d))
+            }
         }
-        
+
         return result;
     }
 }
-
 
 /// @notice Modern, minimalist, and gas efficient ERC-721 implementation.
 /// @author Solmate (https://github.com/Rari-Capital/solmate/blob/main/src/tokens/ERC721.sol)
@@ -135,11 +157,23 @@ abstract contract ERC721 {
                                  EVENTS
     //////////////////////////////////////////////////////////////*/
 
-    event Transfer(address indexed from, address indexed to, uint256 indexed id);
+    event Transfer(
+        address indexed from,
+        address indexed to,
+        uint256 indexed id
+    );
 
-    event Approval(address indexed owner, address indexed spender, uint256 indexed id);
+    event Approval(
+        address indexed owner,
+        address indexed spender,
+        uint256 indexed id
+    );
 
-    event ApprovalForAll(address indexed owner, address indexed operator, bool approved);
+    event ApprovalForAll(
+        address indexed owner,
+        address indexed operator,
+        bool approved
+    );
 
     /*///////////////////////////////////////////////////////////////
                           METADATA STORAGE/LOGIC
@@ -179,7 +213,10 @@ abstract contract ERC721 {
     function approve(address spender, uint256 id) public virtual {
         address owner = ownerOf[id];
 
-        require(msg.sender == owner || isApprovedForAll[owner][msg.sender], "NOT_AUTHORIZED");
+        require(
+            msg.sender == owner || isApprovedForAll[owner][msg.sender],
+            "NOT_AUTHORIZED"
+        );
 
         getApproved[id] = spender;
 
@@ -202,7 +239,9 @@ abstract contract ERC721 {
         require(to != address(0), "INVALID_RECIPIENT");
 
         require(
-            msg.sender == from || msg.sender == getApproved[id] || isApprovedForAll[from][msg.sender],
+            msg.sender == from ||
+                msg.sender == getApproved[id] ||
+                isApprovedForAll[from][msg.sender],
             "NOT_AUTHORIZED"
         );
 
@@ -230,7 +269,12 @@ abstract contract ERC721 {
 
         require(
             to.code.length == 0 ||
-                ERC721TokenReceiver(to).onERC721Received(msg.sender, from, id, "") ==
+                ERC721TokenReceiver(to).onERC721Received(
+                    msg.sender,
+                    from,
+                    id,
+                    ""
+                ) ==
                 ERC721TokenReceiver.onERC721Received.selector,
             "UNSAFE_RECIPIENT"
         );
@@ -246,7 +290,12 @@ abstract contract ERC721 {
 
         require(
             to.code.length == 0 ||
-                ERC721TokenReceiver(to).onERC721Received(msg.sender, from, id, data) ==
+                ERC721TokenReceiver(to).onERC721Received(
+                    msg.sender,
+                    from,
+                    id,
+                    data
+                ) ==
                 ERC721TokenReceiver.onERC721Received.selector,
             "UNSAFE_RECIPIENT"
         );
@@ -256,7 +305,12 @@ abstract contract ERC721 {
                               ERC165 LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    function supportsInterface(bytes4 interfaceId) public pure virtual returns (bool) {
+    function supportsInterface(bytes4 interfaceId)
+        public
+        pure
+        virtual
+        returns (bool)
+    {
         return
             interfaceId == 0x01ffc9a7 || // ERC165 Interface ID for ERC165
             interfaceId == 0x80ac58cd || // ERC165 Interface ID for ERC721
@@ -308,7 +362,12 @@ abstract contract ERC721 {
 
         require(
             to.code.length == 0 ||
-                ERC721TokenReceiver(to).onERC721Received(msg.sender, address(0), id, "") ==
+                ERC721TokenReceiver(to).onERC721Received(
+                    msg.sender,
+                    address(0),
+                    id,
+                    ""
+                ) ==
                 ERC721TokenReceiver.onERC721Received.selector,
             "UNSAFE_RECIPIENT"
         );
@@ -323,7 +382,12 @@ abstract contract ERC721 {
 
         require(
             to.code.length == 0 ||
-                ERC721TokenReceiver(to).onERC721Received(msg.sender, address(0), id, data) ==
+                ERC721TokenReceiver(to).onERC721Received(
+                    msg.sender,
+                    address(0),
+                    id,
+                    data
+                ) ==
                 ERC721TokenReceiver.onERC721Received.selector,
             "UNSAFE_RECIPIENT"
         );
@@ -346,8 +410,7 @@ interface ERC721TokenReceiver {
  * the Metadata extension, but not including the Enumerable extension, which is available separately as
  * {ERC721Enumerable}.
  */
-contract Arm0ryTravellers is ERC721 {
-
+contract Arm0ryTravelers is ERC721 {
     // todo, change to UF specific owner.
     address payable public arm0ry; // Untitled Frontier collection address
 
@@ -382,94 +445,133 @@ contract Arm0ryTravellers is ERC721 {
         ["#dddddd", "#f9f3f3", "#f7d9d9", "#f25287"]
     ];
 
-    constructor (address payable arm0ry_) ERC721("Arm0ry Travellers", "ART") {
+    constructor(address payable arm0ry_) ERC721("Arm0ry Travelers", "ART") {
         arm0ry = arm0ry_;
     }
 
-    function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
-        string memory name = string(abi.encodePacked('Arm0ry Traveller #', Strings.toString(certificates[tokenId].nr)));
-        string memory description = "Arm0ry Travellers";
+    function tokenURI(uint256 tokenId)
+        public
+        view
+        virtual
+        override
+        returns (string memory)
+    {
+        string memory name = string(
+            abi.encodePacked(
+                "Arm0ry Traveler #",
+                Strings.toString(certificates[tokenId].nr)
+            )
+        );
+        string memory description = "Arm0ry Travelers";
         string memory image = generateBase64Image(tokenId);
 
-        return string(
-            abi.encodePacked(
-                'data:application/json;base64,',
-                Base64.encode(
-                    bytes(
-                        abi.encodePacked(
-                            '{"name":"', 
-                            name,
-                            '", "description":"', 
-                            description,
-                            '", "image": "', 
-                            'data:image/svg+xml;base64,', 
-                            image,
-                            '"}'
+        return
+            string(
+                abi.encodePacked(
+                    "data:application/json;base64,",
+                    Base64.encode(
+                        bytes(
+                            abi.encodePacked(
+                                '{"name":"',
+                                name,
+                                '", "description":"',
+                                description,
+                                '", "image": "',
+                                "data:image/svg+xml;base64,",
+                                image,
+                                '"}'
+                            )
                         )
                     )
                 )
-            )
-        );
+            );
     }
 
-    function generateBase64Image(uint256 tokenId) public view returns (string memory) {
+    function generateBase64Image(uint256 tokenId)
+        public
+        view
+        returns (string memory)
+    {
         return Base64.encode(bytes(generateImage(tokenId)));
     }
 
-    function generateImage(uint256 tokenId) public view returns (string memory) {
+    function generateImage(uint256 tokenId)
+        public
+        view
+        returns (string memory)
+    {
         bytes memory hash = abi.encodePacked(bytes32(tokenId));
-        uint256 pIndex = toUint8(hash,0)/16; // 16 palettes
+        uint256 pIndex = toUint8(hash, 0) / 16; // 16 palettes
         // uint256 rIndex = toUint8(hash,1)/4; // 64 reasons
 
         /* this is broken into functions to avoid stack too deep errors */
         string memory paletteSection = generatePaletteSection(tokenId, pIndex);
 
-        return string(
-            abi.encodePacked(
-                '<svg class="svgBody" width="300" height="300" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">',
-                paletteSection,
-                '<text x="15" y="125" class="score" stroke="black" stroke-width="2">65</text>',
-                '<text x="110" y="125" class="tiny" stroke="black">% Progress</text>',
-                '<text x="175" y="125" class="score" stroke="black" stroke-width="2">80</text>',
-                '<text x="270" y="125" class="tiny" stroke="black">xp</text>',
-                '<text x="15" y="170" class="medium" stroke="black">QUEST: </text>',
-                '<rect x="15" y="175" width="205" height="40" style="fill:white;opacity:0.5"/>',
-                '<text x="20" y="190" class="medium" stroke="black">BASIC</text>',
-                '<text x="15" y="245" class="small" stroke="black">BUDDIES:</text>',
-                '<text x="15" y="260" style="font-size:8px" stroke="black">0x4744cda32bE7b3e75b9334001da9ED21789d4c0d</text>',
-                '<text x="15" y="275" style="font-size:8px" stroke="black">0x4744cda32bE7b3e75b9334001da9ED21789d4c0d</text>',
-                '<style>.svgBody {font-family: "Courier New" } .tiny {font-size:6px; } .small {font-size: 12px;}.medium {font-size: 18px;}.score {font-size: 70px;}</style>',
-                '</svg>'
-            )
-        );
+        return
+            string(
+                abi.encodePacked(
+                    '<svg class="svgBody" width="300" height="300" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">',
+                    paletteSection,
+                    '<text x="15" y="125" class="score" stroke="black" stroke-width="2">65</text>',
+                    '<text x="110" y="125" class="tiny" stroke="black">% Progress</text>',
+                    '<text x="175" y="125" class="score" stroke="black" stroke-width="2">80</text>',
+                    '<text x="270" y="125" class="tiny" stroke="black">xp</text>',
+                    '<text x="15" y="170" class="medium" stroke="black">QUEST: </text>',
+                    '<rect x="15" y="175" width="205" height="40" style="fill:white;opacity:0.5"/>',
+                    '<text x="20" y="190" class="medium" stroke="black">BASIC</text>',
+                    '<text x="15" y="245" class="small" stroke="black">BUDDIES:</text>',
+                    '<text x="15" y="260" style="font-size:8px" stroke="black">0x4744cda32bE7b3e75b9334001da9ED21789d4c0d</text>',
+                    '<text x="15" y="275" style="font-size:8px" stroke="black">0x4744cda32bE7b3e75b9334001da9ED21789d4c0d</text>',
+                    '<style>.svgBody {font-family: "Courier New" } .tiny {font-size:6px; } .small {font-size: 12px;}.medium {font-size: 18px;}.score {font-size: 70px;}</style>',
+                    "</svg>"
+                )
+            );
     }
 
-    function generatePaletteSection(uint256 tokenId, uint256 pIndex) internal view returns (string memory) {
-        return string(abi.encodePacked(
-                '<rect width="300" height="300" rx="10" style="fill:',palette[pIndex][0],'" />',
-                '<rect y="205" width="300" height="80" rx="10" style="fill:',palette[pIndex][3],'" />',
-                '<rect y="60" width="300" height="90" style="fill:',palette[pIndex][1],'"/>',
-                '<rect y="150" width="300" height="75" style="fill:',palette[pIndex][2],'" />',
-                '<text x="15" y="25" class="medium">Traveller ID#</text>',
-                '<text x="17" y="50" class="small" opacity="0.5">',substring(Strings.toString(tokenId),0,24),'</text>',
-                '<g filter="url(#a)">',
-                '<path stroke="#FFBE0B" stroke-linecap="round" stroke-width="2.1" d="M207 48.3c12.2-8.5 65-24.8 87.5-21.6" fill="none"/></g><path fill="#000" d="M220.2 38h-.8l-2.2-.4-1 4.6-2.9-.7 1.5-6.4 1.6-8.3c1.9-.4 3.9-.6 6-.8l1.9 8.5 1.5 7.4-3 .5-1.4-7.3-1.2-6.1c-.5 0-1 0-1.5.2l-1 6 3.1.1-.4 2.6h-.2Zm8-5.6v-2.2l2.6-.3.5 1.9 1.8-2.1h1.5l.6 2.9-2 .4-1.8.4-.2 8.5-2.8.2-.2-9.7Zm8.7-2.2 2.6-.3.4 1.9 2.2-2h2.4c.3 0 .6.3 1 .6.4.4.7.9.7 1.3l2.1-1.8h3l.6.3.6.6.2.5-.4 10.7-2.8.2v-9.4a4.8 4.8 0 0 0-2.2.2l-1 .3-.3 8.7-2.7.2v-9.4a5 5 0 0 0-2.3.2l-.9.3-.3 8.6-2.7.2-.2-11.9Zm28.6 3.5a19.1 19.1 0 0 1-.3 4.3 15.4 15.4 0 0 1-.8 3.6c-.1.3-.3.4-.5.5l-.8.2h-2.3c-2 0-3.2-.2-3.6-.6-.4-.5-.8-2.1-1-5a25.7 25.7 0 0 1 0-5.6l.4-.5c.1-.2.5-.4 1-.5 2.3-.5 4.8-.8 7.4-.8h.4l.3 3-.6-.1h-.5a23.9 23.9 0 0 0-5.3.5 25.1 25.1 0 0 0 .3 7h2.4c.2-1.2.4-2.8.5-4.9v-.7l3-.4Zm3.7-1.3v-2.2l2.6-.3.5 1.9 1.9-2.1h1.4l.6 2.9-1.9.4-2 .4V42l-2.9.2-.2-9.7Zm8.5-2.5 3-.6.2 10 .8.1h.9l1.5-.6V30l2.8-.3.2 13.9c0 .4-.3.8-.8 1.1l-3 2-1.8 1.2-1.6.9-1.5-2.7 6-3-.1-3.1-1.9 2h-3.1c-.3 0-.5-.1-.8-.4-.4-.3-.6-.6-.6-1l-.2-10.7Z"/>',
-                '<defs>',
-                '<filter id="a" width="91.743" height="26.199" x="204.898" y="24.182" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">',
-                '<feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>',
-                '</filter>',
-                '</defs>'
-            )
-        );
+    function generatePaletteSection(uint256 tokenId, uint256 pIndex)
+        internal
+        view
+        returns (string memory)
+    {
+        return
+            string(
+                abi.encodePacked(
+                    '<rect width="300" height="300" rx="10" style="fill:',
+                    palette[pIndex][0],
+                    '" />',
+                    '<rect y="205" width="300" height="80" rx="10" style="fill:',
+                    palette[pIndex][3],
+                    '" />',
+                    '<rect y="60" width="300" height="90" style="fill:',
+                    palette[pIndex][1],
+                    '"/>',
+                    '<rect y="150" width="300" height="75" style="fill:',
+                    palette[pIndex][2],
+                    '" />',
+                    '<text x="15" y="25" class="medium">Traveler ID#</text>',
+                    '<text x="17" y="50" class="small" opacity="0.5">',
+                    substring(Strings.toString(tokenId), 0, 24),
+                    "</text>",
+                    '<g filter="url(#a)">',
+                    '<path stroke="#FFBE0B" stroke-linecap="round" stroke-width="2.1" d="M207 48.3c12.2-8.5 65-24.8 87.5-21.6" fill="none"/></g><path fill="#000" d="M220.2 38h-.8l-2.2-.4-1 4.6-2.9-.7 1.5-6.4 1.6-8.3c1.9-.4 3.9-.6 6-.8l1.9 8.5 1.5 7.4-3 .5-1.4-7.3-1.2-6.1c-.5 0-1 0-1.5.2l-1 6 3.1.1-.4 2.6h-.2Zm8-5.6v-2.2l2.6-.3.5 1.9 1.8-2.1h1.5l.6 2.9-2 .4-1.8.4-.2 8.5-2.8.2-.2-9.7Zm8.7-2.2 2.6-.3.4 1.9 2.2-2h2.4c.3 0 .6.3 1 .6.4.4.7.9.7 1.3l2.1-1.8h3l.6.3.6.6.2.5-.4 10.7-2.8.2v-9.4a4.8 4.8 0 0 0-2.2.2l-1 .3-.3 8.7-2.7.2v-9.4a5 5 0 0 0-2.3.2l-.9.3-.3 8.6-2.7.2-.2-11.9Zm28.6 3.5a19.1 19.1 0 0 1-.3 4.3 15.4 15.4 0 0 1-.8 3.6c-.1.3-.3.4-.5.5l-.8.2h-2.3c-2 0-3.2-.2-3.6-.6-.4-.5-.8-2.1-1-5a25.7 25.7 0 0 1 0-5.6l.4-.5c.1-.2.5-.4 1-.5 2.3-.5 4.8-.8 7.4-.8h.4l.3 3-.6-.1h-.5a23.9 23.9 0 0 0-5.3.5 25.1 25.1 0 0 0 .3 7h2.4c.2-1.2.4-2.8.5-4.9v-.7l3-.4Zm3.7-1.3v-2.2l2.6-.3.5 1.9 1.9-2.1h1.4l.6 2.9-1.9.4-2 .4V42l-2.9.2-.2-9.7Zm8.5-2.5 3-.6.2 10 .8.1h.9l1.5-.6V30l2.8-.3.2 13.9c0 .4-.3.8-.8 1.1l-3 2-1.8 1.2-1.6.9-1.5-2.7 6-3-.1-3.1-1.9 2h-3.1c-.3 0-.5-.1-.8-.4-.4-.3-.6-.6-.6-1l-.2-10.7Z"/>',
+                    "<defs>",
+                    '<filter id="a" width="91.743" height="26.199" x="204.898" y="24.182" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">',
+                    '<feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>',
+                    "</filter>",
+                    "</defs>"
+                )
+            );
     }
 
     function mintCertificate() public payable returns (uint256 tokenId) {
         Certificate memory certificate;
-        
+
         defaultCertificatesSupply += 1;
         certificate.nr = defaultCertificatesSupply;
 
-        tokenId = uint(keccak256(abi.encodePacked(block.timestamp, msg.sender)));
+        tokenId = uint256(
+            keccak256(abi.encodePacked(block.timestamp, msg.sender))
+        );
         certificates[tokenId] = certificate;
 
         super._mint(msg.sender, tokenId);
@@ -478,15 +580,19 @@ contract Arm0ryTravellers is ERC721 {
     function withdrawETH() public {
         require(msg.sender == arm0ry, "NOT_arm0ry");
         arm0ry.transfer(address(this).balance);
-    } 
+    }
 
     // GENERIC helpers
 
     // helper function for generation
-    // from: https://github.com/GNSPS/solidity-bytes-utils/blob/master/contracts/BytesLib.sol 
-    function toUint8(bytes memory _bytes, uint256 _start) internal pure returns (uint8) {
+    // from: https://github.com/GNSPS/solidity-bytes-utils/blob/master/contracts/BytesLib.sol
+    function toUint8(bytes memory _bytes, uint256 _start)
+        internal
+        pure
+        returns (uint8)
+    {
         require(_start + 1 >= _start, "toUint8_overflow");
-        require(_bytes.length >= _start + 1 , "toUint8_outOfBounds");
+        require(_bytes.length >= _start + 1, "toUint8_outOfBounds");
         uint8 tempUint;
 
         assembly {
@@ -494,13 +600,17 @@ contract Arm0ryTravellers is ERC721 {
         }
         return tempUint;
     }
-   
+
     // from: https://ethereum.stackexchange.com/questions/31457/substring-in-solidity/31470
-    function substring(string memory str, uint startIndex, uint endIndex) internal pure returns (string memory) {
+    function substring(
+        string memory str,
+        uint256 startIndex,
+        uint256 endIndex
+    ) internal pure returns (string memory) {
         bytes memory strBytes = bytes(str);
-        bytes memory result = new bytes(endIndex-startIndex);
-        for(uint i = startIndex; i < endIndex; i++) {
-            result[i-startIndex] = strBytes[i];
+        bytes memory result = new bytes(endIndex - startIndex);
+        for (uint256 i = startIndex; i < endIndex; i++) {
+            result[i - startIndex] = strBytes[i];
         }
         return string(result);
     }
@@ -547,14 +657,20 @@ library SafeTransferLib {
             // we'll write our calldata to this slot below, but restore it later
             let memPointer := mload(0x40)
             // write the abi-encoded calldata into memory, beginning with the function selector
-            mstore(0, 0xa9059cbb00000000000000000000000000000000000000000000000000000000)
+            mstore(
+                0,
+                0xa9059cbb00000000000000000000000000000000000000000000000000000000
+            )
             mstore(4, to) // append the 'to' argument
             mstore(36, amount) // append the 'amount' argument
 
             success := and(
                 // set success to whether the call reverted, if not we check it either
                 // returned exactly 1 (can't just be non-zero data), or had no return data
-                or(and(eq(mload(0), 1), gt(returndatasize(), 31)), iszero(returndatasize())),
+                or(
+                    and(eq(mload(0), 1), gt(returndatasize(), 31)),
+                    iszero(returndatasize())
+                ),
                 // we use 68 because that's the total length of our calldata (4 + 32 * 2)
                 // - counterintuitively, this call() must be positioned after the or() in the
                 // surrounding and() because and() evaluates its arguments from right to left
@@ -579,7 +695,10 @@ library SafeTransferLib {
             // we'll write our calldata to this slot below, but restore it later
             let memPointer := mload(0x40)
             // write the abi-encoded calldata into memory, beginning with the function selector
-            mstore(0, 0x23b872dd00000000000000000000000000000000000000000000000000000000)
+            mstore(
+                0,
+                0x23b872dd00000000000000000000000000000000000000000000000000000000
+            )
             mstore(4, from) // append the 'from' argument
             mstore(36, to) // append the 'to' argument
             mstore(68, amount) // append the 'amount' argument
@@ -587,7 +706,10 @@ library SafeTransferLib {
             success := and(
                 // set success to whether the call reverted, if not we check it either
                 // returned exactly 1 (can't just be non-zero data), or had no return data
-                or(and(eq(mload(0), 1), gt(returndatasize(), 31)), iszero(returndatasize())),
+                or(
+                    and(eq(mload(0), 1), gt(returndatasize(), 31)),
+                    iszero(returndatasize())
+                ),
                 // we use 100 because that's the total length of our calldata (4 + 32 * 3)
                 // - counterintuitively, this call() must be positioned after the or() in the
                 // surrounding and() because and() evaluates its arguments from right to left
@@ -604,39 +726,57 @@ library SafeTransferLib {
 /// @notice Kali DAO share manager interface
 interface IKaliShareManager {
     function mintShares(address to, uint256 amount) external payable;
+
     function burnShares(address from, uint256 amount) external payable;
 }
 
-interface IArm0ryTravellers {
+interface IArm0ryTravelers {
     function ownerOf(uint256 id) external view returns (address);
 
-    function balanceOf(address account) external view returns (uint);
+    function balanceOf(address account) external view returns (uint256);
 
-    function transferFrom(address from, address to, uint256 id) external payable;
+    function transferFrom(
+        address from,
+        address to,
+        uint256 id
+    ) external payable;
 
-    function safeTransferFrom(address from, address to, uint256 id) external payable;
+    function safeTransferFrom(
+        address from,
+        address to,
+        uint256 id
+    ) external payable;
 }
 
 // IERC20
 interface IERC20 {
-    function totalSupply() external view returns (uint);
+    function totalSupply() external view returns (uint256);
 
-    function balanceOf(address account) external view returns (uint);
+    function balanceOf(address account) external view returns (uint256);
 
-    function transfer(address recipient, uint amount) external returns (bool);
+    function transfer(address recipient, uint256 amount)
+        external
+        returns (bool);
 
-    function allowance(address owner, address spender) external view returns (uint);
+    function allowance(address owner, address spender)
+        external
+        view
+        returns (uint256);
 
-    function approve(address spender, uint amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
 
     function transferFrom(
         address sender,
         address recipient,
-        uint amount
+        uint256 amount
     ) external returns (bool);
 
-    event Transfer(address indexed from, address indexed to, uint value);
-    event Approval(address indexed owner, address indexed spender, uint value);
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(
+        address indexed owner,
+        address indexed spender,
+        uint256 value
+    );
 }
 
 interface IArm0ryMission {
@@ -644,7 +784,9 @@ interface IArm0ryMission {
 
     function tasks(uint8 taskId) external view returns (Task calldata);
 
-    function isTaskInMission(uint8 missionId, uint8 taskId) external returns (bool);
+    function isTaskInMission(uint8 missionId, uint8 taskId)
+        external
+        returns (bool);
 
     function getTaskXp(uint16 taskId) external view returns (uint8);
 
@@ -654,7 +796,7 @@ interface IArm0ryMission {
 }
 
 /// @title Arm0ry tasks
-/// @notice A list of tasks. 
+/// @notice A list of tasks.
 /// @author audsssy.eth
 
 struct Mission {
@@ -671,16 +813,11 @@ struct Task {
 }
 
 contract Arm0ryMission {
-
     /// -----------------------------------------------------------------------
     /// Events
     /// -----------------------------------------------------------------------
 
-    event MissionSet (
-        uint8 missionId,
-        uint8[] indexed taskIds,
-        string details
-    );
+    event MissionSet(uint8 missionId, uint8[] indexed taskIds, string details);
 
     event TaskSet(
         uint40 expiration,
@@ -696,7 +833,7 @@ contract Arm0ryMission {
         string details
     );
 
-    event PermissionUpdated (
+    event PermissionUpdated(
         address indexed caller,
         address indexed admin,
         address indexed manager
@@ -709,7 +846,7 @@ contract Arm0ryMission {
     error NotAuthorized();
 
     error LengthMismatch();
-    
+
     /// -----------------------------------------------------------------------
     /// Task Storage
     /// -----------------------------------------------------------------------
@@ -742,28 +879,25 @@ contract Arm0ryMission {
     /// -----------------------------------------------------------------------
 
     function setTasks(bytes[] calldata taskData) external payable {
-        if (msg.sender != admin && msg.sender != manager) revert NotAuthorized();
+        if (msg.sender != admin && msg.sender != manager)
+            revert NotAuthorized();
 
         uint256 length = taskData.length;
 
-        for (uint i = 0; i < length;) {
-            
+        for (uint256 i = 0; i < length; ) {
             unchecked {
                 ++taskId;
             }
 
             (
-                uint40 expiration,
                 uint8 xp,
+                uint40 expiration,
                 address creator,
                 string memory details
-            ) = abi.decode(
-                taskData[i],
-                (uint40, uint8, address, string)
-            );
+            ) = abi.decode(taskData[i], (uint8, uint40, address, string));
 
-            tasks[taskId].expiration = expiration;
             tasks[taskId].xp = xp;
+            tasks[taskId].expiration = expiration;
             tasks[taskId].creator = creator;
             tasks[taskId].details = details;
 
@@ -777,23 +911,24 @@ contract Arm0ryMission {
         }
     }
 
-    function updateTasks(uint8[] calldata ids, bytes[] calldata taskData) external payable  {
-        if (msg.sender != admin && msg.sender != manager) revert NotAuthorized();
+    function updateTasks(uint8[] calldata ids, bytes[] calldata taskData)
+        external
+        payable
+    {
+        if (msg.sender != admin && msg.sender != manager)
+            revert NotAuthorized();
 
         uint256 length = ids.length;
-        
+
         if (length != taskData.length) revert LengthMismatch();
 
-        for (uint i = 0; i < length;) {
+        for (uint256 i = 0; i < length; ) {
             (
                 uint40 expiration,
                 uint8 xp,
                 address creator,
                 string memory details
-            ) = abi.decode(
-                taskData[i],
-                (uint40, uint8, address, string)
-            );
+            ) = abi.decode(taskData[i], (uint40, uint8, address, string));
 
             tasks[ids[i]].expiration = expiration;
             tasks[ids[i]].xp = xp;
@@ -810,8 +945,13 @@ contract Arm0ryMission {
         }
     }
 
-    function setMission(uint8 _missionId, uint8[] calldata _taskIds, string calldata _details) external payable {
-        if (msg.sender != admin && msg.sender != manager) revert NotAuthorized();
+    function setMission(
+        uint8 _missionId,
+        uint8[] calldata _taskIds,
+        string calldata _details
+    ) external payable {
+        if (msg.sender != admin && msg.sender != manager)
+            revert NotAuthorized();
 
         if (_missionId == 0) {
             missions[_missionId] = Mission({
@@ -821,16 +961,18 @@ contract Arm0ryMission {
             });
         } else {
             uint40 expiration;
-            for (uint256 i = 0; i < _taskIds.length;) {
+            for (uint256 i = 0; i < _taskIds.length; ) {
                 // Calculate expiration
                 uint40 _expiration = this.getTaskExpiration(_taskIds[i]);
-                expiration = (_expiration > expiration) ? _expiration : expiration;
+                expiration = (_expiration > expiration)
+                    ? _expiration
+                    : expiration;
 
                 // Update task status
                 isTaskInMission[_missionId][_taskIds[i]] = true;
 
                 // cannot possibly overflow
-                unchecked{
+                unchecked {
                     ++i;
                 }
             }
@@ -845,9 +987,12 @@ contract Arm0ryMission {
         emit MissionSet(_missionId, _taskIds, _details);
     }
 
-    function updatePermission(address _admin, address _manager) external payable { 
+    function updatePermission(address _admin, address _manager)
+        external
+        payable
+    {
         if (admin != msg.sender) revert NotAuthorized();
-        
+
         if (_admin != admin) {
             admin = _admin;
         }
@@ -875,10 +1020,13 @@ contract Arm0ryMission {
         return tasks[_taskId].creator;
     }
 
-    function getMissionTasks(uint8 _missionId) external view returns (uint8[] memory) {
+    function getMissionTasks(uint8 _missionId)
+        external
+        view
+        returns (uint8[] memory)
+    {
         return missions[_missionId].taskIds;
     }
-    
 }
 
 /// @title Arm0ry Quests
@@ -903,7 +1051,7 @@ struct Quest {
 struct Deliverable {
     uint16 taskId;
     string deliverable;
-    bool[] results; 
+    bool[] results;
 }
 
 contract Arm0ryQuests {
@@ -913,10 +1061,7 @@ contract Arm0ryQuests {
     /// Events
     /// -----------------------------------------------------------------------
 
-    event QuestCancelled(
-        address indexed traveller,
-        uint8 missionId
-    );
+    event QuestCancelled(address indexed traveler, uint8 missionId);
 
     /// -----------------------------------------------------------------------
     /// Custom Errors
@@ -924,20 +1069,20 @@ contract Arm0ryQuests {
 
     error NotAuthorized();
 
-    error InvalidTraveller();
+    error InvalidTraveler();
 
     error InvalidClaim();
 
     error InactiveQuest();
 
     error ActiveQuest();
-    
+
     error InvalidBuddy();
 
     error InvalidReview();
 
     error TaskNotReadyForReview();
-    
+
     error TaskNotActive();
 
     error IncompleteTask();
@@ -947,7 +1092,7 @@ contract Arm0ryQuests {
     error LengthMismatch();
 
     error NeedMoreCoins();
-    
+
     /// -----------------------------------------------------------------------
     /// Quest Storage
     /// -----------------------------------------------------------------------
@@ -959,15 +1104,15 @@ contract Arm0ryQuests {
     address public arm0ry;
 
     address public immutable WETH;
-        
-    IArm0ryTravellers public travellers;
+
+    IArm0ryTravelers public travelers;
 
     IArm0ryMission public mission;
 
-    // Traveller's history of quests
+    // Traveler's history of quests
     mapping(address => mapping(uint256 => Quest)) public quests;
 
-    // Counter indicating Quest count per Traveller
+    // Counter indicating Quest count per Traveler
     mapping(address => uint256) public questNonce;
 
     // Status indicating if an address belongs to a Buddy of an active Quest
@@ -983,7 +1128,7 @@ contract Arm0ryQuests {
     // 0 - not yet reviewed
     // 1 - reviewed with a check
     // 2 - reviewed with an x
-    mapping(address => mapping(uint256 => mapping(address => uint8))) taskReviews; 
+    mapping(address => mapping(uint256 => mapping(address => uint8))) taskReviews;
 
     // Status indicating if a Task of an active Quest is completed
     mapping(address => mapping(uint256 => bool)) isTaskCompleted;
@@ -996,11 +1141,11 @@ contract Arm0ryQuests {
     /// -----------------------------------------------------------------------
 
     constructor(
-        IArm0ryTravellers _travellers, 
-        IArm0ryMission _mission, 
+        IArm0ryTravelers _travelers,
+        IArm0ryMission _mission,
         address _weth
     ) {
-        travellers = _travellers;
+        travelers = _travelers;
         mission = _mission;
         WETH = _weth;
     }
@@ -1009,42 +1154,45 @@ contract Arm0ryQuests {
     /// Quest Logic
     /// -----------------------------------------------------------------------
 
-    function startQuest(
-        address[2] calldata buddies, 
-        uint8 missionId
-    ) external payable {
-        if (travellers.balanceOf(msg.sender) == 0) revert InvalidTraveller();
+    function startQuest(address[2] calldata buddies, uint8 missionId)
+        external
+        payable
+    {
+        if (travelers.balanceOf(msg.sender) == 0) revert InvalidTraveler();
         uint256 id = uint256(uint160(msg.sender));
         uint8[] memory _taskIds = mission.missions(missionId).taskIds;
         uint40 _expiration = mission.missions(missionId).expiration;
 
-        // Lock Traveller's NFT 
+        // Lock Traveler's NFT
         if (missionId == 0) {
-            travellers.transferFrom(msg.sender, address(this), id);
+            travelers.transferFrom(msg.sender, address(this), id);
         } else {
-            if (IERC20(arm0ry).balanceOf(msg.sender) < THRESHOLD || msg.value >= 0.05 ether) revert NeedMoreCoins();
+            if (
+                IERC20(arm0ry).balanceOf(msg.sender) < THRESHOLD ||
+                msg.value >= 0.05 ether
+            ) revert NeedMoreCoins();
             IERC20(arm0ry).transferFrom(msg.sender, address(this), THRESHOLD);
-            travellers.transferFrom(msg.sender, address(this), id);
+            travelers.transferFrom(msg.sender, address(this), id);
         }
 
         // Update tasks review status
-        for (uint256 i = 0; i < _taskIds.length;){
+        for (uint256 i = 0; i < _taskIds.length; ) {
             taskReadyForReview[msg.sender][_taskIds[i]] = false;
 
-            unchecked{ 
+            unchecked {
                 ++i;
             }
         }
 
         // Update buddies
-        for (uint256 i = 0; i < buddies.length;){
+        for (uint256 i = 0; i < buddies.length; ) {
             isQuestBuddy[msg.sender][buddies[i]] = true;
-            
-            unchecked{ 
+
+            unchecked {
                 ++i;
             }
         }
-        
+
         // Create a Quest
         quests[msg.sender][questNonce[msg.sender]] = Quest({
             status: Status.ACTIVE,
@@ -1057,25 +1205,25 @@ contract Arm0ryQuests {
         });
 
         // Cannot possibly overflow.
-        unchecked{
+        unchecked {
             ++questNonce[msg.sender];
         }
     }
 
     function continueQuest(uint8 _missionId) external payable {
-        if (travellers.balanceOf(msg.sender) == 0) revert InvalidTraveller();
-        if (quests[msg.sender][_missionId].status == Status.ACTIVE) revert ActiveQuest();
+        if (travelers.balanceOf(msg.sender) == 0) revert InvalidTraveler();
+        if (quests[msg.sender][_missionId].status == Status.ACTIVE)
+            revert ActiveQuest();
 
         // Mark Quest as active
         quests[msg.sender][_missionId].status = Status.ACTIVE;
     }
 
-    function leaveQuest(
-        uint8 _missionId
-    ) external payable {
+    function leaveQuest(uint8 _missionId) external payable {
         uint256 id = uint256(uint160(msg.sender));
-        if (travellers.ownerOf(id) != address(this)) revert InvalidTraveller();
-        if (quests[msg.sender][_missionId].status == Status.INACTIVE) revert InactiveQuest();
+        if (travelers.ownerOf(id) != address(this)) revert InvalidTraveler();
+        if (quests[msg.sender][_missionId].status == Status.INACTIVE)
+            revert InactiveQuest();
 
         // Mark Quest as inactive
         quests[msg.sender][_missionId].status = Status.INACTIVE;
@@ -1091,33 +1239,33 @@ contract Arm0ryQuests {
         if (questNonce[msg.sender] != 0) {
             IERC20(arm0ry).transfer(msg.sender, THRESHOLD);
         }
-        travellers.transferFrom(address(this), msg.sender, id);
+        travelers.transferFrom(address(this), msg.sender, id);
 
         emit QuestCancelled(msg.sender, _missionId);
     }
 
-    function updateBuddies(
-        uint8 _missionId,
-        address[2] calldata newBuddies
-    ) external payable {
+    function updateBuddies(uint8 _missionId, address[2] calldata newBuddies)
+        external
+        payable
+    {
         uint256 id = uint256(uint160(msg.sender));
-        if (travellers.ownerOf(id) != address(this)) revert InvalidTraveller();
+        if (travelers.ownerOf(id) != address(this)) revert InvalidTraveler();
 
         // Remove previous buddies
-        for (uint256 i = 0; i < 2;){
+        for (uint256 i = 0; i < 2; ) {
             address buddy = quests[msg.sender][_missionId].buddies[i];
             isQuestBuddy[msg.sender][buddy] = false;
-            
-            unchecked{ 
+
+            unchecked {
                 ++i;
             }
         }
 
         // Add new buddies
-        for (uint256 i = 0; i < 2;){
+        for (uint256 i = 0; i < 2; ) {
             isQuestBuddy[msg.sender][newBuddies[i]] = true;
-            
-            unchecked{ 
+
+            unchecked {
                 ++i;
             }
         }
@@ -1125,12 +1273,18 @@ contract Arm0ryQuests {
         quests[msg.sender][_missionId].buddies = newBuddies;
     }
 
-    function submitTasks(uint8 _missionId, uint8 _taskId, string calldata deliverable) external payable {
+    function submitTasks(
+        uint8 _missionId,
+        uint8 _taskId,
+        string calldata deliverable
+    ) external payable {
         uint256 id = uint256(uint160(msg.sender));
-        if (travellers.ownerOf(id) != address(this)) revert InvalidTraveller();
-        if (!mission.isTaskInMission(_missionId, _taskId)) revert TaskNotActive();
+        if (travelers.ownerOf(id) != address(this)) revert InvalidTraveler();
+        if (!mission.isTaskInMission(_missionId, _taskId))
+            revert TaskNotActive();
         if (!isTaskCompleted[msg.sender][_taskId]) revert IncompleteTask();
-        if (quests[msg.sender][_missionId].status == Status.INACTIVE) revert InactiveQuest();
+        if (quests[msg.sender][_missionId].status == Status.INACTIVE)
+            revert InactiveQuest();
 
         taskDeliverables[msg.sender][_taskId] = deliverable;
         taskReadyForReview[msg.sender][_taskId] = true;
@@ -1143,9 +1297,9 @@ contract Arm0ryQuests {
     function claimCreatorReward() external payable {
         if (taskCreatorRewards[msg.sender] == 0) revert InvalidClaim();
 
-        uint256 reward = taskCreatorRewards[msg.sender];    
+        uint256 reward = taskCreatorRewards[msg.sender];
 
-        taskCreatorRewards[msg.sender] = 0;    
+        taskCreatorRewards[msg.sender] = 0;
 
         IERC20(arm0ry).transfer(msg.sender, reward);
     }
@@ -1154,24 +1308,29 @@ contract Arm0ryQuests {
     /// Review Functions
     /// -----------------------------------------------------------------------
 
-    function reviewTasks(address traveller, uint16 taskId, uint8 review) external payable {
-        if (!isQuestBuddy[traveller][msg.sender]) revert InvalidBuddy();
-        if (!taskReadyForReview[msg.sender][taskId]) revert TaskNotReadyForReview();
+    function reviewTasks(
+        address traveler,
+        uint16 taskId,
+        uint8 review
+    ) external payable {
+        if (!isQuestBuddy[traveler][msg.sender]) revert InvalidBuddy();
+        if (!taskReadyForReview[msg.sender][taskId])
+            revert TaskNotReadyForReview();
         if (review == 0) revert InvalidReview();
 
-        taskReviews[traveller][taskId][msg.sender] = review;
+        taskReviews[traveler][taskId][msg.sender] = review;
 
-        Quest memory quest = quests[traveller][questNonce[traveller]];
+        Quest memory quest = quests[traveler][questNonce[traveler]];
         address[2] memory buddies = quest.buddies;
         bool check;
 
         if (review == 1) {
-            for (uint256 i = 0; i < 2;) {
+            for (uint256 i = 0; i < 2; ) {
                 if (buddies[i] == msg.sender) {
                     continue;
                 }
-                
-                if (taskReviews[traveller][taskId][buddies[i]] != 1) {
+
+                if (taskReviews[traveler][taskId][buddies[i]] != 1) {
                     check = false;
                     break;
                 }
@@ -1183,13 +1342,13 @@ contract Arm0ryQuests {
                     ++i;
                 }
             }
-        } 
+        }
 
         if (check) {
             isTaskCompleted[msg.sender][taskId] = true;
-            taskReadyForReview[traveller][taskId] = false;
+            taskReadyForReview[traveler][taskId] = false;
 
-            updateQuestProgress(traveller);
+            updateQuestProgress(traveler);
 
             address creator = mission.getTaskCreator(taskId);
             taskCreatorRewards[creator] += CREATOR_REWARD;
@@ -1198,10 +1357,12 @@ contract Arm0ryQuests {
 
     /// -----------------------------------------------------------------------
     /// Internal Functions
-    /// ----------------------------------------------------------------------- 
+    /// -----------------------------------------------------------------------
 
-    function updateQuestProgress(address traveller) internal {
-        uint8[] memory _taskIds = mission.missions(uint8(questNonce[traveller])).taskIds;
+    function updateQuestProgress(address traveler) internal {
+        uint8[] memory _taskIds = mission
+            .missions(uint8(questNonce[traveler]))
+            .taskIds;
 
         uint8 completedTasksCount;
         uint8 incompleteTasksCount;
@@ -1211,19 +1372,19 @@ contract Arm0ryQuests {
         for (uint256 i = 0; i < _taskIds.length; ) {
             uint8 xp = mission.getTaskXp(_taskIds[i]);
 
-            if (!isTaskCompleted[traveller][_taskIds[i]]) {
-                // cannot possibly overflow 
+            if (!isTaskCompleted[traveler][_taskIds[i]]) {
+                // cannot possibly overflow
                 unchecked {
                     ++incompleteTasksCount;
                 }
             } else {
-                // cannot possibly overflow 
+                // cannot possibly overflow
                 unchecked {
                     ++completedTasksCount;
                     xpEarned += xp;
                 }
             }
-            
+
             // cannot possibly overflow in array loop
             unchecked {
                 ++i;
@@ -1232,7 +1393,10 @@ contract Arm0ryQuests {
 
         // cannot possibly overflow
         unchecked {
-            progress = completedTasksCount / (completedTasksCount + incompleteTasksCount) * 100;
+            progress =
+                (completedTasksCount /
+                    (completedTasksCount + incompleteTasksCount)) *
+                100;
         }
 
         // Update progress and xp
@@ -1243,13 +1407,16 @@ contract Arm0ryQuests {
         uint256 reward = (xpEarned - claimed) * 1e18;
         // Return locked NFT & arm0ry token when Quest is completed
         if (progress == 100) {
-            
-            if (questNonce[traveller] != 0) {
-                IERC20(arm0ry).transfer(traveller, THRESHOLD);
+            if (questNonce[traveler] != 0) {
+                IERC20(arm0ry).transfer(traveler, THRESHOLD);
             }
 
-            IERC20(arm0ry).transfer(traveller, reward);
-            travellers.transferFrom(address(this), traveller, uint256(uint160(traveller)));
+            IERC20(arm0ry).transfer(traveler, reward);
+            travelers.transferFrom(
+                address(this),
+                traveler,
+                uint256(uint160(traveler))
+            );
         }
     }
 }
