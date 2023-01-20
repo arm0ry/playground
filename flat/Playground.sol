@@ -519,7 +519,7 @@ contract Arm0ryTravelers is ERC721 {
                 abi.encodePacked(
                     '<svg class="svgBody" width="300" height="300" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">',
                     paletteSection,
-                    '<text x="20" y="125" class="score" stroke="black" stroke-width="2">',Strings.toString(quests.getQuestProgress(traveler, nonce)),'</text>',
+                    '<text x="20" y="120" class="score" stroke="black" stroke-width="2">',Strings.toString(quests.getQuestProgress(traveler, nonce)),'</text>',
                     '<text x="112" y="120" class="tiny" stroke="black">% Progress</text>',
                     '<text x="180" y="120" class="score" stroke="black" stroke-width="2">',Strings.toString(quests.getQuestXp(traveler, nonce)),'</text>',
                     '<text x="272" y="120" class="tiny" stroke="black">Xp</text>',
