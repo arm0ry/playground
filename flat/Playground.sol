@@ -408,20 +408,27 @@ interface ERC721TokenReceiver {
 //// @title Arm0ry Travelers
 /// @notice NFTs for Arm0ry participants.
 /// credit: z0r0z.eth https://gist.github.com/z0r0z/6ca37df326302b0ec8635b8796a4fdbb
+/// credit: simondlr https://github.com/Untitled-Frontier/tlatc/blob/master/packages/hardhat/contracts/AnchorCertificates.sol
+
 contract Arm0ryTravelers is ERC721 {
-    // todo, change to UF specific owner.
-    address payable public arm0ry; // Untitled Frontier collection address
 
-    uint256 public defaultCertificatesSupply;
-    // uint256 public deluxeCertificatesSupply;
+    /// -----------------------------------------------------------------------
+    /// Custom Error
+    /// -----------------------------------------------------------------------
 
-    struct Certificate {
-        uint256 nr;
-        address sponsored;
-    }
+    error NotAuthorized();
 
-    // tokenId => Certificate
-    mapping(uint256 => Certificate) public certificates;
+    /// -----------------------------------------------------------------------
+    /// Traveler Storage
+    /// -----------------------------------------------------------------------
+
+    address payable public arm0ry; 
+
+    IArm0ryQuests public quests;
+
+    IArm0ryMission public mission;
+
+    uint256 public travelerCount;
 
     // 16 palettes
     string[4][16] palette = [
@@ -443,8 +450,8 @@ contract Arm0ryTravelers is ERC721 {
         ["#dddddd", "#f9f3f3", "#f7d9d9", "#f25287"]
     ];
 
-    constructor(address payable arm0ry_) ERC721("Arm0ry Travelers", "ART") {
-        arm0ry = arm0ry_;
+    constructor(address payable _arm0ry) ERC721("Arm0ry Travelers", "ART") {
+        arm0ry = _arm0ry;
     }
 
     function tokenURI(uint256 tokenId)
@@ -457,7 +464,7 @@ contract Arm0ryTravelers is ERC721 {
         string memory name = string(
             abi.encodePacked(
                 "Arm0ry Traveler #",
-                Strings.toString(certificates[tokenId].nr)
+                Strings.toString(tokenId)
             )
         );
         string memory description = "Arm0ry Travelers";
@@ -498,11 +505,13 @@ contract Arm0ryTravelers is ERC721 {
         view
         returns (string memory)
     {
+        address traveler = address(uint160(tokenId));
+        uint8 nonce = this.getQuestNonce(traveler);
+        string memory title = this.getMissionTitle(traveler, nonce);
+
         bytes memory hash = abi.encodePacked(bytes32(tokenId));
         uint256 pIndex = toUint8(hash, 0) / 16; // 16 palettes
-        // uint256 rIndex = toUint8(hash,1)/4; // 64 reasons
 
-        /* this is broken into functions to avoid stack too deep errors */
         string memory paletteSection = generatePaletteSection(tokenId, pIndex);
 
         return
@@ -510,17 +519,17 @@ contract Arm0ryTravelers is ERC721 {
                 abi.encodePacked(
                     '<svg class="svgBody" width="300" height="300" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">',
                     paletteSection,
-                    '<text x="15" y="125" class="score" stroke="black" stroke-width="2">65</text>',
-                    '<text x="110" y="125" class="tiny" stroke="black">% Progress</text>',
-                    '<text x="175" y="125" class="score" stroke="black" stroke-width="2">80</text>',
-                    '<text x="270" y="125" class="tiny" stroke="black">xp</text>',
+                    '<text x="20" y="125" class="score" stroke="black" stroke-width="2">',Strings.toString(quests.getQuestProgress(traveler, nonce)),'</text>',
+                    '<text x="112" y="120" class="tiny" stroke="black">% Progress</text>',
+                    '<text x="180" y="120" class="score" stroke="black" stroke-width="2">',Strings.toString(quests.getQuestXp(traveler, nonce)),'</text>',
+                    '<text x="272" y="120" class="tiny" stroke="black">Xp</text>',
                     '<text x="15" y="170" class="medium" stroke="black">QUEST: </text>',
                     '<rect x="15" y="175" width="205" height="40" style="fill:white;opacity:0.5"/>',
-                    '<text x="20" y="190" class="medium" stroke="black">BASIC</text>',
+                    '<text x="20" y="190" class="medium" stroke="black">',title,'</text>',
                     '<text x="15" y="245" class="small" stroke="black">BUDDIES:</text>',
-                    '<text x="15" y="260" style="font-size:8px" stroke="black">0x4744cda32bE7b3e75b9334001da9ED21789d4c0d</text>',
-                    '<text x="15" y="275" style="font-size:8px" stroke="black">0x4744cda32bE7b3e75b9334001da9ED21789d4c0d</text>',
-                    '<style>.svgBody {font-family: "Courier New" } .tiny {font-size:6px; } .small {font-size: 12px;}.medium {font-size: 18px;}.score {font-size: 70px;}</style>',
+                    '<text x="15" y="260" style="font-size:8px" stroke="black">',addressToHexString(quests.getQuestBuddyOne(traveler, nonce)),'</text>',
+                    '<text x="15" y="275" style="font-size:8px" stroke="black">',addressToHexString(quests.getQuestBuddyTwo(traveler, nonce)),'</text>',
+                    '<style>.svgBody {font-family: "Courier New" } .tiny {font-size:8px; } .small {font-size: 12px;}.medium {font-size: 18px;}.score {font-size: 70px;}</style>',
                     "</svg>"
                 )
             );
@@ -561,26 +570,27 @@ contract Arm0ryTravelers is ERC721 {
             );
     }
 
-    function mintCertificate() public payable returns (uint256 tokenId) {
-        Certificate memory certificate;
+    function mintTravelerPass() external payable returns (uint256 tokenId) {
+        travelerCount += 1;
 
-        defaultCertificatesSupply += 1;
-        certificate.nr = defaultCertificatesSupply;
+        tokenId = uint256(uint160(msg.sender));
 
-        tokenId = uint256(
-            keccak256(abi.encodePacked(block.timestamp, msg.sender))
-        );
-        certificates[tokenId] = certificate;
-
-        super._mint(msg.sender, tokenId);
+        _mint(msg.sender, tokenId);
     }
 
-    function withdrawETH() public {
-        require(msg.sender == arm0ry, "NOT_arm0ry");
-        arm0ry.transfer(address(this).balance);
+    /// -----------------------------------------------------------------------
+    /// Arm0ry Functions
+    /// -----------------------------------------------------------------------
+
+    function updateContracts(IArm0ryQuests _quests, IArm0ryMission _mission) external payable {
+        if (msg.sender != arm0ry) revert NotAuthorized();
+        quests = _quests;
+        mission = _mission;
     }
 
-    // GENERIC helpers
+    /// -----------------------------------------------------------------------
+    /// Internal Functions
+    /// -----------------------------------------------------------------------
 
     // helper function for generation
     // from: https://github.com/GNSPS/solidity-bytes-utils/blob/master/contracts/BytesLib.sol
@@ -611,6 +621,20 @@ contract Arm0ryTravelers is ERC721 {
             result[i - startIndex] = strBytes[i];
         }
         return string(result);
+    }
+
+    function addressToHexString(address addr) internal pure returns (string memory) {
+        return Strings.toHexString(uint256(uint160(addr)), 20);
+    }
+
+    function getQuestNonce(address traveler) external view returns (uint8) {
+        return quests.questNonce(traveler);
+    }
+
+    function getMissionTitle(address traveler, uint8 nonce) external view returns (string memory) {
+        uint8 missionId = quests.getQuestMissionId(traveler, nonce);
+
+        return mission.missions(missionId).title;
     }
 }
 
@@ -801,6 +825,7 @@ struct Mission {
     uint40 expiration;
     uint8[] taskIds;
     string details;
+    string title;
 }
 
 struct Task {
@@ -948,7 +973,8 @@ contract Arm0ryMission {
     function setMission(
         uint8 _missionId,
         uint8[] calldata _taskIds,
-        string calldata _details
+        string calldata _details,
+        string calldata _title
     ) external payable {
         if (msg.sender != admin && !isManager[msg.sender])
             revert NotAuthorized();
@@ -957,7 +983,8 @@ contract Arm0ryMission {
             missions[_missionId] = Mission({
                 expiration: 2524626000, // 01/01/2050
                 taskIds: _taskIds,
-                details: _details
+                details: _details,
+                title: _title
             });
         } else {
             uint40 expiration;
@@ -980,7 +1007,8 @@ contract Arm0ryMission {
             missions[_missionId] = Mission({
                 expiration: expiration,
                 taskIds: _taskIds,
-                details: _details
+                details: _details,
+                title: _title
             });
         }
 
@@ -1039,6 +1067,10 @@ contract Arm0ryMission {
         return tasks[_taskId].creator;
     }
 
+    function getMissionTitle(uint8 _missionId) external view returns (string memory){
+        return missions[_missionId].title;
+    }
+
     function getMissionTasks(uint8 _missionId)
         external
         view
@@ -1049,15 +1081,19 @@ contract Arm0ryMission {
 }
 
 interface IArm0ryQuests {
-    function getQuestXp(address traveler, uint8 missionId) external view returns (uint8);
+    function questNonce(address traveler) external view returns (uint8);
 
-    function getQuestExpiration(address traveler, uint8 missionId) external view returns (uint40);
+    function getQuestMissionId(address traveler, uint8 questId) external view returns (uint8);
 
-    function getQuestProgress(address traveler, uint8 missionId) external view returns (uint8);
+    function getQuestXp(address traveler, uint8 questId) external view returns (uint8);
 
-    function getQuestBuddyOne(address traveler, uint8 missionId) external view returns (address);
+    function getQuestExpiration(address traveler, uint8 questId) external view returns (uint40);
 
-    function getQuestBuddyTwo(address traveler, uint8 missionId) external view returns (address);
+    function getQuestProgress(address traveler, uint8 questId) external view returns (uint8);
+
+    function getQuestBuddyOne(address traveler, uint8 questId) external view returns (address);
+
+    function getQuestBuddyTwo(address traveler, uint8 questId) external view returns (address);
 }
 
 /// @title Arm0ry Quests
@@ -1126,15 +1162,12 @@ contract Arm0ryQuests {
 
     /// -----------------------------------------------------------------------
     /// Quest Storage
-    /// -----------------------------------------------------------------------
 
     uint256 public immutable THRESHOLD = 10 * 1e18;
-
-    uint256 public immutable CREATOR_REWARD = 1e17;
+    
+    uint256 public lightningPass;
 
     address public arm0ry;
-
-    address public immutable WETH;
 
     IArm0ryTravelers public travelers;
 
@@ -1144,7 +1177,7 @@ contract Arm0ryQuests {
     mapping(address => mapping(uint256 => Quest)) public quests;
 
     // Counter indicating Quest count per Traveler
-    mapping(address => uint256) public questNonce;
+    mapping(address => uint8) public questNonce;
 
     // Status indicating if an address belongs to a Buddy of an active Quest
     mapping(address => mapping(address => bool)) public isQuestBuddy;
@@ -1174,11 +1207,11 @@ contract Arm0ryQuests {
     constructor(
         IArm0ryTravelers _travelers,
         IArm0ryMission _mission,
-        address _weth
+        uint256 _lightningPass
     ) {
         travelers = _travelers;
         mission = _mission;
-        WETH = _weth;
+        lightningPass = _lightningPass;
     }
 
     /// -----------------------------------------------------------------------
@@ -1200,7 +1233,7 @@ contract Arm0ryQuests {
         } else {
             if (
                 IERC20(arm0ry).balanceOf(msg.sender) < THRESHOLD ||
-                msg.value >= 0.05 ether
+                msg.value >= lightningPass
             ) revert NeedMoreCoins();
             IERC20(arm0ry).transferFrom(msg.sender, address(this), THRESHOLD);
             travelers.transferFrom(msg.sender, address(this), id);
@@ -1331,27 +1364,44 @@ contract Arm0ryQuests {
     /// Getter Functions
     /// -----------------------------------------------------------------------
 
-    function getQuestXp(address _traveler, uint8 _missionId) external view returns (uint8) {
-        return quests[_traveler][_missionId].xp;
+    function getQuestMissionId(address _traveler, uint8 _questId) external view returns (uint8) {
+        return quests[_traveler][_questId].missionId;
     }
 
-    function getQuestExpiration(address _traveler, uint8 _missionId) external view returns (uint40) {
-        return quests[_traveler][_missionId].expiration;
+    function getQuestXp(address _traveler, uint8 _questId) external view returns (uint8) {
+        return quests[_traveler][_questId].xp;
+    }
+
+    function getQuestExpiration(address _traveler, uint8 _questId) external view returns (uint40) {
+        return quests[_traveler][_questId].expiration;
     }
     
-    function getQuestProgress(address _traveler, uint8 _missionId) external view returns (uint8) {
-        return quests[_traveler][_missionId].progress;
+    function getQuestProgress(address _traveler, uint8 _questId) external view returns (uint8) {
+        return quests[_traveler][_questId].progress;
     }
 
-    function getQuestBuddyOne(address _traveler, uint8 _missionId) external payable returns(address) {
-        return quests[_traveler][_missionId].buddies[0];    
+    function getQuestBuddyOne(address _traveler, uint8 _questId) external view returns(address) {
+        return quests[_traveler][_questId].buddies[0];    
     }
 
-    function getQuestBuddyTwo(address _traveler, uint8 _missionId) external payable returns(address) {
-        if (quests[_traveler][_missionId].buddies[1] != address(0)) 
-            return quests[_traveler][_missionId].buddies[1];
+    function getQuestBuddyTwo(address _traveler, uint8 _questId) external view returns(address) {
+        return quests[_traveler][_questId].buddies[1];
             
-        return address(0);
+    }
+
+    /// -----------------------------------------------------------------------
+    /// Arm0ry Functions
+    /// -----------------------------------------------------------------------
+
+    function updatePass(uint256 _lightningPass) external payable {
+        if (msg.sender != arm0ry) revert NotAuthorized();
+        lightningPass = _lightningPass;
+    }
+
+    function updateContracts(IArm0ryTravelers _travelers, IArm0ryMission _mission) external payable {
+        if (msg.sender != arm0ry) revert NotAuthorized();
+        travelers = _travelers;
+        mission = _mission;
     }
 
     /// -----------------------------------------------------------------------
@@ -1365,7 +1415,7 @@ contract Arm0ryQuests {
 
         taskCreatorRewards[msg.sender] = 0;
 
-        IERC20(arm0ry).transfer(msg.sender, reward);
+        IKaliShareManager(arm0ry).mintShares(msg.sender, reward * 1e18);
     }
 
     /// -----------------------------------------------------------------------
@@ -1414,8 +1464,14 @@ contract Arm0ryQuests {
 
             updateQuestProgress(traveler);
 
+            uint8 xp = mission.getTaskXp(taskId);
+
+            // Record task creator rewards
             address creator = mission.getTaskCreator(taskId);
-            taskCreatorRewards[creator] += CREATOR_REWARD;
+            taskCreatorRewards[creator] += xp;
+
+            // Distribute task rewards
+            IKaliShareManager(arm0ry).mintShares(traveler, xp * 1e18);
         }
     }
 
