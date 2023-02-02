@@ -527,8 +527,8 @@ contract Arm0ryTravelers is ERC721 {
                     '<rect x="15" y="175" width="205" height="40" style="fill:white;opacity:0.5"/>',
                     '<text x="20" y="190" class="medium" stroke="black">',title,'</text>',
                     '<text x="15" y="245" class="small" stroke="black">BUDDIES:</text>',
-                    '<text x="15" y="260" style="font-size:8px" stroke="black">',addressToHexString(quests.getQuestBuddyOne(traveler, nonce)),'</text>',
-                    '<text x="15" y="275" style="font-size:8px" stroke="black">',addressToHexString(quests.getQuestBuddyTwo(traveler, nonce)),'</text>',
+                    // '<text x="15" y="260" style="font-size:8px" stroke="black">',addressToHexString(quests.getQuestBuddyOne(traveler, nonce)),'</text>',
+                    // '<text x="15" y="275" style="font-size:8px" stroke="black">',addressToHexString(quests.getQuestBuddyTwo(traveler, nonce)),'</text>',
                     '<style>.svgBody {font-family: "Courier New" } .tiny {font-size:8px; } .small {font-size: 12px;}.medium {font-size: 18px;}.score {font-size: 70px;}</style>',
                     "</svg>"
                 )
@@ -971,7 +971,6 @@ contract Arm0ryMission {
     }
 
     function setMission(
-        uint8 _missionId,
         uint8[] calldata _taskIds,
         string calldata _details,
         string calldata _title
@@ -979,8 +978,8 @@ contract Arm0ryMission {
         if (msg.sender != admin && !isManager[msg.sender])
             revert NotAuthorized();
 
-        if (_missionId == 0) {
-            missions[_missionId] = Mission({
+        if (missionId == 0) {
+            missions[missionId] = Mission({
                 expiration: 2524626000, // 01/01/2050
                 taskIds: _taskIds,
                 details: _details,
@@ -996,7 +995,7 @@ contract Arm0ryMission {
                     : expiration;
 
                 // Update task status
-                isTaskInMission[_missionId][_taskIds[i]] = true;
+                isTaskInMission[missionId][_taskIds[i]] = true;
 
                 // cannot possibly overflow
                 unchecked {
@@ -1004,15 +1003,24 @@ contract Arm0ryMission {
                 }
             }
 
-            missions[_missionId] = Mission({
+        
+            missions[missionId] = Mission({
                 expiration: expiration,
                 taskIds: _taskIds,
                 details: _details,
                 title: _title
             });
+
+            missionId++;
         }
 
-        emit MissionSet(_missionId, _taskIds, _details);
+        emit MissionSet(missionId, _taskIds, _details);
+    }
+
+    function updateMission(uint8 _missionId) external payable {
+        // check if mission has been added 
+
+
     }
 
     function updateAdmin(address _admin)
@@ -1090,10 +1098,6 @@ interface IArm0ryQuests {
     function getQuestExpiration(address traveler, uint8 questId) external view returns (uint40);
 
     function getQuestProgress(address traveler, uint8 questId) external view returns (uint8);
-
-    function getQuestBuddyOne(address traveler, uint8 questId) external view returns (address);
-
-    function getQuestBuddyTwo(address traveler, uint8 questId) external view returns (address);
 }
 
 /// @title Arm0ry Quests
@@ -1109,10 +1113,10 @@ struct Quest {
     Status status;
     uint8 progress;
     uint8 xp;
-    address[2] buddies;
     uint8 missionId;
     uint40 expiration;
     uint256 claimed;
+    uint256 staked;
 }
 
 struct Deliverable {
@@ -1128,7 +1132,7 @@ contract Arm0ryQuests {
     /// Events
     /// -----------------------------------------------------------------------
 
-    event QuestCancelled(address indexed traveler, uint8 missionId);
+    event QuestPaused(address indexed traveler, uint8 missionId);
 
     /// -----------------------------------------------------------------------
     /// Custom Errors
@@ -1144,7 +1148,9 @@ contract Arm0ryQuests {
 
     error ActiveQuest();
 
-    error InvalidBuddy();
+    error InvalidReviewer();
+
+    error InsufficientReviewerXp();
 
     error InvalidReview();
 
@@ -1179,9 +1185,6 @@ contract Arm0ryQuests {
     // Counter indicating Quest count per Traveler
     mapping(address => uint8) public questNonce;
 
-    // Status indicating if an address belongs to a Buddy of an active Quest
-    mapping(address => mapping(address => bool)) public isQuestBuddy;
-
     // Deliverable per Task of an active Quest
     mapping(address => mapping(uint256 => string)) public taskDeliverables;
 
@@ -1194,11 +1197,17 @@ contract Arm0ryQuests {
     // 2 - reviewed with an x
     mapping(address => mapping(uint256 => mapping(address => uint8))) taskReviews;
 
+    // Xp per reviewer
+    mapping(address => uint8) reviewerXp;
+
     // Status indicating if a Task of an active Quest is completed
     mapping(address => mapping(uint256 => bool)) isTaskCompleted;
 
     // Rewards per creators
     mapping(address => uint256) taskCreatorRewards;
+
+    // Active quests per Traveler
+    mapping(address => uint8) activeQuests;
 
     /// -----------------------------------------------------------------------
     /// Constructor
@@ -1218,7 +1227,7 @@ contract Arm0ryQuests {
     /// Quest Logic
     /// -----------------------------------------------------------------------
 
-    function startQuest(address[2] calldata buddies, uint8 missionId)
+    function startQuest(uint8 missionId)
         external
         payable
     {
@@ -1227,7 +1236,8 @@ contract Arm0ryQuests {
         uint8[] memory _taskIds = mission.missions(missionId).taskIds;
         uint40 _expiration = mission.missions(missionId).expiration;
 
-        // Lock Traveler's NFT
+        // Lock Traveler's NFT and if Traveler picked a non-BASIC path, 
+        // i.e., missionId = 0, Traveler is required to stake token
         if (missionId == 0) {
             travelers.transferFrom(msg.sender, address(this), id);
         } else {
@@ -1239,7 +1249,7 @@ contract Arm0ryQuests {
             travelers.transferFrom(msg.sender, address(this), id);
         }
 
-        // Update tasks review status
+        // Initialize tasks review status
         for (uint256 i = 0; i < _taskIds.length; ) {
             taskReadyForReview[msg.sender][_taskIds[i]] = false;
 
@@ -1248,112 +1258,84 @@ contract Arm0ryQuests {
             }
         }
 
-        // Update buddies
-        bool haveBuddies;
-        for (uint256 i = 0; i < buddies.length; ) {
-            if (buddies[i] == address(0)) {
-                haveBuddies = false;
-            }
+        // Initialize reviewer xp
+        reviewerXp[msg.sender] = 5;
 
-            haveBuddies = true;
-            isQuestBuddy[msg.sender][buddies[i]] = true;
-
-            unchecked {
-                ++i;
-            }
-        }
 
         // Create a Quest
         quests[msg.sender][questNonce[msg.sender]] = Quest({
             status: Status.ACTIVE,
             progress: 0,
             xp: 0,
-            buddies: haveBuddies ? buddies : [arm0ry, address(0)],
             missionId: missionId,
             expiration: _expiration,
-            claimed: 0
+            claimed: 0,
+            staked: missionId == 0 ? 0 : THRESHOLD
         });
 
-        // Cannot possibly overflow.
+        // Mark active quest for Traveler
+        activeQuests[msg.sender] = questNonce[msg.sender];
+        
+        // Update nonce
         unchecked {
             ++questNonce[msg.sender];
         }
     }
 
-    function continueQuest(uint8 _missionId) external payable {
+    function continueQuest(uint8 questId) external payable {
         if (travelers.balanceOf(msg.sender) == 0) revert InvalidTraveler();
-        if (quests[msg.sender][_missionId].status == Status.ACTIVE)
+        if (quests[msg.sender][questId].status == Status.ACTIVE)
             revert ActiveQuest();
 
         // Mark Quest as active
-        quests[msg.sender][_missionId].status = Status.ACTIVE;
+        quests[msg.sender][questId].status = Status.ACTIVE;
     }
 
-    function leaveQuest(uint8 _missionId) external payable {
+    // Pause a Quest
+    function pauseQuest(uint8 questId) external payable {
         uint256 id = uint256(uint160(msg.sender));
         if (travelers.ownerOf(id) != address(this)) revert InvalidTraveler();
-        if (quests[msg.sender][_missionId].status == Status.INACTIVE)
+        if (quests[msg.sender][questId].status == Status.INACTIVE)
             revert InactiveQuest();
 
         // Mark Quest as inactive
-        quests[msg.sender][_missionId].status = Status.INACTIVE;
+        quests[msg.sender][questId].status = Status.INACTIVE;
 
-        // Airdrop any unclaimed rewards
-        uint8 reward = quests[msg.sender][_missionId].xp;
-        if (reward != 0) {
-            IERC20(arm0ry).transfer(msg.sender, reward * 1e18);
-            quests[msg.sender][_missionId].claimed += reward;
+        // Airdrop any unclaimed xp
+        uint8 xp = quests[msg.sender][questId].xp;
+        if (xp != 0) {
+            IERC20(arm0ry).transfer(msg.sender, xp * 1e18);
+            quests[msg.sender][questId].claimed += xp;
         }
 
-        // Return locked NFT & arm0ry token when cancelling a Quest
-        if (questNonce[msg.sender] != 0) {
-            IERC20(arm0ry).transfer(msg.sender, THRESHOLD);
+        // Airdrop portions of staked token based on tasks completion
+        uint8 progress = quests[msg.sender][questId].progress;
+        uint8 missionId = quests[msg.sender][questId].missionId;
+        if (missionId != 0) {
+            uint256 stakeToReturn = THRESHOLD * progress / 100;
+            quests[msg.sender][questId].staked -= stakeToReturn;
         }
+
+        // Return locked NFT & arm0ry token when pausing a Quest
         travelers.transferFrom(address(this), msg.sender, id);
 
-        emit QuestCancelled(msg.sender, _missionId);
-    }
+        // ASSSSSSIGN MAX UINT8 HERE
+        activeQuests[msg.sender] = questNonce[msg.sender];
 
-    function updateBuddies(uint8 _missionId, address[2] calldata newBuddies)
-        external
-        payable
-    {
-        uint256 id = uint256(uint160(msg.sender));
-        if (travelers.ownerOf(id) != address(this)) revert InvalidTraveler();
-
-        // Remove previous buddies
-        for (uint256 i = 0; i < 2; ) {
-            address buddy = quests[msg.sender][_missionId].buddies[i];
-            isQuestBuddy[msg.sender][buddy] = false;
-
-            unchecked {
-                ++i;
-            }
-        }
-
-        // Add new buddies
-        for (uint256 i = 0; i < 2; ) {
-            isQuestBuddy[msg.sender][newBuddies[i]] = true;
-
-            unchecked {
-                ++i;
-            }
-        }
-
-        quests[msg.sender][_missionId].buddies = newBuddies;
+        emit QuestPaused(msg.sender, questId);
     }
 
     function submitTasks(
-        uint8 _missionId,
+        uint8 questId,
         uint8 _taskId,
         string calldata deliverable
     ) external payable {
         uint256 id = uint256(uint160(msg.sender));
         if (travelers.ownerOf(id) != address(this)) revert InvalidTraveler();
-        if (!mission.isTaskInMission(_missionId, _taskId))
+        if (!mission.isTaskInMission(questId, _taskId))
             revert TaskNotActive();
         if (!isTaskCompleted[msg.sender][_taskId]) revert IncompleteTask();
-        if (quests[msg.sender][_missionId].status == Status.INACTIVE)
+        if (quests[msg.sender][questId].status == Status.INACTIVE)
             revert InactiveQuest();
 
         taskDeliverables[msg.sender][_taskId] = deliverable;
@@ -1378,15 +1360,6 @@ contract Arm0ryQuests {
     
     function getQuestProgress(address _traveler, uint8 _questId) external view returns (uint8) {
         return quests[_traveler][_questId].progress;
-    }
-
-    function getQuestBuddyOne(address _traveler, uint8 _questId) external view returns(address) {
-        return quests[_traveler][_questId].buddies[0];    
-    }
-
-    function getQuestBuddyTwo(address _traveler, uint8 _questId) external view returns(address) {
-        return quests[_traveler][_questId].buddies[1];
-            
     }
 
     /// -----------------------------------------------------------------------
@@ -1424,45 +1397,29 @@ contract Arm0ryQuests {
 
     function reviewTasks(
         address traveler,
+        uint8 questId,
         uint16 taskId,
         uint8 review
     ) external payable {
-        if (!isQuestBuddy[traveler][msg.sender]) revert InvalidBuddy();
-        if (!taskReadyForReview[msg.sender][taskId])
-            revert TaskNotReadyForReview();
+        // Reviewer must have completed 2 quests
+        if (questNonce[msg.sender] < 2) revert InvalidReviewer();
+
+        // Reviewer must provide valid review data
         if (review == 0) revert InvalidReview();
 
-        taskReviews[traveler][taskId][msg.sender] = review;
+        // Traveler must have at least 1 reviewer xp
+        if (reviewerXp[traveler] == 0) revert InsufficientReviewerXp();
 
-        Quest memory quest = quests[traveler][questNonce[traveler]];
-        address[2] memory buddies = quest.buddies;
-        bool check;
+        // Traveler must mark task for review ahead of time
+        if (!taskReadyForReview[traveler][taskId]) revert TaskNotReadyForReview();
+
+        taskReviews[traveler][taskId][msg.sender] = review;
+        reviewerXp[traveler]--;
+        reviewerXp[msg.sender]++;
 
         if (review == 1) {
-            for (uint256 i = 0; i < 2; ) {
-                if (buddies[i] == msg.sender) {
-                    continue;
-                }
-
-                if (taskReviews[traveler][taskId][buddies[i]] != 1) {
-                    check = false;
-                    break;
-                }
-
-                check = true;
-
-                // cannot possibly overflow in array loop
-                unchecked {
-                    ++i;
-                }
-            }
-        }
-
-        if (check) {
             isTaskCompleted[msg.sender][taskId] = true;
             taskReadyForReview[traveler][taskId] = false;
-
-            updateQuestProgress(traveler);
 
             uint8 xp = mission.getTaskXp(taskId);
 
@@ -1470,8 +1427,9 @@ contract Arm0ryQuests {
             address creator = mission.getTaskCreator(taskId);
             taskCreatorRewards[creator] += xp;
 
-            // Distribute task rewards
-            IKaliShareManager(arm0ry).mintShares(traveler, xp * 1e18);
+            updateQuestProgress(traveler, questId);
+        } else {
+
         }
     }
 
@@ -1479,9 +1437,9 @@ contract Arm0ryQuests {
     /// Internal Functions
     /// -----------------------------------------------------------------------
 
-    function updateQuestProgress(address traveler) internal {
+    function updateQuestProgress(address traveler, uint8 questId) internal {
         uint8[] memory _taskIds = mission
-            .missions(uint8(questNonce[traveler]))
+            .missions(questId)
             .taskIds;
 
         uint8 completedTasksCount;
@@ -1520,18 +1478,25 @@ contract Arm0ryQuests {
         }
 
         // Update progress and xp
-        quests[msg.sender][questNonce[msg.sender]].progress = progress;
-        quests[msg.sender][questNonce[msg.sender]].xp = xpEarned;
+        quests[traveler][questId].progress = progress;
+        quests[traveler][questId].xp = xpEarned;
 
-        uint256 claimed = quests[msg.sender][questNonce[msg.sender]].claimed;
-        uint256 reward = (xpEarned - claimed) * 1e18;
-        // Return locked NFT & arm0ry token when Quest is completed
+        // Return locked NFT & arm0ry token
+        uint256 staked = quests[traveler][questId].staked;
+        uint8 missionId = quests[traveler][questId].missionId;
         if (progress == 100) {
-            if (questNonce[traveler] != 0) {
-                IERC20(arm0ry).transfer(traveler, THRESHOLD);
+            uint256 claimed = quests[msg.sender][questId].claimed;
+            uint256 residual = (xpEarned - claimed) * 1e18;
+            
+            // Return any staked amount
+            if (missionId != 0) {
+                IERC20(arm0ry).transfer(traveler, staked);
             }
 
-            IERC20(arm0ry).transfer(traveler, reward);
+            // Transfer any unclaimed rewards
+            IERC20(arm0ry).transfer(traveler, residual);
+
+            // Return Traveler NFT
             travelers.transferFrom(
                 address(this),
                 traveler,
