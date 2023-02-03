@@ -817,8 +817,8 @@ interface IArm0ryMission {
     function getTaskCreator(uint16 taskId) external view returns (address);
 }
 
-/// @title Arm0ry tasks
-/// @notice A list of tasks.
+/// @title Arm0ry Mission
+/// @notice A list of Arm0ry missions and tasks.
 /// @author audsssy.eth
 
 struct Mission {
@@ -836,6 +836,7 @@ struct Task {
 }
 
 contract Arm0ryMission {
+    
     /// -----------------------------------------------------------------------
     /// Events
     /// -----------------------------------------------------------------------
@@ -880,6 +881,7 @@ contract Arm0ryMission {
 
     address[] public managers;
 
+    // Status indicating if an address is a Manager
     mapping(address => bool) isManager;
 
     uint8 public taskId;
@@ -905,6 +907,9 @@ contract Arm0ryMission {
     /// Mission / Task Logic
     /// -----------------------------------------------------------------------
 
+    /// @notice Create tasks
+    /// @param taskData Encoded data to store as Task
+    /// @dev
     function setTasks(bytes[] calldata taskData) external payable {
         if (msg.sender != admin && !isManager[msg.sender])
             revert NotAuthorized();
@@ -938,6 +943,10 @@ contract Arm0ryMission {
         }
     }
 
+    /// @notice Update tasks
+    /// @param ids Identifiers of tasks to be updated
+    /// @param taskData Encoded data to update as Task
+    /// @dev
     function updateTasks(uint8[] calldata ids, bytes[] calldata taskData)
         external
         payable
@@ -972,6 +981,11 @@ contract Arm0ryMission {
         }
     }
 
+    /// @notice Create missions
+    /// @param _taskIds Identifiers of tasks to be added to a Mission
+    /// @param _details Docs of a Mission
+    /// @param _title Title of a Mission
+    /// @dev
     function setMission(
         uint8[] calldata _taskIds,
         string calldata _details,
@@ -1017,6 +1031,12 @@ contract Arm0ryMission {
         emit MissionSet(missionId, _taskIds, _details);
     }
 
+    /// @notice Update missions
+    /// @param _missionId Identifiers of Mission to be updated
+    /// @param _taskIds Identifiers of tasks to be updated
+    /// @param _details Docs of a Mission
+    /// @param _title Title of a Mission
+    /// @dev
     function updateMission(
         uint8 _missionId, 
         uint8[] calldata _taskIds,
@@ -1024,11 +1044,13 @@ contract Arm0ryMission {
         string calldata _title
     ) external payable {
         if (missions[_missionId].taskIds.length == 0) revert InvalidMission();
-        if (msg.sender != admin && !isManager[msg.sender]) revert NotAuthorized();
         
         this.setMission(_taskIds, _details, _title);
     }
 
+    /// @notice Update missions
+    /// @param _admin The address to update admin to
+    /// @dev
     function updateAdmin(address _admin)
         external
         payable
@@ -1042,6 +1064,9 @@ contract Arm0ryMission {
         emit PermissionUpdated(msg.sender, admin, managers);
     }
 
+    /// @notice Update missions
+    /// @param _managers The addresses to update managers to
+    /// @dev
     function updateManagers(address[] calldata _managers)
         external
         payable
@@ -1109,7 +1134,7 @@ interface IArm0ryQuests {
 }
 
 /// @title Arm0ry Quests
-/// @notice .
+/// @notice Quest-to-Earn RPG.
 /// @author audsssy.eth
 
 struct Quest {
