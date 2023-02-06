@@ -506,27 +506,29 @@ contract Arm0ryTravelers is ERC721 {
         returns (string memory)
     {
         address traveler = address(uint160(tokenId));
-        uint8 nonce = this.getActiveQuests(traveler);
-        string memory title = this.getMissionTitle(traveler, nonce);
+        uint8 questId = this.getActiveQuest(traveler);
+        string memory title = this.getMissionTitle(traveler, questId);
 
         bytes memory hash = abi.encodePacked(bytes32(tokenId));
         uint256 pIndex = toUint8(hash, 0) / 16; // 16 palettes
 
         string memory paletteSection = generatePaletteSection(tokenId, pIndex);
 
+
+        // QUEST PROGRESS, QUEST XP, REVIEW XP, 
         return
             string(
                 abi.encodePacked(
                     '<svg class="svgBody" width="300" height="300" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">',
                     paletteSection,
-                    '<text x="20" y="120" class="score" stroke="black" stroke-width="2">',Strings.toString(quests.getQuestProgress(traveler, nonce)),'</text>',
+                    '<text x="20" y="120" class="score" stroke="black" stroke-width="2">',Strings.toString(quests.getQuestProgress(traveler, questId)),'</text>',
                     '<text x="112" y="120" class="tiny" stroke="black">% Progress</text>',
-                    '<text x="180" y="120" class="score" stroke="black" stroke-width="2">',Strings.toString(quests.getQuestXp(traveler, nonce)),'</text>',
+                    '<text x="180" y="120" class="score" stroke="black" stroke-width="2">',Strings.toString(quests.getQuestXp(traveler, questId)),'</text>',
                     '<text x="272" y="120" class="tiny" stroke="black">Xp</text>',
                     '<text x="15" y="170" class="medium" stroke="black">QUEST: </text>',
                     '<rect x="15" y="175" width="205" height="40" style="fill:white;opacity:0.5"/>',
                     '<text x="20" y="190" class="medium" stroke="black">',title,'</text>',
-                    '<text x="15" y="245" class="small" stroke="black">BUDDIES:</text>',
+                    '<text x="15" y="245" class="small" stroke="black">REVIEW XP:</text>',
                     // '<text x="15" y="260" style="font-size:8px" stroke="black">',addressToHexString(quests.getQuestBuddyOne(traveler, nonce)),'</text>',
                     // '<text x="15" y="275" style="font-size:8px" stroke="black">',addressToHexString(quests.getQuestBuddyTwo(traveler, nonce)),'</text>',
                     '<style>.svgBody {font-family: "Courier New" } .tiny {font-size:8px; } .small {font-size: 12px;}.medium {font-size: 18px;}.score {font-size: 70px;}</style>',
@@ -627,12 +629,22 @@ contract Arm0ryTravelers is ERC721 {
         return Strings.toHexString(uint256(uint160(addr)), 20);
     }
 
-    function getActiveQuests(address traveler) external view returns (uint8) {
+    function getActiveQuest(address traveler) external view returns (uint8) {
         return quests.activeQuests(traveler);
     }
 
-    function getMissionTitle(address traveler, uint8 nonce) external view returns (string memory) {
-        uint8 missionId = quests.getQuestMissionId(traveler, nonce);
+
+    // INSTEAD OF CALCULATING TITLE AND TASKS LENGTH HERE, JUST INTERACT WITH MISSION.SOL
+    function getMissionLength(uint8 missionId) external view returns (uint256) {
+
+        // MOVE THIS INTO generateImage
+        uint8 missionId = quests.getQuestMissionId(traveler, questId);
+
+        return mission.getMissionLength(missionId);
+    }
+
+    function getMissionTitle(address traveler, uint8 questId) external view returns (string memory) {
+        uint8 missionId = quests.getQuestMissionId(traveler, questId);
 
         return mission.missions(missionId).title;
     }
@@ -815,6 +827,10 @@ interface IArm0ryMission {
     function getTaskExpiration(uint16 taskId) external view returns (uint40);
 
     function getTaskCreator(uint16 taskId) external view returns (address);
+
+    function getMissionTasks(uint8 missionId) external view returns (uint8[] calldata);
+
+    function getMissionLength(uint8 missionId) external view returns (uint256);
 }
 
 /// @title Arm0ry Mission
@@ -836,7 +852,7 @@ struct Task {
 }
 
 contract Arm0ryMission {
-    
+
     /// -----------------------------------------------------------------------
     /// Events
     /// -----------------------------------------------------------------------
@@ -1004,11 +1020,9 @@ contract Arm0ryMission {
         } else {
             uint40 expiration;
             for (uint256 i = 0; i < _taskIds.length; ) {
-                // Calculate expiration
+                // Aggregate Task duration to create Mission duration
                 uint40 _expiration = this.getTaskExpiration(_taskIds[i]);
-                expiration = (_expiration > expiration)
-                    ? _expiration
-                    : expiration;
+                expiration += _expiration;
 
                 // Update task status
                 isTaskInMission[missionId][_taskIds[i]] = true;
@@ -1018,7 +1032,6 @@ contract Arm0ryMission {
                     ++i;
                 }
             }
-
         
             missions[missionId] = Mission({
                 expiration: expiration,
@@ -1117,6 +1130,14 @@ contract Arm0ryMission {
     {
         return missions[_missionId].taskIds;
     }
+
+    function getMissionLength(uint8 _missionId)
+        external
+        view
+        returns (uint256)
+    {
+        return missions[_missionId].taskIds.length;
+    }
 }
 
 interface IArm0ryQuests {
@@ -1128,7 +1149,7 @@ interface IArm0ryQuests {
 
     function getQuestXp(address traveler, uint8 questId) external view returns (uint8);
 
-    function getQuestExpiration(address traveler, uint8 questId) external view returns (uint40);
+    function getQuestStartTime(address traveler, uint8 questId) external view returns (uint40);
 
     function getQuestProgress(address traveler, uint8 questId) external view returns (uint8);
 }
@@ -1141,7 +1162,8 @@ struct Quest {
     uint8 progress;
     uint8 xp;
     uint8 missionId;
-    uint40 expiration;
+    uint40 start;
+    uint40 duration;
     uint256 claimed;
     uint256 staked;
 }
@@ -1159,7 +1181,23 @@ contract Arm0ryQuests {
     /// Events
     /// -----------------------------------------------------------------------
 
-    event QuestPaused(address indexed traveler, uint8 missionId);
+    event QuestStarted(address indexed traveler, uint8 missionId);
+    
+    event QuestPaused(address indexed traveler, uint8 questId);
+
+    event QuestResumed(address indexed traveler, uint8 questId);
+
+    event QuestCompleted(address indexed traveler, uint8 questId);
+
+    event TaskSubmitted(address indexed traveler, uint8 questId, uint8 taskId, string indexed homework);
+
+    event TaskReviewed(address indexed reviewer, address indexed traveler, uint8 questId, uint16 taskId, uint8 review);
+
+    event CreatorRewardClaimed(address indexed creator, uint256 amount);
+
+    event FastPassUpdated(uint256 amount);
+
+    event ContractsUpdated(IArm0ryTravelers indexed travelers, IArm0ryMission indexed mission);
 
     /// -----------------------------------------------------------------------
     /// Custom Errors
@@ -1171,9 +1209,11 @@ contract Arm0ryQuests {
 
     error InvalidClaim();
 
-    error InactiveQuest();
+    error QuestInactive();
 
-    error ActiveQuest();
+    error QuestActive();
+
+    error QuestExpired();
 
     error InvalidReviewer();
 
@@ -1181,11 +1221,13 @@ contract Arm0ryQuests {
 
     error InvalidReview();
 
+    error AlreadyReviewed();
+
     error TaskNotReadyForReview();
 
-    error TaskNotActive();
+    error TaskNotPartOfMission();
 
-    error IncompleteTask();
+    error TaskAlreadyCompleted();
 
     error AlreadyClaimed();
 
@@ -1199,7 +1241,7 @@ contract Arm0ryQuests {
 
     uint256 public immutable THRESHOLD = 10 * 1e18;
     
-    uint256 public lightningPass;
+    uint256 public fastPass;
 
     address public arm0ry;
 
@@ -1247,11 +1289,14 @@ contract Arm0ryQuests {
     constructor(
         IArm0ryTravelers _travelers,
         IArm0ryMission _mission,
-        uint256 _lightningPass
+        uint256 _fastPass
     ) {
         travelers = _travelers;
         mission = _mission;
-        lightningPass = _lightningPass;
+        fastPass = _fastPass;
+
+        emit ContractsUpdated(travelers, mission);
+        emit FastPassUpdated(fastPass);
     }
 
     /// -----------------------------------------------------------------------
@@ -1267,7 +1312,6 @@ contract Arm0ryQuests {
     {
         uint256 id = uint256(uint160(msg.sender));
         uint8[] memory _taskIds = mission.missions(missionId).taskIds;
-        uint40 _expiration = mission.missions(missionId).expiration;
 
         // Lock Traveler Pass and if Traveler picked a non-BASIC path, 
         // i.e., missionId = 0, Traveler is required to stake token
@@ -1276,7 +1320,7 @@ contract Arm0ryQuests {
         } else {
             if (
                 IERC20(arm0ry).balanceOf(msg.sender) < THRESHOLD ||
-                msg.value >= lightningPass
+                msg.value >= fastPass
             ) revert NeedMoreCoins();
             IERC20(arm0ry).transferFrom(msg.sender, address(this), THRESHOLD);
             travelers.safeTransferFrom(msg.sender, address(this), id);
@@ -1301,7 +1345,8 @@ contract Arm0ryQuests {
             progress: 0,
             xp: 0,
             missionId: missionId,
-            expiration: _expiration,
+            start: uint40(block.timestamp),
+            duration: mission.missions(missionId).expiration,
             claimed: 0,
             staked: missionId == 0 ? 0 : THRESHOLD
         });
@@ -1316,14 +1361,20 @@ contract Arm0ryQuests {
         unchecked {
             ++questNonce[msg.sender];
         }
+
+        emit QuestStarted(msg.sender, missionId);
     }
 
     /// @notice Traveler to continue an existing but inactive Quest.
     /// @param questId Identifier of a Quest.
     /// @dev 
-    function continueQuest(uint8 questId) external payable {
+    function resumeQuest(uint8 questId) external payable {
+        // Confirm Quest has been paused
+        uint40 questStart = quests[msg.sender][questId].start;
+        if (questStart > 0) revert QuestActive();
+
+        // Confirm Traveler owns Traveler's Pass to prevent double-questing
         if (travelers.balanceOf(msg.sender) == 0) revert InvalidTraveler();
-        if (questId == activeQuests[msg.sender]) revert ActiveQuest();
 
         // Lock Traveler Pass
         uint256 id = uint256(uint160(msg.sender));
@@ -1331,36 +1382,54 @@ contract Arm0ryQuests {
         
         // Mark Quest as active
         activeQuests[msg.sender] = questId;
+
+        // Update Quest start time
+        quests[msg.sender][questId].start = uint40(block.timestamp);
+
+        emit QuestResumed(msg.sender, questId);
     }
 
     /// @notice Traveler to pause an active Quest.
     /// @param questId Identifier of a Quest.
     /// @dev 
     function pauseQuest(uint8 questId) external payable {
-        uint256 id = uint256(uint160(msg.sender));
-        if (travelers.ownerOf(id) != address(this)) revert InvalidTraveler();
-        if (questId != activeQuests[msg.sender]) revert InactiveQuest();
+        // Confirm Quest is active
+        if (questId != activeQuests[msg.sender]) revert QuestInactive();
 
-       // Use max value to mark Quest as inactive
+        // Confirm Quest has not expired
+        uint40 questStart = quests[msg.sender][questId].start;
+        uint40 questDuration = quests[msg.sender][questId].duration;
+        if (uint40(block.timestamp) > questStart + questDuration) revert QuestExpired();
+
+        // Use max value to mark Quest as paused
         activeQuests[msg.sender] = type(uint8).max;
 
-        // Airdrop any unclaimed xp
+        // Distribute any unclaimed xp
         uint8 xp = quests[msg.sender][questId].xp;
         if (xp != 0) {
             IERC20(arm0ry).transfer(msg.sender, xp * 1e18);
             quests[msg.sender][questId].claimed += xp;
         }
 
-        // Airdrop portions of staked token based on tasks completion
+        // Distribute portions of staked token based on tasks completion
         uint8 progress = quests[msg.sender][questId].progress;
         uint8 missionId = quests[msg.sender][questId].missionId;
         if (missionId != 0) {
             uint256 stakeToReturn = THRESHOLD * progress / 100;
             quests[msg.sender][questId].staked -= stakeToReturn;
             IERC20(arm0ry).transfer(msg.sender, stakeToReturn);
+
+            // Update Quest start time and duration
+            uint40 diff;
+            unchecked { 
+                 diff = uint40(block.timestamp) - questStart;
+            }
+            quests[msg.sender][questId].start = 0;
+            quests[msg.sender][questId].duration = diff;
         }
 
         // Return locked NFT & arm0ry token when pausing a Quest
+        uint256 id = uint256(uint160(msg.sender));
         travelers.transferFrom(address(this), msg.sender, id);
 
         emit QuestPaused(msg.sender, questId);
@@ -1376,13 +1445,27 @@ contract Arm0ryQuests {
         uint8 taskId,
         string calldata homework
     ) external payable {
-        // Validate Traveler 
-        if (questId != activeQuests[msg.sender]) revert InactiveQuest();
-        if (!mission.isTaskInMission(questId, taskId)) revert TaskNotActive();
-        if (!isTaskCompleted[msg.sender][taskId]) revert IncompleteTask();
+        // Confirm Quest is active
+        if (questId != activeQuests[msg.sender]) revert QuestInactive();
 
+        // Confirm Task is part of Mission
+        if (!mission.isTaskInMission(questId, taskId)) revert TaskNotPartOfMission();
+
+        // Confirm Task not already completed
+        if (isTaskCompleted[msg.sender][taskId]) revert TaskAlreadyCompleted();
+        
+        // Confirm Quest has not expired
+        uint40 questStart = quests[msg.sender][questId].start;
+        uint40 questDuration = quests[msg.sender][questId].duration;
+        if (uint40(block.timestamp) > questStart + questDuration) revert QuestExpired();
+
+        // Update Homework
         taskHomework[msg.sender][taskId] = homework;
+
+        // Mark Task ready for review
         taskReadyForReview[msg.sender][taskId] = true;
+
+        emit TaskSubmitted(msg.sender, questId, taskId, homework);
     }
 
     /// -----------------------------------------------------------------------
@@ -1397,8 +1480,8 @@ contract Arm0ryQuests {
         return quests[_traveler][_questId].xp;
     }
 
-    function getQuestExpiration(address _traveler, uint8 _questId) external view returns (uint40) {
-        return quests[_traveler][_questId].expiration;
+    function getQuestStartTime(address _traveler, uint8 _questId) external view returns (uint40) {
+        return quests[_traveler][_questId].start;
     }
     
     function getQuestProgress(address _traveler, uint8 _questId) external view returns (uint8) {
@@ -1410,11 +1493,13 @@ contract Arm0ryQuests {
     /// -----------------------------------------------------------------------
 
     /// @notice Update price of lightning pass.
-    /// @param _lightningPass Amount required to skip BASIC mission.
+    /// @param _fastPass Amount required to skip BASIC mission.
     /// @dev 
-    function updatePass(uint256 _lightningPass) external payable {
+    function updateFastPass(uint256 _fastPass) external payable {
         if (msg.sender != arm0ry) revert NotAuthorized();
-        lightningPass = _lightningPass;
+        fastPass = _fastPass;
+
+        emit FastPassUpdated(fastPass);
     }
 
     /// @notice Update Arm0ry contracts.
@@ -1425,6 +1510,8 @@ contract Arm0ryQuests {
         if (msg.sender != arm0ry) revert NotAuthorized();
         travelers = _travelers;
         mission = _mission;
+
+        emit ContractsUpdated(travelers, mission);
     }
 
     /// -----------------------------------------------------------------------
@@ -1441,6 +1528,8 @@ contract Arm0ryQuests {
         taskCreatorRewards[msg.sender] = 0;
 
         IKaliShareManager(arm0ry).mintShares(msg.sender, reward * 1e18);
+
+        emit CreatorRewardClaimed(msg.sender, reward * 1e18);
     }
 
     /// -----------------------------------------------------------------------
@@ -1471,15 +1560,18 @@ contract Arm0ryQuests {
         // Traveler must mark task for review ahead of time
         if (!taskReadyForReview[traveler][taskId]) revert TaskNotReadyForReview();
 
+        // Reviewer must not have already reviewed instant Task
+        if (taskReviews[traveler][taskId][msg.sender] != 0) revert AlreadyReviewed();
+
         // Record review
         taskReviews[traveler][taskId][msg.sender] = review;
 
-        // Update review xp
+        // Update reviewer xp
         reviewerXp[traveler]--;
         reviewerXp[msg.sender]++;
 
         if (review == 1) {
-            isTaskCompleted[msg.sender][taskId] = true;
+            isTaskCompleted[traveler][taskId] = true;
             taskReadyForReview[traveler][taskId] = false;
 
             // Record task creator rewards
@@ -1489,9 +1581,9 @@ contract Arm0ryQuests {
 
             // Update Quest progress
             updateQuestProgress(traveler, questId);
-        } else {
+        } 
 
-        }
+        emit TaskReviewed(msg.sender, traveler, questId, taskId, review);
     }
 
     /// -----------------------------------------------------------------------
@@ -1566,6 +1658,8 @@ contract Arm0ryQuests {
 
             // Mark Quest inactive
             activeQuests[msg.sender] = type(uint8).max;
+
+            emit QuestCompleted(traveler, questId);
         }
     }
 }
