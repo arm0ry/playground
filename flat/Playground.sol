@@ -510,19 +510,15 @@ contract Arm0ryTravelers is ERC721 {
         uint8 questId = this.getActiveQuest(traveler);
         uint8 missionId = quests.getQuestMissionId(traveler, questId);
 
-        // Retrieve Quest data
+        // Calculate Quest data
         string memory title = mission.missions(missionId).title;
-        uint8 progress = quests.getQuestProgress(traveler, questId);
-        uint8 totalTaskCount = uint8(mission.missions(missionId).taskIds.length);
-        uint8 reviewXpToGet = totalTaskCount * (100 - progress) / 100;
+        uint8 reviewerXpNeeded = quests.getQuestReviewXpNeeded(traveler, questId);
 
         bytes memory hash = abi.encodePacked(bytes32(tokenId));
         uint256 pIndex = toUint8(hash, 0) / 16; // 16 palettes
 
         string memory paletteSection = generatePaletteSection(tokenId, pIndex);
 
-
-        // QUEST PROGRESS, QUEST XP, REVIEW XP, 
         return
             string(
                 abi.encodePacked(
@@ -535,7 +531,8 @@ contract Arm0ryTravelers is ERC721 {
                     '<text x="15" y="170" class="medium" stroke="black">QUEST: </text>',
                     '<rect x="15" y="175" width="205" height="40" style="fill:white;opacity:0.5"/>',
                     '<text x="20" y="190" class="medium" stroke="black">',title,'</text>',
-                    '<text x="15" y="245" class="small" stroke="black">REVIEW XP:</text>',
+                    '<text x="15" y="245" class="small" stroke="black">Need: </text>',
+                    '<text x="20" y="270" class="medium" stroke="black">',Strings.toString(reviewerXpNeeded),'</text>',
                     // '<text x="15" y="260" style="font-size:8px" stroke="black">',addressToHexString(quests.getQuestBuddyOne(traveler, nonce)),'</text>',
                     // '<text x="15" y="275" style="font-size:8px" stroke="black">',addressToHexString(quests.getQuestBuddyTwo(traveler, nonce)),'</text>',
                     '<style>.svgBody {font-family: "Courier New" } .tiny {font-size:8px; } .small {font-size: 12px;}.medium {font-size: 18px;}.score {font-size: 70px;}</style>',
@@ -1144,6 +1141,8 @@ interface IArm0ryQuests {
 
     function activeQuests(address traveler) external view returns (uint8);
 
+    function reviewerXp(address traveler) external view returns (uint8);
+
     function getQuestMissionId(address traveler, uint8 questId) external view returns (uint8);
 
     function getQuestXp(address traveler, uint8 questId) external view returns (uint8);
@@ -1151,6 +1150,8 @@ interface IArm0ryQuests {
     function getQuestStartTime(address traveler, uint8 questId) external view returns (uint40);
 
     function getQuestProgress(address traveler, uint8 questId) external view returns (uint8);
+
+    function getQuestReviewXpNeeded(address traveler, uint8 questId) external view returns (uint8);
 }
 
 /// @title Arm0ry Quests
@@ -1289,11 +1290,13 @@ contract Arm0ryQuests {
     constructor(
         IArm0ryTravelers _travelers,
         IArm0ryMission _mission,
-        uint256 _fastPass
+        uint256 _fastPass,
+        address _arm0ry
     ) {
         travelers = _travelers;
         mission = _mission;
         fastPass = _fastPass;
+        arm0ry = _arm0ry;
 
         emit ContractsUpdated(travelers, mission);
         emit FastPassUpdated(fastPass);
@@ -1631,6 +1634,23 @@ contract Arm0ryQuests {
     
     function getQuestProgress(address _traveler, uint8 _questId) external view returns (uint8) {
         return quests[_traveler][_questId].progress;
+    }
+
+    function getQuestReviewXpNeeded(address _traveler, uint8 _questId) external view returns (uint8) {
+        uint8 progress = quests[_traveler][_questId].progress;
+        uint8 missionId = quests[_traveler][_questId].missionId;
+        uint8 totalTaskCount = uint8(mission.missions(missionId).taskIds.length);
+        uint8 reviewerXpCurrent = reviewerXp[_traveler];
+        uint8 reviewerXpRequired = totalTaskCount * (100 - progress) / 100;
+
+        uint8 reviewerXpNeeded;
+        
+        // cannot possibly overflow
+        unchecked {
+            reviewerXpNeeded = (reviewerXpCurrent >= reviewerXpRequired) ? 0 : reviewerXpRequired - reviewerXpCurrent;
+        } 
+
+        return reviewerXpNeeded;
     }
 
     /// -----------------------------------------------------------------------
