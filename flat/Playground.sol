@@ -827,6 +827,8 @@ interface IArm0ryMission {
     function getMissionTasks(uint8 missionId) external view returns (uint8[] calldata);
 
     function getMissionLength(uint8 missionId) external view returns (uint256);
+
+    function getMissionCreator(uint8 missionId) external view returns (address);
 }
 
 /// @title Arm0ry Mission
@@ -834,10 +836,12 @@ interface IArm0ryMission {
 /// @author audsssy.eth
 
 struct Mission {
+    uint8 xp;
     uint40 expiration;
     uint8[] taskIds;
     string details;
     string title;
+    address creator;
 }
 
 struct Task {
@@ -845,6 +849,7 @@ struct Task {
     uint40 expiration;
     address creator;
     string details;
+    string title; 
 }
 
 contract Arm0ryMission {
@@ -937,12 +942,14 @@ contract Arm0ryMission {
                 uint8 xp,
                 uint40 expiration,
                 address creator,
+                string memory title,
                 string memory details
-            ) = abi.decode(taskData[i], (uint8, uint40, address, string));
+            ) = abi.decode(taskData[i], (uint8, uint40, address, string, string));
 
             tasks[taskId].xp = xp;
             tasks[taskId].expiration = expiration;
             tasks[taskId].creator = creator;
+            tasks[taskId].title = title;
             tasks[taskId].details = details;
 
             emit TaskSet(expiration, xp, creator, details);
@@ -1001,40 +1008,42 @@ contract Arm0ryMission {
     function setMission(
         uint8[] calldata _taskIds,
         string calldata _details,
-        string calldata _title
+        string calldata _title,
+        address _creator
     ) external payable {
         if (msg.sender != admin && !isManager[msg.sender])
             revert NotAuthorized();
 
-        if (missionId == 0) {
-            missions[missionId] = Mission({
-                expiration: 2524626000, // 01/01/2050
-                taskIds: _taskIds,
-                details: _details,
-                title: _title
-            });
-        } else {
-            uint40 expiration;
-            for (uint256 i = 0; i < _taskIds.length; ) {
-                // Aggregate Task duration to create Mission duration
-                uint40 _expiration = this.getTaskExpiration(_taskIds[i]);
-                expiration += _expiration;
+        // Calculate xp and expiration for Mission
+        uint8 totalXp;
+        uint40 expiration;
+        for (uint256 i = 0; i < _taskIds.length; ) {
+            // Aggregate Task duration to create Mission duration
+            uint40 _expiration = this.getTaskExpiration(_taskIds[i]);
+            uint8 taskXp = this.getTaskXp(_taskIds[i]);
+            expiration += _expiration;
+            totalXp += taskXp;
 
-                // Update task status
-                isTaskInMission[missionId][_taskIds[i]] = true;
+            // Update task status
+            isTaskInMission[missionId][_taskIds[i]] = true;
 
-                // cannot possibly overflow
-                unchecked {
-                    ++i;
-                }
+            // cannot possibly overflow
+            unchecked {
+                ++i;
             }
-        
-            missions[missionId] = Mission({
-                expiration: expiration,
-                taskIds: _taskIds,
-                details: _details,
-                title: _title
-            });
+        }
+
+        //
+        missions[missionId].taskIds = _taskIds;
+        missions[missionId].details = _details;
+        missions[missionId].title = _title;
+        missions[missionId].creator = _creator;
+        missions[missionId].xp = totalXp;
+
+        if (missionId == 0) {
+            missions[missionId].expiration = 2524626000; // 01/01/2050
+        } else {
+            missions[missionId].expiration = expiration; 
         }
 
         emit MissionSet(missionId, _taskIds, _details);
@@ -1050,11 +1059,12 @@ contract Arm0ryMission {
         uint8 _missionId, 
         uint8[] calldata _taskIds,
         string calldata _details,
-        string calldata _title
+        string calldata _title,
+        address _creator
     ) external payable {
         if (missions[_missionId].taskIds.length == 0) revert InvalidMission();
         
-        this.setMission(_taskIds, _details, _title);
+        this.setMission(_taskIds, _details, _title, _creator);
     }
 
     /// @notice Update missions
@@ -1133,6 +1143,10 @@ contract Arm0ryMission {
         returns (uint256)
     {
         return missions[_missionId].taskIds.length;
+    }
+
+    function getMissionCreator(uint8 _missionId) external view returns (address){
+        return missions[_missionId].creator;
     }
 }
 
@@ -1274,8 +1288,11 @@ contract Arm0ryQuests {
     // Status indicating if a Task of an active Quest is completed
     mapping(address => mapping(uint256 => bool)) public isTaskCompleted;
 
-    // Rewards per creators
+    // Rewards per Task creator
     mapping(address => uint256) public taskCreatorRewards;
+
+    // Rewards per Mission creator
+    mapping(address => uint256) public missionCreatorRewards;
 
     // Active quests per Traveler, one active quest per Traveler
     mapping(address => uint8) public activeQuests;
@@ -1507,15 +1524,17 @@ contract Arm0ryQuests {
 
             // Retrieve to update Task reward
             uint8 xp = mission.getTaskXp(taskId);
-            
-            // Retrieve to record task creator rewards
-            address creator = mission.getTaskCreator(taskId);
 
             // Retrieve to update Task completion and progress
             uint8 _completed = quests[traveler][questId].completed;
             uint8 missionId = this.getQuestMissionId(traveler, questId);
-            uint8 totalTaskCount = uint8(mission.missions(missionId).taskIds.length);
+            uint8 missionTasksCount = uint8(mission.missions(missionId).taskIds.length);
+            uint8 missionXp = mission.missions(missionId).xp;
 
+            // Retrieve to record task creator rewards
+            address taskCreator = mission.getTaskCreator(taskId);
+            address missionCreator = mission.getMissionCreator(missionId);
+            
             // cannot possibly overflow
             uint8 progress;
             unchecked { 
@@ -1525,18 +1544,19 @@ contract Arm0ryQuests {
                 quests[traveler][questId].completed = _completed;
 
                 // Update Quest progress
-                progress = (_completed / totalTaskCount) * 100;
+                progress = (_completed / missionTasksCount) * 100;
                 quests[traveler][questId].progress = progress;
 
                 // Update Task reward
                 quests[traveler][questId].xp += xp;
 
                 // Record task creator rewards
-                taskCreatorRewards[creator] += xp;
+                taskCreatorRewards[taskCreator] += xp;
             }
 
             // Update Quest progress
             if (progress == 100) {
+                missionCreatorRewards[missionCreator] += missionXp;
                 finalizeQuest(traveler, questId);
             }
         } 
