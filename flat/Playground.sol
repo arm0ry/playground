@@ -431,13 +431,13 @@ contract Arm0ryTravelers is ERC721 {
     uint256 public travelerCount;
 
     // 16 palettes
-    string[4][16] palette = [
-        ["#eca3f5", "#fdbaf9", "#b0efeb", "#edffa9"],
-        ["#75cfb8", "#bbdfc8", "#f0e5d8", "#ffc478"],
-        ["#ffab73", "#ffd384", "#fff9b0", "#ffaec0"],
-        ["#94b4a4", "#d2f5e3", "#e5c5b5", "#f4d9c6"],
-        ["#f4f9f9", "#ccf2f4", "#a4ebf3", "#aaaaaa"],
-        ["#caf7e3", "#edffec", "#f6dfeb", "#e4bad4"],
+    string[4][10] palette = [
+        // ["#eca3f5", "#fdbaf9", "#b0efeb", "#edffa9"],
+        // ["#75cfb8", "#bbdfc8", "#f0e5d8", "#ffc478"],
+        // ["#ffab73", "#ffd384", "#fff9b0", "#ffaec0"],
+        // ["#94b4a4", "#d2f5e3", "#e5c5b5", "#f4d9c6"],
+        // ["#f4f9f9", "#ccf2f4", "#a4ebf3", "#aaaaaa"],
+        // ["#caf7e3", "#edffec", "#f6dfeb", "#e4bad4"],
         ["#f4f9f9", "#f1d1d0", "#fbaccc", "#f875aa"],
         ["#fdffbc", "#ffeebb", "#ffdcb8", "#ffc1b6"],
         ["#f0e4d7", "#f5c0c0", "#ff7171", "#9fd8df"],
@@ -507,16 +507,16 @@ contract Arm0ryTravelers is ERC721 {
     {
         // Retrieve seeds
         address traveler = address(uint160(tokenId));
-        uint8 questId = this.getActiveQuest(traveler);
+        uint8 questId = quests.activeQuests(traveler);
         uint8 missionId = quests.getQuestMissionId(traveler, questId);
 
         // Calculate Quest data
         string memory title = mission.missions(missionId).title;
-        uint8 reviewerXpNeeded = quests.getQuestReviewXpNeeded(traveler, questId);
+        // uint8 reviewerXpNeeded = quests.getQuestIncompleteCount(traveler, questId);
 
-        bytes memory hash = abi.encodePacked(bytes32(tokenId));
-        uint256 pIndex = toUint8(hash, 0) / 16; // 16 palettes
-
+        // Prepare palette
+        bytes memory hash = abi.encodePacked(toBytes(traveler));
+        uint256 pIndex = toUint8(hash, 0) % 10; // 10 palettes
         string memory paletteSection = generatePaletteSection(tokenId, pIndex);
 
         return
@@ -525,14 +525,14 @@ contract Arm0ryTravelers is ERC721 {
                     '<svg class="svgBody" width="300" height="300" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">',
                     paletteSection,
                     '<text x="20" y="120" class="score" stroke="black" stroke-width="2">',Strings.toString(quests.getQuestProgress(traveler, questId)),'</text>',
-                    '<text x="112" y="120" class="tiny" stroke="black">% Progress</text>',
+                    '<text x="112" y="120" class="tiny" stroke="grey">% Progress</text>',
                     '<text x="180" y="120" class="score" stroke="black" stroke-width="2">',Strings.toString(quests.getQuestXp(traveler, questId)),'</text>',
-                    '<text x="272" y="120" class="tiny" stroke="black">Xp</text>',
-                    '<text x="15" y="170" class="medium" stroke="black">QUEST: </text>',
+                    '<text x="272" y="120" class="tiny" stroke="grey">Xp</text>',
+                    '<text x="15" y="170" class="medium" stroke="grey">QUEST: </text>',
                     '<rect x="15" y="175" width="205" height="40" style="fill:white;opacity:0.5"/>',
                     '<text x="20" y="190" class="medium" stroke="black">',title,'</text>',
-                    '<text x="15" y="245" class="small" stroke="black">Need: </text>',
-                    '<text x="20" y="270" class="medium" stroke="black">',Strings.toString(reviewerXpNeeded),'</text>',
+                    unicode'  <text x="30" y="260" class="tiny" stroke="grey">Thank you for joining us at g0v 54th Hackathon! 🤙</text>',
+                    // '<text x="20" y="270" class="medium" stroke="black">',Strings.toString(reviewerXpNeeded),'</text>',
                     // '<text x="15" y="260" style="font-size:8px" stroke="black">',addressToHexString(quests.getQuestBuddyOne(traveler, nonce)),'</text>',
                     // '<text x="15" y="275" style="font-size:8px" stroke="black">',addressToHexString(quests.getQuestBuddyTwo(traveler, nonce)),'</text>',
                     '<style>.svgBody {font-family: "Courier New" } .tiny {font-size:8px; } .small {font-size: 12px;}.medium {font-size: 18px;}.score {font-size: 70px;}</style>',
@@ -615,6 +615,16 @@ contract Arm0ryTravelers is ERC721 {
         return tempUint;
     }
 
+    function toBytes(address a) public pure returns (bytes memory b){
+        assembly {
+            let m := mload(0x40)
+            a := and(a, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+            mstore(add(m, 20), xor(0x140000000000000000000000000000000000000000, a))
+            mstore(0x40, add(m, 52))
+            b := m
+        }
+    }
+
     // from: https://ethereum.stackexchange.com/questions/31457/substring-in-solidity/31470
     function substring(
         string memory str,
@@ -631,18 +641,6 @@ contract Arm0ryTravelers is ERC721 {
 
     function addressToHexString(address addr) internal pure returns (string memory) {
         return Strings.toHexString(uint256(uint160(addr)), 20);
-    }
-
-    function getActiveQuest(address traveler) external view returns (uint8) {
-        return quests.activeQuests(traveler);
-    }
-
-    function getMissionLength(uint8 missionId) external view returns (uint256) {
-        return mission.getMissionLength(missionId);
-    }
-
-    function getMissionTitle(uint8 missionId) external view returns (string memory) {
-        return mission.missions(missionId).title;
     }
 }
 
@@ -1165,7 +1163,7 @@ interface IArm0ryQuests {
 
     function getQuestProgress(address traveler, uint8 questId) external view returns (uint8);
 
-    function getQuestReviewXpNeeded(address traveler, uint8 questId) external view returns (uint8);
+    function getQuestIncompleteCount(address traveler, uint8 questId) external view returns (uint8);
 }
 
 /// @title Arm0ry Quests
@@ -1178,6 +1176,7 @@ struct Quest {
     uint40 duration;
     uint8 missionId;
     uint8 completed;
+    uint8 incomplete;
     uint8 progress;
     uint8 xp;
     uint8 claimed;
@@ -1289,10 +1288,10 @@ contract Arm0ryQuests {
     mapping(address => mapping(uint256 => bool)) public isTaskCompleted;
 
     // Rewards per Task creator
-    mapping(address => uint256) public taskCreatorRewards;
+    mapping(address => uint16) public taskCreatorRewards;
 
     // Rewards per Mission creator
-    mapping(address => uint256) public missionCreatorRewards;
+    mapping(address => uint16) public missionCreatorRewards;
 
     // Active quests per Traveler, one active quest per Traveler
     mapping(address => uint8) public activeQuests;
@@ -1367,6 +1366,7 @@ contract Arm0ryQuests {
             duration: mission.missions(missionId).expiration,
             missionId: missionId,
             completed: 0,
+            incomplete: 0,
             progress: 0,
             xp: 0,
             claimed: 0
@@ -1540,8 +1540,11 @@ contract Arm0ryQuests {
             unchecked { 
                 ++_completed;
 
-                // Increment Task completion count
+                // Update complted Task count
                 quests[traveler][questId].completed = _completed;
+
+                // Update incomplete Task count
+                quests[traveler][questId].completed = missionTasksCount - _completed;
 
                 // Update Quest progress
                 progress = (_completed / missionTasksCount) * 100;
@@ -1595,15 +1598,17 @@ contract Arm0ryQuests {
     /// @notice Task creator to claim rewards.
     /// @dev 
     function claimCreatorReward() external payable {
-        if (taskCreatorRewards[msg.sender] == 0) revert NothingToClaim();
+        if (taskCreatorRewards[msg.sender] == 0 && missionCreatorRewards[msg.sender] == 0) revert NothingToClaim();
 
-        uint256 reward = taskCreatorRewards[msg.sender];
+        uint16 taskReward = taskCreatorRewards[msg.sender];
+        uint16 missionReward = missionCreatorRewards[msg.sender];
 
         taskCreatorRewards[msg.sender] = 0;
+        missionCreatorRewards[msg.sender] = 0;
 
-        IKaliShareManager(arm0ry).mintShares(msg.sender, reward * 1e18);
+        IKaliShareManager(arm0ry).mintShares(msg.sender, (missionReward + taskReward) * 1e18);
 
-        emit CreatorRewardClaimed(msg.sender, reward * 1e18);
+        emit CreatorRewardClaimed(msg.sender, (missionReward + taskReward) * 1e18);
     }
 
     /// -----------------------------------------------------------------------
@@ -1656,21 +1661,8 @@ contract Arm0ryQuests {
         return quests[_traveler][_questId].progress;
     }
 
-    function getQuestReviewXpNeeded(address _traveler, uint8 _questId) external view returns (uint8) {
-        uint8 progress = quests[_traveler][_questId].progress;
-        uint8 missionId = quests[_traveler][_questId].missionId;
-        uint8 totalTaskCount = uint8(mission.missions(missionId).taskIds.length);
-        uint8 reviewerXpCurrent = reviewerXp[_traveler];
-        uint8 reviewerXpRequired = totalTaskCount * (100 - progress) / 100;
-
-        uint8 reviewerXpNeeded;
-        
-        // cannot possibly overflow
-        unchecked {
-            reviewerXpNeeded = (reviewerXpCurrent >= reviewerXpRequired) ? 0 : reviewerXpRequired - reviewerXpCurrent;
-        } 
-
-        return reviewerXpNeeded;
+    function getQuestIncompleteCount(address _traveler, uint8 _questId) external view returns (uint8) {
+        return quests[_traveler][_questId].incomplete;
     }
 
     /// -----------------------------------------------------------------------
