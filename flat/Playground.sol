@@ -1044,6 +1044,10 @@ contract Arm0ryMission {
             missions[missionId].expiration = expiration; 
         }
 
+        unchecked {
+            ++missionId;
+        }
+        
         emit MissionSet(missionId, _taskIds, _details);
     }
 
