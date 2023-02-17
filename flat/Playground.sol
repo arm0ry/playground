@@ -840,6 +840,7 @@ struct Mission {
     string details;
     string title;
     address creator;
+    uint256 fee;
 }
 
 struct Task {
@@ -1007,7 +1008,8 @@ contract Arm0ryMission {
         uint8[] calldata _taskIds,
         string calldata _details,
         string calldata _title,
-        address _creator
+        address _creator,
+        uint256 _fee
     ) external payable {
         if (msg.sender != admin && !isManager[msg.sender])
             revert NotAuthorized();
@@ -1031,12 +1033,12 @@ contract Arm0ryMission {
             }
         }
 
-        //
         missions[missionId].taskIds = _taskIds;
         missions[missionId].details = _details;
         missions[missionId].title = _title;
         missions[missionId].creator = _creator;
         missions[missionId].xp = totalXp;
+        missions[missionId].fee = _fee;
 
         if (missionId == 0) {
             missions[missionId].expiration = 2524626000; // 01/01/2050
@@ -1047,7 +1049,6 @@ contract Arm0ryMission {
         unchecked {
             ++missionId;
         }
-        
         emit MissionSet(missionId, _taskIds, _details);
     }
 
@@ -1062,11 +1063,12 @@ contract Arm0ryMission {
         uint8[] calldata _taskIds,
         string calldata _details,
         string calldata _title,
-        address _creator
+        address _creator,
+        uint256 _fee
     ) external payable {
         if (missions[_missionId].taskIds.length == 0) revert InvalidMission();
         
-        this.setMission(_taskIds, _details, _title, _creator);
+        this.setMission(_taskIds, _details, _title, _creator, _fee);
     }
 
     /// @notice Update missions
@@ -1215,8 +1217,6 @@ contract Arm0ryQuests {
 
     event CreatorRewardClaimed(address indexed creator, uint256 amount);
 
-    event FastPassUpdated(uint256 amount);
-
     event ContractsUpdated(IArm0ryTravelers indexed travelers, IArm0ryMission indexed mission);
 
     /// -----------------------------------------------------------------------
@@ -1241,6 +1241,8 @@ contract Arm0ryQuests {
 
     error InvalidReview();
 
+    error InvalidBonus();
+
     error AlreadyReviewed();
 
     error TaskNotReadyForReview();
@@ -1259,9 +1261,7 @@ contract Arm0ryQuests {
 
     uint256 public immutable THRESHOLD = 10 * 1e18;
     
-    uint256 public fastPass;
-
-    address public arm0ry;
+    address payable public arm0ry;
 
     IArm0ryTravelers public travelers;
 
@@ -1310,16 +1310,13 @@ contract Arm0ryQuests {
     constructor(
         IArm0ryTravelers _travelers,
         IArm0ryMission _mission,
-        uint256 _fastPass,
-        address _arm0ry
+        address payable _arm0ry
     ) {
         travelers = _travelers;
         mission = _mission;
-        fastPass = _fastPass;
         arm0ry = _arm0ry;
 
         emit ContractsUpdated(travelers, mission);
-        emit FastPassUpdated(fastPass);
     }
 
     /// -----------------------------------------------------------------------
@@ -1335,18 +1332,25 @@ contract Arm0ryQuests {
     {
         uint256 id = uint256(uint160(msg.sender));
         uint8[] memory _taskIds = mission.missions(missionId).taskIds;
+        uint256 fee = mission.missions(missionId).fee;
 
-        // Lock Traveler Pass and if Traveler picked a non-BASIC path, 
-        // i.e., missionId = 0, Traveler is required to stake token
+        // If Traveler picked a BASIC path, i.e., missionId = 0, 
+        // lock Traveler Pass
         if (missionId == 0) {
             travelers.safeTransferFrom(msg.sender, address(this), id);
-        } else {
-            if (
-                IERC20(arm0ry).balanceOf(msg.sender) < THRESHOLD ||
-                msg.value >= fastPass
-            ) revert NeedMoreCoins();
-            IERC20(arm0ry).transferFrom(msg.sender, address(this), THRESHOLD);
+        } 
+
+        // If Traveler picked a non-BASIC path, i.e., missionId != 0, 
+        // lock Traveler Pass, and burn Traveler's token
+        if (missionId != 0) {
+            if (IERC20(arm0ry).balanceOf(msg.sender) < THRESHOLD) revert NeedMoreCoins();
+
+            IKaliShareManager(arm0ry).burnShares(msg.sender, THRESHOLD);
             travelers.safeTransferFrom(msg.sender, address(this), id);
+        }
+
+        if (fee != 0) {
+            if (msg.value < fee) revert NeedMoreCoins(); 
         }
 
         // Initialize tasks review status
@@ -1500,13 +1504,17 @@ contract Arm0ryQuests {
         address traveler,
         uint8 questId,
         uint16 taskId,
-        uint8 review
+        uint8 review,
+        uint8 bonusXp
     ) external payable {
         // Reviewer must have completed 2 quests
         if (questNonce[msg.sender] < 2) revert InvalidReviewer();
 
         // Reviewer must provide valid review data
         if (review == 0) revert InvalidReview();
+
+        // Bonus Xp must not exceed 5
+        if (bonusXp > 5) revert InvalidBonus();
 
         // Traveler must mark task for review ahead of time
         if (!taskReadyForReview[traveler][taskId]) revert TaskNotReadyForReview();
@@ -1528,6 +1536,7 @@ contract Arm0ryQuests {
 
             // Retrieve to update Task reward
             uint8 xp = mission.getTaskXp(taskId);
+            xp += bonusXp;
 
             // Retrieve to update Task completion and progress
             uint8 _completed = quests[traveler][questId].completed;
@@ -1619,16 +1628,6 @@ contract Arm0ryQuests {
     /// Arm0ry Functions
     /// -----------------------------------------------------------------------
 
-    /// @notice Update price of lightning pass.
-    /// @param _fastPass Amount required to skip BASIC mission.
-    /// @dev 
-    function updateFastPass(uint256 _fastPass) external payable {
-        if (msg.sender != arm0ry) revert NotAuthorized();
-        fastPass = _fastPass;
-
-        emit FastPassUpdated(fastPass);
-    }
-
     /// @notice Update Arm0ry contracts.
     /// @param _travelers Contract address of Arm0ryTraveler.sol.
     /// @param _mission Contract address of Arm0ryMission.sol.
@@ -1643,6 +1642,13 @@ contract Arm0ryQuests {
 
     function updateReviewerXp(address reviewer) external payable {
 
+    }
+
+    /// @notice Withdraw funds to Arm0ry.
+    /// @dev 
+    function withdraw() external payable {
+        if (msg.sender != arm0ry) revert NotAuthorized();
+        arm0ry.transfer(address(this).balance);
     }
 
     /// -----------------------------------------------------------------------
@@ -1696,4 +1702,6 @@ contract Arm0ryQuests {
 
         emit QuestCompleted(traveler, questId);
     }
+
+    receive() external payable {}
 }
