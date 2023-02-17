@@ -1217,6 +1217,8 @@ contract Arm0ryQuests {
 
     event CreatorRewardClaimed(address indexed creator, uint256 amount);
 
+    event ReviewerXpUpdated(uint8 xp);
+
     event ContractsUpdated(IArm0ryTravelers indexed travelers, IArm0ryMission indexed mission);
 
     /// -----------------------------------------------------------------------
@@ -1640,8 +1642,11 @@ contract Arm0ryQuests {
         emit ContractsUpdated(travelers, mission);
     }
 
-    function updateReviewerXp(address reviewer) external payable {
+    function updateReviewerXp(address reviewer, uint8 _xp) external payable {
+        if (msg.sender != arm0ry) revert NotAuthorized();
+        reviewerXp[reviewer] = _xp;
 
+        emit ReviewerXpUpdated(_xp);
     }
 
     /// @notice Withdraw funds to Arm0ry.
