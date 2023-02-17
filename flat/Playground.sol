@@ -1351,8 +1351,11 @@ contract Arm0ryQuests {
             travelers.safeTransferFrom(msg.sender, address(this), id);
         }
 
+        // If Mission requires fee, distribute to the Mission creator
         if (fee != 0) {
             if (msg.value < fee) revert NeedMoreCoins(); 
+            address payable creator = payable(mission.missions(missionId).creator);
+            creator.transfer(msg.value);
         }
 
         // Initialize tasks review status
