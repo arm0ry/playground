@@ -422,7 +422,7 @@ contract Arm0ryTravelers is ERC721 {
     /// Traveler Storage
     /// -----------------------------------------------------------------------
 
-    address payable public arm0ry; 
+    address public arm0ry; 
 
     IArm0ryQuests public quests;
 
@@ -432,12 +432,6 @@ contract Arm0ryTravelers is ERC721 {
 
     // 16 palettes
     string[4][10] palette = [
-        // ["#eca3f5", "#fdbaf9", "#b0efeb", "#edffa9"],
-        // ["#75cfb8", "#bbdfc8", "#f0e5d8", "#ffc478"],
-        // ["#ffab73", "#ffd384", "#fff9b0", "#ffaec0"],
-        // ["#94b4a4", "#d2f5e3", "#e5c5b5", "#f4d9c6"],
-        // ["#f4f9f9", "#ccf2f4", "#a4ebf3", "#aaaaaa"],
-        // ["#caf7e3", "#edffec", "#f6dfeb", "#e4bad4"],
         ["#f4f9f9", "#f1d1d0", "#fbaccc", "#f875aa"],
         ["#fdffbc", "#ffeebb", "#ffdcb8", "#ffc1b6"],
         ["#f0e4d7", "#f5c0c0", "#ff7171", "#9fd8df"],
@@ -450,7 +444,7 @@ contract Arm0ryTravelers is ERC721 {
         ["#dddddd", "#f9f3f3", "#f7d9d9", "#f25287"]
     ];
 
-    constructor(address payable _arm0ry) ERC721("Arm0ry Travelers", "ART") {
+    constructor(address _arm0ry) ERC721("Arm0ry Travelers", "ART") {
         arm0ry = _arm0ry;
     }
 
@@ -811,7 +805,7 @@ interface IArm0ryMission {
     function missions(uint8 missionId) external view returns (Mission calldata);
 
     function tasks(uint8 taskId) external view returns (Task calldata);
-
+// MissionId => TaskId => True/False
     function isTaskInMission(uint8 missionId, uint8 taskId)
         external
         returns (bool);
@@ -835,7 +829,7 @@ interface IArm0ryMission {
 
 struct Mission {
     uint8 xp;
-    uint40 expiration;
+    uint40 duration;
     uint8[] taskIds;
     string details;
     string title;
@@ -845,7 +839,7 @@ struct Mission {
 
 struct Task {
     uint8 xp;
-    uint40 expiration;
+    uint40 duration;
     address creator;
     string details;
     string title; 
@@ -857,17 +851,10 @@ contract Arm0ryMission {
     /// Events
     /// -----------------------------------------------------------------------
 
-    event MissionSet(uint8 missionId, uint8[] indexed taskIds, string details);
+    event MissionUpdated(uint8 missionId, uint8[] indexed taskIds, string details);
 
-    event TaskSet(
-        uint40 expiration,
-        uint8 points,
-        address creator,
-        string details
-    );
-
-    event TasksUpdated(
-        uint40 expiration,
+    event TaskUpdated(
+        uint40 duration,
         uint8 points,
         address creator,
         string details
@@ -898,17 +885,21 @@ contract Arm0ryMission {
     address[] public managers;
 
     // Status indicating if an address is a Manager
+    // Account -> True/False 
     mapping(address => bool) isManager;
 
     uint8 public taskId;
 
+    // A list of tasks ordered by taskId
     mapping(uint8 => Task) public tasks;
 
     uint8 public missionId;
 
+    // A list of missions ordered by missionId
     mapping(uint8 => Mission) public missions;
 
     // Status indicating if a Task is part of a Mission
+    // MissionId => TaskId => True/False
     mapping(uint8 => mapping(uint8 => bool)) public isTaskInMission;
 
     /// -----------------------------------------------------------------------
@@ -933,36 +924,33 @@ contract Arm0ryMission {
         uint256 length = taskData.length;
 
         for (uint256 i = 0; i < length; ) {
-            unchecked {
-                ++taskId;
-            }
-
             (
-                uint8 xp,
-                uint40 expiration,
-                address creator,
-                string memory title,
-                string memory details
+                uint8 xp, // Xp of a Task
+                uint40 duration, // Time allocated to complete a Task
+                address creator, // Creator of a Task
+                string memory title, // Title of a Task
+                string memory details // Additional Task detail
             ) = abi.decode(taskData[i], (uint8, uint40, address, string, string));
 
             tasks[taskId].xp = xp;
-            tasks[taskId].expiration = expiration;
+            tasks[taskId].duration = duration;
             tasks[taskId].creator = creator;
             tasks[taskId].title = title;
             tasks[taskId].details = details;
 
-            emit TaskSet(expiration, xp, creator, details);
+            emit TaskUpdated(duration, xp, creator, details);
 
             // Unchecked because the only math done is incrementing
             // the array index counter which cannot possibly overflow.
             unchecked {
                 ++i;
+                ++taskId;
             }
         }
     }
 
     /// @notice Update tasks
-    /// @param ids Identifiers of tasks to be updated
+    /// @param ids A list of tasks to be updated
     /// @param taskData Encoded data to update as Task
     /// @dev
     function updateTasks(uint8[] calldata ids, bytes[] calldata taskData)
@@ -978,18 +966,18 @@ contract Arm0ryMission {
 
         for (uint256 i = 0; i < length; ) {
             (
-                uint40 expiration,
+                uint40 duration,
                 uint8 xp,
                 address creator,
                 string memory details
             ) = abi.decode(taskData[i], (uint40, uint8, address, string));
 
-            tasks[ids[i]].expiration = expiration;
+            tasks[ids[i]].duration = duration;
             tasks[ids[i]].xp = xp;
             tasks[ids[i]].creator = creator;
             tasks[ids[i]].details = details;
 
-            emit TasksUpdated(expiration, xp, creator, details);
+            emit TaskUpdated(duration, xp, creator, details);
 
             // Unchecked because the only math done is incrementing
             // the array index counter which cannot possibly overflow.
@@ -1000,7 +988,7 @@ contract Arm0ryMission {
     }
 
     /// @notice Create missions
-    /// @param _taskIds Identifiers of tasks to be added to a Mission
+    /// @param _taskIds A list of tasks to be added to a Mission
     /// @param _details Docs of a Mission
     /// @param _title Title of a Mission
     /// @dev
@@ -1014,42 +1002,24 @@ contract Arm0ryMission {
         if (msg.sender != admin && !isManager[msg.sender])
             revert NotAuthorized();
 
-        // Calculate xp and expiration for Mission
-        uint8 totalXp;
-        uint40 expiration;
-        for (uint256 i = 0; i < _taskIds.length; ) {
-            // Aggregate Task duration to create Mission duration
-            uint40 _expiration = this.getTaskExpiration(_taskIds[i]);
-            uint8 taskXp = this.getTaskXp(_taskIds[i]);
-            expiration += _expiration;
-            totalXp += taskXp;
+        // Calculate xp and duration for Mission
+        (uint8 totalXp, uint40 duration) = 
+            calculateMissionDetail(missionId, _taskIds);
 
-            // Update task status
-            isTaskInMission[missionId][_taskIds[i]] = true;
-
-            // cannot possibly overflow
-            unchecked {
-                ++i;
-            }
-        }
-
+        // Create a Mission
+        // Supply 01/01/2050 as deadline for first mission
         missions[missionId].taskIds = _taskIds;
         missions[missionId].details = _details;
         missions[missionId].title = _title;
         missions[missionId].creator = _creator;
         missions[missionId].xp = totalXp;
         missions[missionId].fee = _fee;
-
-        if (missionId == 0) {
-            missions[missionId].expiration = 2524626000; // 01/01/2050
-        } else {
-            missions[missionId].expiration = expiration; 
-        }
+        missions[missionId].duration = (missionId == 0) ? 2524626000 : duration; 
 
         unchecked {
             ++missionId;
         }
-        emit MissionSet(missionId, _taskIds, _details);
+        emit MissionUpdated(missionId, _taskIds, _details);
     }
 
     /// @notice Update missions
@@ -1066,9 +1036,24 @@ contract Arm0ryMission {
         address _creator,
         uint256 _fee
     ) external payable {
-        if (missions[_missionId].taskIds.length == 0) revert InvalidMission();
-        
-        this.setMission(_taskIds, _details, _title, _creator, _fee);
+        if (msg.sender != admin && !isManager[msg.sender])
+            revert NotAuthorized();
+
+        // Calculate xp and duration for Mission
+        (uint8 totalXp, uint40 duration) = 
+            calculateMissionDetail(_missionId, _taskIds);
+
+        // Update existing Mission
+        // Supply 01/01/2050 as deadline for first mission
+        missions[_missionId].taskIds = _taskIds;
+        missions[_missionId].details = _details;
+        missions[_missionId].title = _title;
+        missions[_missionId].creator = _creator;
+        missions[_missionId].xp = totalXp;
+        missions[_missionId].fee = _fee;
+        missions[missionId].duration = (missionId == 0) ? 2524626000 : duration; // 01/01/2050
+
+        emit MissionUpdated(_missionId, _taskIds, _details);
     }
 
     /// @notice Update missions
@@ -1105,6 +1090,7 @@ contract Arm0ryMission {
                 isManager[_managers[i]] = true;
             }
 
+            // cannot possibly overflow
             unchecked {
                 ++i;
             }
@@ -1122,7 +1108,7 @@ contract Arm0ryMission {
     }
 
     function getTaskExpiration(uint8 _taskId) external view returns (uint40) {
-        return tasks[_taskId].expiration;
+        return tasks[_taskId].duration;
     }
 
     function getTaskCreator(uint8 _taskId) external view returns (address) {
@@ -1151,6 +1137,33 @@ contract Arm0ryMission {
 
     function getMissionCreator(uint8 _missionId) external view returns (address){
         return missions[_missionId].creator;
+    }
+
+    /// -----------------------------------------------------------------------
+    /// Internal Functions
+    /// -----------------------------------------------------------------------
+
+    function calculateMissionDetail(uint8 _missionId, uint8[] calldata _taskIds) internal returns (uint8, uint40) {
+        // Calculate xp and duration for Mission
+        uint8 totalXp;
+        uint40 duration;
+        for (uint256 i = 0; i < _taskIds.length; ) {
+            // Aggregate Task duration to create Mission duration
+            uint40 _expiration = this.getTaskExpiration(_taskIds[i]);
+            uint8 taskXp = this.getTaskXp(_taskIds[i]);
+            duration += _expiration;
+            totalXp += taskXp;
+
+            // Update task status
+            isTaskInMission[_missionId][_taskIds[i]] = true;
+
+            // cannot possibly overflow
+            unchecked {
+                ++i;
+            }
+        }
+
+        return  (totalXp, duration);
     }
 }
 
@@ -1276,39 +1289,51 @@ contract Arm0ryQuests {
     IArm0ryMission public mission;
 
     // Traveler's history of quests
+    // Traveler => Quest Id => Quest
     mapping(address => mapping(uint256 => Quest)) public quests;
 
     // Counter indicating Quest count per Traveler
+    // Traveler => Quest count
     mapping(address => uint8) public questNonce;
 
     // Homework per Task of an active Quest
+    // Traveler => Quest Id => Homework
     mapping(address => mapping(uint256 => string)) public taskHomework;
 
     // Status indicating if a Task of an active Quest is ready for review
+    // Traveler => Task Id => True/False
     mapping(address => mapping(uint256 => bool)) public taskReadyForReview;
 
     // Review results of a Task of a Quest
     // 0 - not yet reviewed
     // 1 - reviewed with a check
     // 2 - reviewed with an x
+    // Traveler => Task Id => Reviewer => True/False
     mapping(address => mapping(uint256 => mapping(address => uint8))) public taskReviews;
 
     // Xp per reviewer
+    // Reviewer => Xp
     mapping(address => uint8) public reviewerXp;
 
-    // Status indicating if a Task of an active Quest is completed
+    // Status indicating if a Task of a Quest is completed
+    // Traveler => Task Id => True/False
     mapping(address => mapping(uint256 => bool)) public isTaskCompleted;
 
     // Rewards per Task creator
+    // Task creator => Reward points
     mapping(address => uint16) public taskCreatorRewards;
 
     // Rewards per Mission creator
+    // Mission creator => Reward points
     mapping(address => uint16) public missionCreatorRewards;
 
-    // Active quests per Traveler, one active quest per Traveler
+    // Active quest per Traveler 
+    // One active quest per Traveler; max uint8 signals "no active quest"
+    // Traveler => Quest Id
     mapping(address => uint8) public activeQuests;
 
-    // Travelers per mission ID
+    // Travelers per Mission Id
+    // Mission Id => Travelers 
     mapping(uint8 => address[]) public missionTravelers;
 
     /// -----------------------------------------------------------------------
@@ -1341,6 +1366,7 @@ contract Arm0ryQuests {
         uint256 id = uint256(uint160(msg.sender));
         uint8[] memory _taskIds = mission.missions(missionId).taskIds;
         uint256 fee = mission.missions(missionId).fee;
+        uint8 qNonce = questNonce[msg.sender];
 
         // If Traveler picked a BASIC path, i.e., missionId = 0, 
         // lock Traveler Pass
@@ -1366,25 +1392,26 @@ contract Arm0ryQuests {
             creator.transfer(creatorCut);
         }
 
-        // Initialize tasks review status
+        // Initialize review status per Task
         for (uint256 i = 0; i < _taskIds.length; ) {
             taskReadyForReview[msg.sender][_taskIds[i]] = false;
 
+            // cannot possibly overflow
             unchecked {
                 ++i;
             }
         }
 
         // Initialize reviewer xp
-        if (questNonce[msg.sender] == 0) {
+        if (qNonce == 0) {
             reviewerXp[msg.sender] = 5;
         }
 
         // Record Quest
-        quests[msg.sender][questNonce[msg.sender]] = Quest({
-            staked: missionId == 0 ? 0 : THRESHOLD,
+        quests[msg.sender][qNonce] = Quest({
+            staked: missionId == 0 ? 0 : THRESHOLD, 
             start: uint40(block.timestamp),
-            duration: mission.missions(missionId).expiration,
+            duration: mission.missions(missionId).duration,
             missionId: missionId,
             completed: 0,
             incomplete: 0,
@@ -1393,15 +1420,16 @@ contract Arm0ryQuests {
             claimed: 0
         });
 
-        // Record mission participants
+        // Add Traveler to list of mission participants
         missionTravelers[missionId].push(msg.sender);
 
         // Mark active quest for Traveler
-        activeQuests[msg.sender] = questNonce[msg.sender];
+        activeQuests[msg.sender] = qNonce;
         
         // Update nonce
         unchecked {
-            ++questNonce[msg.sender];
+            ++qNonce;
+            questNonce[msg.sender] = qNonce;
         }
 
         emit QuestStarted(msg.sender, missionId);
@@ -1452,7 +1480,7 @@ contract Arm0ryQuests {
         if (missionId != 0) {
             uint256 stakeToReturn = THRESHOLD * progress / 100;
             quests[msg.sender][questId].staked -= stakeToReturn;
-            IERC20(arm0ry).transfer(msg.sender, stakeToReturn);
+            IKaliShareManager(arm0ry).mintShares(msg.sender, stakeToReturn);
 
             // Update Quest start time and duration
             uint40 diff;
@@ -1710,14 +1738,16 @@ contract Arm0ryQuests {
     /// Internal Functions
     /// -----------------------------------------------------------------------
 
+    /// @notice Return locked NFT & staked arm0ry token.
+    /// @param traveler .
+    /// @param questId .
+    /// @dev 
     function finalizeQuest(address traveler, uint8 questId) internal {
-        // Return locked NFT & arm0ry token
         uint256 staked = quests[traveler][questId].staked;
-        uint8 missionId = quests[traveler][questId].missionId;
         
         // Return any staked amount
-        if (missionId != 0) {
-            IERC20(arm0ry).transfer(traveler, staked);
+        if (staked > 0) {
+            IKaliShareManager(arm0ry).mintShares(traveler, staked);
         }
 
         // Return Traveler NFT
@@ -1727,8 +1757,10 @@ contract Arm0ryQuests {
             uint256(uint160(traveler))
         );
 
-        // Mark Quest inactive
+        // Clean up Quest
         quests[traveler][questId].start = 0;
+
+        // Mark Quest as "Inactive" 
         activeQuests[msg.sender] = type(uint8).max;
 
         emit QuestCompleted(traveler, questId);
