@@ -1219,6 +1219,8 @@ contract Arm0ryQuests {
 
     event ReviewerXpUpdated(uint8 xp);
 
+    event Arm0ryFeeUpdatedXpUpdated(uint8 arm0ryFee);
+
     event ContractsUpdated(IArm0ryTravelers indexed travelers, IArm0ryMission indexed mission);
 
     /// -----------------------------------------------------------------------
@@ -1245,6 +1247,8 @@ contract Arm0ryQuests {
 
     error InvalidBonus();
 
+    error InvalidArm0ryFee();
+
     error AlreadyReviewed();
 
     error TaskNotReadyForReview();
@@ -1264,6 +1268,8 @@ contract Arm0ryQuests {
     uint256 public immutable THRESHOLD = 10 * 1e18;
     
     address payable public arm0ry;
+
+    uint8 public arm0ryFee;
 
     IArm0ryTravelers public travelers;
 
@@ -1354,8 +1360,10 @@ contract Arm0ryQuests {
         // If Mission requires fee, distribute to the Mission creator
         if (fee != 0) {
             if (msg.value < fee) revert NeedMoreCoins(); 
+            uint256 creatorCut = msg.value * (100 - arm0ryFee) / 100;
+
             address payable creator = payable(mission.missions(missionId).creator);
-            creator.transfer(msg.value);
+            creator.transfer(creatorCut);
         }
 
         // Initialize tasks review status
@@ -1645,6 +1653,10 @@ contract Arm0ryQuests {
         emit ContractsUpdated(travelers, mission);
     }
 
+    /// @notice Update Reviewer xp.
+    /// @param reviewer Reviewer's address.
+    /// @param _xp Xp to assign to Reviewer.
+    /// @dev 
     function updateReviewerXp(address reviewer, uint8 _xp) external payable {
         if (msg.sender != arm0ry) revert NotAuthorized();
         reviewerXp[reviewer] = _xp;
@@ -1657,6 +1669,17 @@ contract Arm0ryQuests {
     function withdraw() external payable {
         if (msg.sender != arm0ry) revert NotAuthorized();
         arm0ry.transfer(address(this).balance);
+    }
+
+    /// @notice Update Reviewer xp.
+    /// @param _arm0ryFee Fee % taken by Arm0ry per Mission initiation.
+    /// @dev 
+    function updateArm0ryFee(uint8 _arm0ryFee) external payable {
+        if (msg.sender != arm0ry) revert NotAuthorized();
+        if (_arm0ryFee > 100) revert InvalidArm0ryFee();
+        arm0ryFee = _arm0ryFee;
+
+        emit Arm0ryFeeUpdatedXpUpdated(_arm0ryFee);
     }
 
     /// -----------------------------------------------------------------------
