@@ -966,16 +966,18 @@ contract Arm0ryMission {
 
         for (uint256 i = 0; i < length; ) {
             (
-                uint40 duration,
-                uint8 xp,
-                address creator,
-                string memory details
-            ) = abi.decode(taskData[i], (uint40, uint8, address, string));
+                uint8 xp, // Xp of a Task
+                uint40 duration, // Time allocated to complete a Task
+                address creator, // Creator of a Task
+                string memory title, // Title of a Task
+                string memory details // Additional Task detail
+            ) = abi.decode(taskData[i], (uint8, uint40, address, string, string));
 
-            tasks[ids[i]].duration = duration;
-            tasks[ids[i]].xp = xp;
-            tasks[ids[i]].creator = creator;
-            tasks[ids[i]].details = details;
+            tasks[taskId].xp = xp;
+            tasks[taskId].duration = duration;
+            tasks[taskId].creator = creator;
+            tasks[taskId].title = title;
+            tasks[taskId].details = details;
 
             emit TaskUpdated(duration, xp, creator, details);
 
