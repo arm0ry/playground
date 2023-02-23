@@ -1,6 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.4;
 
+/// @notice Receiver hook utility for NFT 'safe' transfers
+abstract contract NFTreceiver {
+    function onERC721Received(
+        address,
+        address,
+        uint256,
+        bytes calldata
+    ) external pure returns (bytes4) {
+        return 0x150b7a02;
+    }
+}
+
 /**
  * @dev String operations.
  */
@@ -805,7 +817,7 @@ interface IArm0ryMission {
     function missions(uint8 missionId) external view returns (Mission calldata);
 
     function tasks(uint8 taskId) external view returns (Task calldata);
-// MissionId => TaskId => True/False
+
     function isTaskInMission(uint8 missionId, uint8 taskId)
         external
         returns (bool);
@@ -821,6 +833,10 @@ interface IArm0ryMission {
     function getMissionLength(uint8 missionId) external view returns (uint256);
 
     function getMissionCreator(uint8 missionId) external view returns (address);
+
+    function getMissionFee(uint8 missionId) external view returns (uint256);
+
+    function getMissionDuration(uint8 missionId) external view returns (uint40);
 }
 
 /// @title Arm0ry Mission
@@ -1141,6 +1157,14 @@ contract Arm0ryMission {
         return missions[_missionId].creator;
     }
 
+    function getMissionFee(uint8 _missionId) external view returns (uint256){
+        return missions[_missionId].fee;
+    }
+
+    function getMissionDuration(uint8 _missionId) external view returns (uint40){
+        return missions[_missionId].duration;
+    }
+
     /// -----------------------------------------------------------------------
     /// Internal Functions
     /// -----------------------------------------------------------------------
@@ -1209,8 +1233,8 @@ struct Deliverable {
     bool[] results;
 }
 
-contract Arm0ryQuests {
-    using SafeTransferLib for address;
+contract Arm0ryQuests is NFTreceiver {
+    using SafeTransferLib for address payable;
 
     /// -----------------------------------------------------------------------
     /// Events
@@ -1366,8 +1390,6 @@ contract Arm0ryQuests {
         payable
     {
         uint256 id = uint256(uint160(msg.sender));
-        uint8[] memory _taskIds = mission.missions(missionId).taskIds;
-        uint256 fee = mission.missions(missionId).fee;
         uint8 qNonce = questNonce[msg.sender];
 
         // If Traveler picked a BASIC path, i.e., missionId = 0, 
@@ -1386,22 +1408,13 @@ contract Arm0ryQuests {
         }
 
         // If Mission requires fee, distribute to the Mission creator
+        uint256 fee = mission.getMissionFee(missionId);
         if (fee != 0) {
             if (msg.value < fee) revert NeedMoreCoins(); 
             uint256 creatorCut = msg.value * (100 - arm0ryFee) / 100;
 
-            address payable creator = payable(mission.missions(missionId).creator);
-            creator.transfer(creatorCut);
-        }
-
-        // Initialize review status per Task
-        for (uint256 i = 0; i < _taskIds.length; ) {
-            taskReadyForReview[msg.sender][_taskIds[i]] = false;
-
-            // cannot possibly overflow
-            unchecked {
-                ++i;
-            }
+            address payable creator = payable(mission.getMissionCreator(missionId));
+            creator._safeTransferETH(creatorCut);
         }
 
         // Initialize reviewer xp
@@ -1413,7 +1426,7 @@ contract Arm0ryQuests {
         quests[msg.sender][qNonce] = Quest({
             staked: missionId == 0 ? 0 : THRESHOLD, 
             start: uint40(block.timestamp),
-            duration: mission.missions(missionId).duration,
+            duration: mission.getMissionDuration(missionId),
             missionId: missionId,
             completed: 0,
             incomplete: 0,
