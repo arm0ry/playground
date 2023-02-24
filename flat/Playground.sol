@@ -515,10 +515,7 @@ contract Arm0ryTravelers is ERC721 {
         address traveler = address(uint160(tokenId));
         uint8 questId = quests.activeQuests(traveler);
         uint8 missionId = quests.getQuestMissionId(traveler, questId);
-
-        // Calculate Quest data
-        string memory title = mission.missions(missionId).title;
-        // uint8 reviewerXpNeeded = quests.getQuestIncompleteCount(traveler, questId);
+        string memory missionTitle = mission.getMissionTitle(missionId);
 
         // Prepare palette
         bytes memory hash = abi.encodePacked(toBytes(traveler));
@@ -536,11 +533,8 @@ contract Arm0ryTravelers is ERC721 {
                     '<text x="272" y="120" class="tiny" stroke="grey">Xp</text>',
                     '<text x="15" y="170" class="medium" stroke="grey">QUEST: </text>',
                     '<rect x="15" y="175" width="205" height="40" style="fill:white;opacity:0.5"/>',
-                    '<text x="20" y="190" class="medium" stroke="black">',title,'</text>',
-                    unicode'  <text x="30" y="260" class="tiny" stroke="grey">Thank you for joining us at g0v 54th Hackathon! 🤙</text>',
-                    // '<text x="20" y="270" class="medium" stroke="black">',Strings.toString(reviewerXpNeeded),'</text>',
-                    // '<text x="15" y="260" style="font-size:8px" stroke="black">',addressToHexString(quests.getQuestBuddyOne(traveler, nonce)),'</text>',
-                    // '<text x="15" y="275" style="font-size:8px" stroke="black">',addressToHexString(quests.getQuestBuddyTwo(traveler, nonce)),'</text>',
+                    '<text x="20" y="190" class="medium" stroke="black">',bytes(missionTitle).length == 0 ? ' ' : missionTitle ,'</text>',
+                    unicode'  <text x="30" y="260" class="tiny" stroke="grey">Thank you for joining us at g0v 55th Hackathon! 🤙</text>',
                     '<style>.svgBody {font-family: "Courier New" } .tiny {font-size:8px; } .small {font-size: 12px;}.medium {font-size: 18px;}.score {font-size: 70px;}</style>',
                     "</svg>"
                 )
@@ -814,10 +808,6 @@ interface IERC20 {
 }
 
 interface IArm0ryMission {
-    function missions(uint8 missionId) external view returns (Mission calldata);
-
-    function tasks(uint8 taskId) external view returns (Task calldata);
-
     function isTaskInMission(uint8 missionId, uint8 taskId)
         external
         returns (bool);
@@ -828,9 +818,13 @@ interface IArm0ryMission {
 
     function getTaskCreator(uint16 taskId) external view returns (address);
 
+    function getMissionTitle(uint8 missionId) external view returns (string memory);
+    
+    function getMissionXp(uint8 missionId) external view returns (uint8);
+
     function getMissionTasks(uint8 missionId) external view returns (uint8[] calldata);
 
-    function getMissionLength(uint8 missionId) external view returns (uint256);
+    function getMissionTasksCount(uint8 missionId) external view returns (uint8);
 
     function getMissionCreator(uint8 missionId) external view returns (address);
 
@@ -1137,6 +1131,14 @@ contract Arm0ryMission {
         return missions[_missionId].title;
     }
 
+    function getMissionXp(uint8 _missionId)
+        external
+        view
+        returns (uint8)
+    {
+        return missions[_missionId].xp;
+    }
+
     function getMissionTasks(uint8 _missionId)
         external
         view
@@ -1145,7 +1147,7 @@ contract Arm0ryMission {
         return missions[_missionId].taskIds;
     }
 
-    function getMissionLength(uint8 _missionId)
+    function getMissionTasksCount(uint8 _missionId)
         external
         view
         returns (uint256)
@@ -1597,12 +1599,7 @@ contract Arm0ryQuests is NFTreceiver {
             // Retrieve to update Task completion and progress
             uint8 _completed = quests[traveler][questId].completed;
             uint8 missionId = this.getQuestMissionId(traveler, questId);
-            uint8 missionTasksCount = uint8(mission.missions(missionId).taskIds.length);
-            uint8 missionXp = mission.missions(missionId).xp;
-
-            // Retrieve to record task creator rewards
-            address taskCreator = mission.getTaskCreator(taskId);
-            address missionCreator = mission.getMissionCreator(missionId);
+            uint8 missionTasksCount = uint8(mission.getMissionTasksCount(missionId));
             
             // cannot possibly overflow
             uint8 progress;
@@ -1623,11 +1620,14 @@ contract Arm0ryQuests is NFTreceiver {
                 quests[traveler][questId].xp += xp;
 
                 // Record task creator rewards
+                address taskCreator = mission.getTaskCreator(taskId);
                 taskCreatorRewards[taskCreator] += xp;
             }
 
             // Update Quest progress
             if (progress == 100) {
+                uint8 missionXp = mission.getMissionXp(missionId);
+                address missionCreator = mission.getMissionCreator(missionId);
                 missionCreatorRewards[missionCreator] += missionXp;
                 finalizeQuest(traveler, questId);
             }
