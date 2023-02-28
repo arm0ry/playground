@@ -754,8 +754,6 @@ library SafeTransferLib {
 /// @notice Kali DAO share manager interface
 interface IKaliShareManager {
     function mintShares(address to, uint256 amount) external payable;
-
-    function burnShares(address from, uint256 amount) external payable;
 }
 
 interface IArm0ryTravelers {
@@ -1218,7 +1216,6 @@ interface IArm0ryQuests {
 /// @author audsssy.eth
 
 struct Quest {
-    uint256 staked;
     uint40 start;
     uint40 duration;
     uint8 missionId;
@@ -1227,12 +1224,6 @@ struct Quest {
     uint8 progress;
     uint8 xp;
     uint8 claimed;
-}
-
-struct Deliverable {
-    uint16 taskId;
-    string deliverable;
-    bool[] results;
 }
 
 contract Arm0ryQuests is NFTreceiver {
@@ -1405,7 +1396,6 @@ contract Arm0ryQuests is NFTreceiver {
         if (missionId != 0) {
             if (IERC20(arm0ry).balanceOf(msg.sender) < THRESHOLD) revert NeedMoreCoins();
 
-            IKaliShareManager(arm0ry).burnShares(msg.sender, THRESHOLD);
             travelers.safeTransferFrom(msg.sender, address(this), id);
         }
 
@@ -1426,7 +1416,6 @@ contract Arm0ryQuests is NFTreceiver {
 
         // Record Quest
         quests[msg.sender][qNonce] = Quest({
-            staked: missionId == 0 ? 0 : THRESHOLD, 
             start: uint40(block.timestamp),
             duration: mission.getMissionDuration(missionId),
             missionId: missionId,
@@ -1457,8 +1446,7 @@ contract Arm0ryQuests is NFTreceiver {
     /// @dev 
     function resumeQuest(uint8 questId) external payable {
         // Confirm Quest has been paused
-        uint40 questStart = quests[msg.sender][questId].start;
-        if (questStart > 0) revert QuestActive();
+        if (quests[msg.sender][questId].start > 0) revert QuestActive();
 
         // Confirm Traveler owns Traveler's Pass to prevent double-questing
         if (travelers.balanceOf(msg.sender) == 0) revert InvalidTraveler();
@@ -1491,15 +1479,8 @@ contract Arm0ryQuests is NFTreceiver {
         // Use max value to mark Quest as paused
         activeQuests[msg.sender] = type(uint8).max;
 
-        // Return portions of staked token based on tasks completion
-        uint8 progress = quests[msg.sender][questId].progress;
-        uint8 missionId = quests[msg.sender][questId].missionId;
-        if (missionId != 0) {
-            uint256 stakeToReturn = THRESHOLD * progress / 100;
-            quests[msg.sender][questId].staked -= stakeToReturn;
-            IKaliShareManager(arm0ry).mintShares(msg.sender, stakeToReturn);
-
-            // Update Quest start time and duration
+        // Update Quest start time and duration
+        if (quests[msg.sender][questId].missionId != 0) {
             uint40 diff;
             unchecked { 
                  diff = uint40(block.timestamp) - questStart;
@@ -1509,8 +1490,7 @@ contract Arm0ryQuests is NFTreceiver {
         }
 
         // Return locked NFT when pausing a Quest
-        uint256 id = uint256(uint160(msg.sender));
-        travelers.transferFrom(address(this), msg.sender, id);
+        travelers.transferFrom(address(this), msg.sender, uint256(uint160(msg.sender)));
 
         emit QuestPaused(msg.sender, questId);
     }
@@ -1672,9 +1652,11 @@ contract Arm0ryQuests is NFTreceiver {
         uint16 taskReward = taskCreatorRewards[msg.sender];
         uint16 missionReward = missionCreatorRewards[msg.sender];
 
+        // Update Creator rewards
         taskCreatorRewards[msg.sender] = 0;
         missionCreatorRewards[msg.sender] = 0;
 
+        // Mint rewards
         IKaliShareManager(arm0ry).mintShares(msg.sender, (missionReward + taskReward) * 1e18);
 
         emit CreatorRewardClaimed(msg.sender, (missionReward + taskReward) * 1e18);
@@ -1758,13 +1740,6 @@ contract Arm0ryQuests is NFTreceiver {
     /// @param questId .
     /// @dev 
     function finalizeQuest(address traveler, uint8 questId) internal {
-        uint256 staked = quests[traveler][questId].staked;
-        
-        // Return any staked amount
-        if (staked > 0) {
-            IKaliShareManager(arm0ry).mintShares(traveler, staked);
-        }
-
         // Return Traveler NFT
         travelers.transferFrom(
             address(this),
