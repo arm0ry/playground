@@ -132,17 +132,21 @@ interface IArm0ryTravelers {
     ) external payable;
 }
 
+enum TripType {
+    TASK,
+    MISSION
+}
+
 struct Trip {
-    bool active; // The activity status of a Trip
+    TripType tripType; // The type of a Trip
     uint8 xp; // The xp of a Trip
-    uint8 condition; // The condition required for taking on a Trip
     uint40 duration; // The expected duration of a Trip
-    uint256[] partOf; // A list of related Trips; Mission - Task Ids, Task - Mission Ids
-    uint256[] consistOf; // A list of related Trips; Mission - Task Ids, Task - Mission Ids
+    uint256[] ids; // A list of related Trips; Mission - Task Ids, Task - Mission Ids
     string detail; // The detail of a Trip
     string title; // The title of a Trip
     address pathfinder; // The creator of a Trip
     uint256 ask; // The ask of a Trip
+    uint256 condition; // The condition required for taking on a Trip
 }
 
 interface IArm0ryTrips {
@@ -150,15 +154,15 @@ interface IArm0ryTrips {
 
     function getTripXp(uint256 _tripId) external view returns (uint8);
 
+    function getTripType(uint256 _tripId) external view returns (TripType);
+
     function getTripDuration(uint256 _tripId) external view returns (uint40);
 
     function getTripPathfinder(uint256 _tripId) external view returns (address);
 
     function getTripTitle(uint256 _tripId) external view returns (string memory);
 
-    function getTripConsistOf(uint256 _tripId) external view returns (uint256[] memory);
-
-    function getTripPartOf(uint256 _tripId) external view returns (uint256[] memory);
+    function getTripIds(uint256 _tripId) external view returns (uint256[] memory);
 
     function getTripIdsCount(uint256 _tripId) external view returns (uint256);
 
@@ -201,8 +205,6 @@ interface IArm0ryQuests {
 
     function getQuestProgress(address traveler, uint8 questId) external view returns (uint8);
 
-    function getQuestTripId(address traveler, uint8 questId) external view returns (uint8);
-
     function getQuestIncompleteCount(address traveler, uint8 questId) external view returns (uint8);
 }
 
@@ -211,17 +213,13 @@ interface IArm0ryQuests {
 /// @author audsssy.eth
 
 struct Quest {
-    uint8 tripId;
-    uint8 xp;
-    uint8 claimed;
+    uint256 tripId;
     uint40 start;
     uint40 duration;
-}
-
-struct Journal {
-    uint8 numOfCompletedTrips;
-    bool complete;
-    string report;
+    uint8 completed;
+    uint8 progress;
+    uint8 xp;
+    uint8 claimed;
 }
 
 contract Arm0ryQuests is NFTreceiver {
@@ -241,11 +239,11 @@ contract Arm0ryQuests is NFTreceiver {
 
     event TaskSubmitted(address traveler, uint8 questId, uint8 taskId, string homework);
 
-    event TaskReviewed(address reviewer, address traveler, uint8 questId, uint8 tripId, bool review);
+    event TaskReviewed(address reviewer, address traveler, uint8 questId, uint16 taskId, uint8 review);
 
     event TravelerRewardClaimed(address creator, uint256 amount);
 
-    event PathfinderRewardClaimed(address creator, uint256 amount);
+    event CreatorRewardClaimed(address creator, uint256 amount);
 
     event ReviewerXpUpdated(uint8 xp);
 
@@ -275,13 +273,9 @@ contract Arm0ryQuests is NFTreceiver {
 
     error InvalidReview();
 
-    error InvalidTrip();
-
-    error NothingToReview();
+    error InvalidBonus();
 
     error InvalidArm0ryFee();
-
-    error AlreadySubmitted();
 
     error AlreadyReviewed();
 
@@ -311,14 +305,20 @@ contract Arm0ryQuests is NFTreceiver {
     // Counter indicating Quest count per Traveler
     mapping(address /* Traveler */ => uint8 /* questId */) public questId;
 
-    // 
-    mapping(address /* Traveler */ => mapping(uint256 /* tripId */ =>  Journal)) public journals;
+    // Homework per Task of an active Quest
+    mapping(address /* Traveler */ => mapping(uint256 /* tripId */ => string /* Homework */)) public tripReports;
+
+    // Status indicating if a Trip of an active Quest is ready for review
+    mapping(address /* Traveler */ => mapping(uint256 /* tripId */ => bool)) public tripReportReadyForReview;
 
     // Review results of a Task of a Quest
-    mapping(address /* Traveler */ => mapping(uint256 /* tripId */ => mapping(address /* Reviewer */ => bool /* Pass */))) public tripReviewed;
+    mapping(address /* Traveler */ => mapping(uint256 /* tripId */ => mapping(address /* Reviewer */ => bool /* Pass */))) public tripReportReviews;
 
     // Xp per reviewer
     mapping(address /* Reivewer */ => uint8 /* Review points */) public reviewerXp;
+
+    // Status indicating if a Task of a Quest is completed
+    mapping(address /* Traveler */ => mapping(uint256 /* tripId */ => bool /* Completed */)) public isTripCompleted;
 
     // Rewards per Pathfinder
     mapping(address /* Pathfinder */ => uint16 /* Reward */) public pathfinderRewards;
@@ -328,7 +328,7 @@ contract Arm0ryQuests is NFTreceiver {
     mapping(address /* Traveler */ => uint8 /* questId */) public activeQuests;
 
     // Travelers per Mission Id
-    // mapping(uint256 /* tripId */ => address[] /* travelers */) public journals;
+    mapping(uint256 /* tripId */ => address[] /* travelers */) public tripping;
 
     /// -----------------------------------------------------------------------
     /// Constructor
@@ -353,12 +353,12 @@ contract Arm0ryQuests is NFTreceiver {
     /// @notice Traveler to start a new Quest.
     /// @param tripId Identifier of a Mission.
     /// @dev 
-    function startQuest(uint8 tripId)
+    function startQuest(uint256 tripId)
         external
         payable
     {
-        Trip memory _trip = trips.trips(tripId);
-        if (IERC20(admin).balanceOf(msg.sender) < _trip.condition) revert NeedMoreCoins();
+        uint256 tripCondition = trips.getTripCondition(tripId);
+        if (IERC20(admin).balanceOf(msg.sender) < tripCondition) revert NeedMoreCoins();
         if (travelers.balanceOf(msg.sender) == 0) revert InvalidTraveler();
 
         // Initialize reviewer xp
@@ -370,33 +370,30 @@ contract Arm0ryQuests is NFTreceiver {
         // Record Quest
         quests[msg.sender][_questId] = Quest({
             tripId: tripId,
-            xp: 0,
-            // numOfCompletedTrips: 0,
-            // numOfTrips: uint8(_trip.consistOf.length),
             start: uint40(block.timestamp),
-            duration: _trip.duration,
-            // complete: false,
-            // progress: 0,
+            duration: trips.getTripDuration(tripId),
+            completed: 0,
+            progress: 0,
+            xp: 0,
             claimed: 0
         });
 
         // Add Traveler to list of mission participants
-        // journals[tripId].push(msg.sender);
+        tripping[tripId].push(msg.sender);
 
         // Mark active quest for Traveler
         activeQuests[msg.sender] = _questId;
         
-        emit QuestStarted(msg.sender, _questId, tripId);
-
         // Update nonce
         unchecked {
             ++_questId;
         }
         questId[msg.sender] = _questId;
 
+        emit QuestStarted(msg.sender, --_questId, tripId);
     }
 
-    /// @notice Traveler to continue an existing but inactive Quest.
+  /// @notice Traveler to continue an existing but inactive Quest.
     /// @param _questId Identifier of a Quest.
     /// @dev 
     function resumeQuest(uint8 _questId) external payable {
@@ -443,47 +440,37 @@ contract Arm0ryQuests is NFTreceiver {
         emit QuestPaused(msg.sender, _questId);
     }
     
-    /// @notice Traveler to submit Report for review.
+    /// @notice Traveler to submit Report for Task completion.
     /// @param _questId Identifier of a Quest.
-    /// @param _tripId Identifier of a Trip.
-    /// @param report Trip report to turn in.
+    /// @param tripId Identifier of a Task.
+    /// @param report Task report to turn in.
     /// @dev 
-    function submitReport(
+    function turnIn(
         uint8 _questId,
-        uint8 _tripId,
+        uint8 tripId,
         string calldata report
     ) external payable {
-        // Current Quest & Trip
-        Quest memory _quest = quests[msg.sender][_questId];
-        Trip memory _trip = trips.trips(_quest.tripId);
-
-        // The Journal of a Trip to submit report with 
-        Journal memory _journal = journals[msg.sender][_tripId];
-
-        // Confirm is Trip to submit report with is the same as Trip in Quest
-        if (_tripId != _quest.tripId)
-          // Confirm if Trip to submit report with is part of Quest
-          if (!checkTrip(_tripId, _trip.consistOf)) revert InvalidTrip();
-
         // Confirm Quest is active
         if (_questId != activeQuests[msg.sender]) revert QuestInactive();
 
         // Confirm Trip not already completed
-        if (_journal.complete) revert TripAlreadyCompleted();
-
-        // Confirm Report is not already turned in
-        // if (bytes(_journal.report).length > 0) revert AlreadySubmitted();
+        if (isTripCompleted[msg.sender][tripId]) revert TripAlreadyCompleted();
         
         // Traveler must have at least 1 reviewer xp
         if (reviewerXp[msg.sender] == 0) revert InsufficientReviewerXp();
 
         // Confirm Quest has not expired
-        if (uint40(block.timestamp) > _quest.start + _quest.duration) revert QuestExpired();
+        uint40 questStart = quests[msg.sender][_questId].start;
+        uint40 questDuration = quests[msg.sender][_questId].duration;
+        if (uint40(block.timestamp) > questStart + questDuration) revert QuestExpired();
 
         // Update Report
-        journals[msg.sender][_tripId].report = report;
+        tripReports[msg.sender][tripId] = report;
 
-        emit TaskSubmitted(msg.sender, _questId, _tripId, report);
+        // Mark Task ready for review
+        tripReportReadyForReview[msg.sender][tripId] = true;
+
+        emit TaskSubmitted(msg.sender, _questId, tripId, report);
     }
 
     /// -----------------------------------------------------------------------
@@ -493,83 +480,83 @@ contract Arm0ryQuests is NFTreceiver {
     /// @notice Reviewer to submit review of task completion.
     /// @param traveler Identifier of a Traveler.
     /// @param _questId Identifier of a Quest.
-    /// @param _tripId Identifier of a Quest.
     /// @param review Result of review, i.e., 0, 1, or 2.
     /// @dev 
     function reviewTripReport(
         address traveler,
         uint8 _questId,
-        uint8 _tripId,
+        // uint16 tripId,
         bool review
     ) external payable {
-        // Current Quest, Trip, & Journal
-        Quest memory _quest = quests[traveler][_questId];
-        Trip memory _trip = trips.trips(_quest.tripId);
-        Journal memory _journal = journals[msg.sender][_quest.tripId];
+        uint256 _tripId = quests[traveler][_questId].tripId;
+        Trip memory _trip = trips.trips(_tripId);
 
-        // Confirm Report is submitted
-        if (bytes(_journal.report).length == 0) revert NothingToReview();
-
-        // Confirm Trip not already completed
-        if (_journal.complete) revert TripAlreadyCompleted();
-
-        // Confirm if Trip to review is part of Quest
-        if (!checkTrip(_tripId, _trip.consistOf)) revert InvalidTrip();
-
-        // Confirm Reviewer has completed at least 2 quests
+        // Reviewer must have completed 2 quests
         if (questId[msg.sender] < 2) revert InvalidReviewer();
 
-        // Confirm Trip have not already been reviewed 
-        if (tripReviewed[traveler][_tripId][msg.sender]) revert AlreadyReviewed();
+        // Traveler must mark Trip for review ahead of time
+        if (!tripReportReadyForReview[traveler][_tripId]) revert TaskNotReadyForReview();
+
+        // Reviewer must not have already reviewed instant Task
+        if (tripReportReviews[traveler][_tripId][msg.sender]) revert AlreadyReviewed();
+
+        // Record review
+        tripReportReviews[traveler][_tripId][msg.sender] = review;
 
         // Update reviewer xp
         reviewerXp[traveler]--;
         reviewerXp[msg.sender]++;
 
-        // Hanlde review logic based on Trip reviewed
-        if (_tripId == _quest.tripId) {
-          if (review) {
-            // Mark Trip complete
-            journals[traveler][_tripId].complete = review;
+        if (review) {
+            // Mark Task completion
+            isTripCompleted[traveler][_tripId] = true;
+            tripReportReadyForReview[traveler][_tripId] = false;
 
-            // Mark review status
-            tripReviewed[traveler][_tripId][msg.sender] = true;
-          }
-        } else {
-          // TODO: Need a separate function to check if Trip containing other trips has already been completed 
-          if (review) {
-            // Mark Trip complete
-            journals[traveler][_tripId].complete = review;
-
-            // Mark Reviewer's Review
-            tripReviewed[traveler][_tripId][msg.sender] = true;            
-
-            // cannot possibly overflow
-            unchecked { 
-                // Update Journal at Quest level
-                ++_journal.numOfCompletedTrips;
-            }
+            // Retrieve to update Task reward
+            uint8 xp = trips.getTripXp(_tripId);
             
-            journals[msg.sender][_quest.tripId].numOfCompletedTrips = _journal.numOfCompletedTrips;
+            if (_trip.tripType == TripType.TASK) {
 
-            // Update Trip reward
-            quests[traveler][_questId].xp += _trip.xp;
+            } else {
+                
+            }
 
-            // Record task creator rewards
-            address _pathfinder = _trip.pathfinder;
-            pathfinderRewards[_pathfinder] += _trip.xp;
+
+
+            // Retrieve to update Task completion and progress
+            uint8 _completed = quests[traveler][_questId].completed;
+            uint8 tripCount = uint8(_trip.ids.length);
+            
+            // cannot possibly overflow
+            uint8 progress;
+            unchecked { 
+                ++_completed;
+
+                // Update complted Task count
+                quests[traveler][_questId].completed = _completed;
+
+                // Update Quest progress
+                progress = (_completed / tripCount) * 100;
+                quests[traveler][_questId].progress = progress;
+
+                // Update Task reward
+                quests[traveler][_questId].xp += xp;
+
+                // Record task creator rewards
+                address _pathfinder = _trip.pathfinder;
+                pathfinderRewards[_pathfinder] += xp;
+            }
 
             // Update Quest progress
-            if (_journal.numOfCompletedTrips == uint8(_trip.consistOf.length)) {
-                // Mark Task completion
-                journals[traveler][_quest.tripId].complete = true;
-
+            if (progress == 100) {
+                // uint8 missionXp = mission.getMissionXp(missionId);
+                // address missionCreator = mission.getMissionCreator(missionId);
+                // missionCreatorRewards[missionCreator] += missionXp;
                 finalizeQuest(traveler, _questId);
             }
-          }
-        }
+        } 
 
-        // emit TaskReviewed(msg.sender, traveler, _questId, uint8(_tripId), review);
+        // emit TaskReviewed(msg.sender, traveler, _questId, taskId, review);
     }
 
     /// -----------------------------------------------------------------------
@@ -602,18 +589,18 @@ contract Arm0ryQuests is NFTreceiver {
 
     /// @notice Pathfinders may claim rewards.
     /// @dev 
-    function claimPathfinderReward() external payable {
+    function claimCreatorReward() external payable {
         if (pathfinderRewards[msg.sender] == 0) revert NothingToClaim();
 
         uint16 reward = pathfinderRewards[msg.sender];
 
-        // Update Pathfinder rewards
+        // Update Creator rewards
         pathfinderRewards[msg.sender] = 0;
 
         // Mint rewards
         IKaliShareManager(admin).mintShares(msg.sender, reward * 1e18);
 
-        emit PathfinderRewardClaimed(msg.sender, reward * 1e18);
+        emit CreatorRewardClaimed(msg.sender, reward * 1e18);
     }
 
     /// -----------------------------------------------------------------------
@@ -630,6 +617,17 @@ contract Arm0ryQuests is NFTreceiver {
         trips = _trips;
 
         emit ContractsUpdated(travelers, trips);
+    }
+
+    /// @notice Update Reviewer xp.
+    /// @param reviewer Reviewer's address.
+    /// @param _xp Xp to assign to Reviewer.
+    /// @dev 
+    function updateReviewerXp(address reviewer, uint8 _xp) external payable {
+        if (msg.sender != admin) revert NotAuthorized();
+        reviewerXp[reviewer] = _xp;
+
+        emit ReviewerXpUpdated(_xp);
     }
 
     /// @notice Withdraw funds to Arm0ry.
@@ -654,6 +652,10 @@ contract Arm0ryQuests is NFTreceiver {
     function getQuestStartTime(address _traveler, uint8 _questId) external view returns (uint40) {
         return quests[_traveler][_questId].start;
     }
+    
+    function getQuestProgress(address _traveler, uint8 _questId) external view returns (uint8) {
+        return quests[_traveler][_questId].progress;
+    }
 
     /// -----------------------------------------------------------------------
     /// Internal Functions
@@ -672,19 +674,6 @@ contract Arm0ryQuests is NFTreceiver {
         activeQuests[msg.sender] = type(uint8).max;
 
         emit QuestCompleted(traveler, _questId);
-    }
-
-    /// @notice Return locked NFT & staked arm0ry token.
-    /// @param _tripId .
-    /// @param listOfTrips .
-    /// @dev 
-    function checkTrip(uint8 _tripId, uint256[] memory listOfTrips) internal pure returns (bool) {
-  
-        for (uint i = 0; i < listOfTrips.length;) {
-          if (_tripId == listOfTrips[i]) return true;
-          unchecked { ++i;}
-        }
-        return false;
     }
 
     receive() external payable {}

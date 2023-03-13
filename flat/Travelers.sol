@@ -426,7 +426,7 @@ contract Arm0ryTravelers is ERC721 {
 
     IArm0ryQuests public quests;
 
-    IArm0ryTrips public trips;
+    IArm0ryMission public mission;
 
     uint256 public travelerCount;
 
@@ -502,7 +502,8 @@ contract Arm0ryTravelers is ERC721 {
         // Retrieve seeds
         address traveler = address(uint160(tokenId));
         uint8 questId = quests.activeQuests(traveler);
-        uint8 tripId = quests.getQuestTripId(traveler, questId);
+        uint8 missionId = quests.getQuestMissionId(traveler, questId);
+        string memory missionTitle = mission.getMissionTitle(missionId);
 
         // Prepare palette
         bytes memory hash = abi.encodePacked(toBytes(traveler));
@@ -520,7 +521,7 @@ contract Arm0ryTravelers is ERC721 {
                     '<text x="272" y="120" class="tiny" stroke="grey">Xp</text>',
                     '<text x="15" y="170" class="medium" stroke="grey">QUEST: </text>',
                     '<rect x="15" y="175" width="205" height="40" style="fill:white;opacity:0.5"/>',
-                    '<text x="20" y="190" class="medium" stroke="black">',bytes(trips.getTripTitle(tripId)).length == 0 ? ' ' : trips.getTripTitle(tripId) ,'</text>',
+                    '<text x="20" y="190" class="medium" stroke="black">',bytes(missionTitle).length == 0 ? ' ' : missionTitle ,'</text>',
                     unicode'  <text x="30" y="260" class="tiny" stroke="grey">Thank you for joining us at g0v 55th Hackathon! 🤙</text>',
                     '<style>.svgBody {font-family: "Courier New" } .tiny {font-size:8px; } .small {font-size: 12px;}.medium {font-size: 18px;}.score {font-size: 70px;}</style>',
                     "</svg>"
@@ -575,10 +576,10 @@ contract Arm0ryTravelers is ERC721 {
     /// Arm0ry Functions
     /// -----------------------------------------------------------------------
 
-    function updateContracts(IArm0ryQuests _quests, IArm0ryTrips _trips) external payable {
+    function updateContracts(IArm0ryQuests _quests, IArm0ryMission _mission) external payable {
         if (msg.sender != arm0ry) revert NotAuthorized();
         quests = _quests;
-        trips = _trips;
+        mission = _mission;
     }
 
     /// -----------------------------------------------------------------------
@@ -738,44 +739,35 @@ library SafeTransferLib {
     }
 }
 
-struct Trip {
-    bool active; // The activity status of a Trip
-    uint8 xp; // The xp of a Trip
-    uint8 condition; // The condition required for taking on a Trip
-    uint40 duration; // The expected duration of a Trip
-    uint256[] partOf; // A list of related Trips; Mission - Task Ids, Task - Mission Ids
-    uint256[] consistOf; // A list of related Trips; Mission - Task Ids, Task - Mission Ids
-    string detail; // The detail of a Trip
-    string title; // The title of a Trip
-    address pathfinder; // The creator of a Trip
-    uint256 ask; // The ask of a Trip
-}
+interface IArm0ryMission {
+    function isTaskInMission(uint8 missionId, uint8 taskId)
+        external
+        returns (bool);
 
-interface IArm0ryTrips {
-    function trips(uint256 _tripId) external view returns (Trip memory);
+    function getTaskXp(uint16 taskId) external view returns (uint8);
 
-    function getTripXp(uint256 _tripId) external view returns (uint8);
+    function getTaskExpiration(uint16 taskId) external view returns (uint40);
 
-    function getTripDuration(uint256 _tripId) external view returns (uint40);
+    function getTaskCreator(uint16 taskId) external view returns (address);
 
-    function getTripPathfinder(uint256 _tripId) external view returns (address);
+    function getMissionTitle(uint8 missionId) external view returns (string memory);
+    
+    function getMissionXp(uint8 missionId) external view returns (uint8);
 
-    function getTripTitle(uint256 _tripId) external view returns (string memory);
+    function getMissionTasks(uint8 missionId) external view returns (uint8[] calldata);
 
-    function getTripConsistOf(uint256 _tripId) external view returns (uint256[] memory);
+    function getMissionTasksCount(uint8 missionId) external view returns (uint8);
 
-    function getTripPartOf(uint256 _tripId) external view returns (uint256[] memory);
+    function getMissionCreator(uint8 missionId) external view returns (address);
 
-    function getTripIdsCount(uint256 _tripId) external view returns (uint256);
+    function getMissionFee(uint8 missionId) external view returns (uint256);
 
-    function getTripAsk(uint256 _tripId) external view returns (uint256);
-
-    function getTripCondition(uint256 _tripId) external view returns (uint256);
+    function getMissionDuration(uint8 missionId) external view returns (uint40);
 }
 
 
 interface IArm0ryQuests {
-    function questId(address traveler) external view returns (uint8);
+    function questNonce(address traveler) external view returns (uint8);
 
     function activeQuests(address traveler) external view returns (uint8);
 
@@ -788,8 +780,6 @@ interface IArm0ryQuests {
     function getQuestStartTime(address traveler, uint8 questId) external view returns (uint40);
 
     function getQuestProgress(address traveler, uint8 questId) external view returns (uint8);
-
-    function getQuestTripId(address traveler, uint8 questId) external view returns (uint8);
 
     function getQuestIncompleteCount(address traveler, uint8 questId) external view returns (uint8);
 }
