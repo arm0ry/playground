@@ -572,26 +572,6 @@ contract Arm0ryQuests is NFTreceiver {
         // emit TaskReviewed(msg.sender, traveler, _questId, uint8(_tripId), review);
     }
 
-    function updateQuestProgress(uint8 _questId) external payable {
-        // Current Quest, Trip, & Journal
-        Quest memory _quest = quests[msg.sender][_questId];
-        Trip memory _trip = trips.trips(_quest.tripId);
-
-        uint8 completionCount;
-        for (uint i = 0; i < _trip.consistOf.length;) {
-
-          if (journals[msg.sender][_trip.consistOf[i]].complete) 
-            ++completionCount;
-
-          if (completionCount == _trip.consistOf.length) 
-            journals[msg.sender][_quest.tripId].complete = true; 
-
-          unchecked {
-            ++i;
-          }
-        }
-    }
-
     /// -----------------------------------------------------------------------
     /// Claim Rewards Functions
     /// -----------------------------------------------------------------------
