@@ -643,7 +643,7 @@ contract Arm0ryMission is ERC1155, Multicall {
 
     // Status indicating if an address is a Manager
     // Account -> True/False 
-    mapping(address => bool) isManager;
+    mapping(address => bool) public isManager;
 
     uint8 public tripId;
 
@@ -959,10 +959,10 @@ contract Arm0ryMission is ERC1155, Multicall {
     /// Mint Logic
     /// -----------------------------------------------------------------------
 
-    /// @notice Donate to receive Mission NFT 
-    /// @param _missionId The identifier of the Mission to donate to.
+    /// @notice Purchase a Mission NFT 
+    /// @param _missionId The identifier of the Mission.
     /// @dev
-    function donate(uint8 _missionId) external payable {
+    function purchase(uint8 _missionId) external payable {
         missions[_missionId].creator._safeTransferETH(missions[_missionId].fee);
 
         _mint(msg.sender, _missionId, 1, "0x");

@@ -469,6 +469,8 @@ contract Arm0ryTravelers is ERC721 {
 
     IArm0ryMission public mission;
 
+    mapping(uint256 => address) public travelers;
+
     uint256 public travelerCount;
 
     // 16 palettes
@@ -543,7 +545,7 @@ contract Arm0ryTravelers is ERC721 {
         // Retrieve seeds
         address traveler = address(uint160(tokenId));
         uint8 questId = quests.questing(traveler);
-        (, , uint8 missionId, , , uint8 progress, uint8 questXp, ) = quests.getQuest(msg.sender, questId);
+        (, , uint8 missionId, , , uint8 progress, uint8 questXp, ) = quests.getQuest(traveler, questId);
         (, , , , string memory missionTitle, , , ) = mission.getMission(missionId);
 
         // Prepare palette
@@ -606,11 +608,12 @@ contract Arm0ryTravelers is ERC721 {
     }
 
     function mintTravelerPass() external payable returns (uint256 tokenId) {
-        travelerCount += 1;
 
         tokenId = uint256(uint160(msg.sender));
 
         _mint(msg.sender, tokenId);
+        travelers[travelerCount] = msg.sender;
+        travelerCount += 1;
     }
 
     /// -----------------------------------------------------------------------
