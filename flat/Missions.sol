@@ -718,22 +718,21 @@ contract Arm0ryMission is ERC1155, Multicall {
         view
         returns (string memory)
     {
-        (, , , , string memory _title, address _creator, , ) = this.getMission(uint8(_missionId));
-
+        (, , , , string memory _title, , , ) = this.getMission(uint8(_missionId));
+        uint8 completions = quests.getMissionCompletionsCount(uint8(_missionId));
         uint8 ratio = quests.getMissionImpact(uint8(_missionId));
         
         return
             string(
                 abi.encodePacked(
                     '<svg class="svgBody" width="300" height="300" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">',
-                    '<text x="20" y="120" class="small" stroke="black">',Strings.toString(_missionId),'.</text>',
-                    '<text x="20" y="120" class="small" stroke="black">',_title,'</text>',
-                    '<text x="15" y="170" class="medium" stroke="grey">CREATOR: </text>',
+                    '<text x="15" y="100" class="medium" stroke="black">',_title,'</text>',
+                    '<text x="15" y="150" class="medium" stroke="grey">COMPLETIONS: </text>',
                     '<rect x="15" y="155" width="300" height="30" style="fill:yellow;opacity:0.2"/>',
-                    '<text x="20" y="190" class="medium" stroke="black">', Strings.toHexString(uint256(uint160(_creator)), 20),'</text>',
-                    '<text x="15" y="260" class="medium" stroke="grey">IMPACT %: </text>',
-                    '<rect x="15" y="155" width="300" height="30" style="fill:yellow;opacity:0.2"/>',
-                    '<text x="150" y="260" class="medium" stroke="black">',Strings.toString(ratio),'%</text>',
+                    '<text x="20" y="173" class="small">', Strings.toString(completions),'</text>',
+                    '<text x="15" y="210" class="medium" stroke="grey">IMPACT %: </text>',
+                    '<rect x="15" y="215" width="300" height="30" style="fill:yellow;opacity:0.2"/>',
+                    '<text x="20" y="235" class="small">',Strings.toString(ratio),'%</text>',
                     '<style>.svgBody {font-family: "Courier New" } .small {font-size: 12px;}.medium {font-size: 18px;}</style>',
                     "</svg>"
                 )

@@ -672,21 +672,17 @@ contract Arm0ryQuests is NFTreceiver {
         return (quest.start, quest.duration, quest.missionId, quest.completed, quest.incomplete, quest.progress, quest.xp, quest.claimed);
     }
 
-    function getMissionTravelersCount(uint8 _missionId) external view returns (uint8) {
-        uint256 count = missionTravelers[_missionId].length;
-        return uint8(count);
-    }
-
-    function getMissionCompletionsCount(uint8 _missionId) external view returns (uint8) {
-        uint256 count = missionCompeletions[_missionId].length;
-        return uint8(count);
-    }
-
     function getMissionImpact(uint8 _missionId) external view returns (uint8) {
+        uint8 ratio;
         uint8 starts = uint8(missionTravelers[_missionId].length);
         uint8 completions = uint8(missionCompeletions[_missionId].length);
 
-        uint8 ratio = completions / starts * 100;
+
+        if (starts != 0) {
+            ratio = completions / starts * 100;
+        } else {
+            return 0;
+        }
 
         return ratio;
     }
