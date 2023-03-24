@@ -13,116 +13,11 @@ abstract contract NFTreceiver {
     }
 }
 
-/// @notice Safe ETH and ERC-20 transfer library that gracefully handles missing return values
-/// @author Modified from Solmate (https://github.com/Rari-Capital/solmate/blob/main/src/utils/SafeTransferLib.sol)
-/// License-Identifier: AGPL-3.0-only
-library SafeTransferLib {
-    /// -----------------------------------------------------------------------
-    /// Errors
-    /// -----------------------------------------------------------------------
-
-    error ETHtransferFailed();
-    error TransferFailed();
-    error TransferFromFailed();
-
-    /// -----------------------------------------------------------------------
-    /// ETH Logic
-    /// -----------------------------------------------------------------------
-
-    function _safeTransferETH(address to, uint256 amount) internal {
-        bool success;
-
-        assembly {
-            // transfer the ETH and store if it succeeded or not
-            success := call(gas(), to, amount, 0, 0, 0, 0)
-        }
-        if (!success) revert ETHtransferFailed();
-    }
-
-    /// -----------------------------------------------------------------------
-    /// ERC-20 Logic
-    /// -----------------------------------------------------------------------
-
-    function _safeTransfer(
-        address token,
-        address to,
-        uint256 amount
-    ) internal {
-        bool success;
-
-        assembly {
-            // we'll write our calldata to this slot below, but restore it later
-            let memPointer := mload(0x40)
-            // write the abi-encoded calldata into memory, beginning with the function selector
-            mstore(
-                0,
-                0xa9059cbb00000000000000000000000000000000000000000000000000000000
-            )
-            mstore(4, to) // append the 'to' argument
-            mstore(36, amount) // append the 'amount' argument
-
-            success := and(
-                // set success to whether the call reverted, if not we check it either
-                // returned exactly 1 (can't just be non-zero data), or had no return data
-                or(
-                    and(eq(mload(0), 1), gt(returndatasize(), 31)),
-                    iszero(returndatasize())
-                ),
-                // we use 68 because that's the total length of our calldata (4 + 32 * 2)
-                // - counterintuitively, this call() must be positioned after the or() in the
-                // surrounding and() because and() evaluates its arguments from right to left
-                call(gas(), token, 0, 0, 68, 0, 32)
-            )
-
-            mstore(0x60, 0) // restore the zero slot to zero
-            mstore(0x40, memPointer) // restore the memPointer
-        }
-        if (!success) revert TransferFailed();
-    }
-
-    function _safeTransferFrom(
-        address token,
-        address from,
-        address to,
-        uint256 amount
-    ) internal {
-        bool success;
-
-        assembly {
-            // we'll write our calldata to this slot below, but restore it later
-            let memPointer := mload(0x40)
-            // write the abi-encoded calldata into memory, beginning with the function selector
-            mstore(
-                0,
-                0x23b872dd00000000000000000000000000000000000000000000000000000000
-            )
-            mstore(4, from) // append the 'from' argument
-            mstore(36, to) // append the 'to' argument
-            mstore(68, amount) // append the 'amount' argument
-
-            success := and(
-                // set success to whether the call reverted, if not we check it either
-                // returned exactly 1 (can't just be non-zero data), or had no return data
-                or(
-                    and(eq(mload(0), 1), gt(returndatasize(), 31)),
-                    iszero(returndatasize())
-                ),
-                // we use 100 because that's the total length of our calldata (4 + 32 * 3)
-                // - counterintuitively, this call() must be positioned after the or() in the
-                // surrounding and() because and() evaluates its arguments from right to left
-                call(gas(), token, 0, 0, 100, 0, 32)
-            )
-
-            mstore(0x60, 0) // restore the zero slot to zero
-            mstore(0x40, memPointer) // restore the memPointer
-        }
-        if (!success) revert TransferFromFailed();
-    }
-}
-
 /// @notice Kali DAO share manager interface
 interface IKaliShareManager {
     function mintShares(address to, uint256 amount) external payable;
+
+    function burnShares(address from, uint256 amount) external payable;
 }
 
 interface IArm0ryTravelers {
@@ -220,37 +115,37 @@ struct Quest {
 }
 
 contract Arm0ryQuests is NFTreceiver {
-    using SafeTransferLib for address payable;
-
     /// -----------------------------------------------------------------------
     /// Events
     /// -----------------------------------------------------------------------
 
-    event QuestStarted(address indexed traveler, uint8 missionId);
+    // event QuestStarted(address indexed traveler, uint8 missionId);
     
-    event QuestPaused(address indexed traveler, uint8 questId);
+    // event QuestPaused(address indexed traveler, uint8 questId);
 
-    event QuestResumed(address indexed traveler, uint8 questId);
+    // event QuestResumed(address indexed traveler, uint8 questId);
 
-    event QuestCompleted(address indexed traveler, uint8 questId);
+    // event QuestCompleted(address indexed traveler, uint8 questId);
 
-    event TaskSubmitted(address indexed traveler, uint8 questId, uint8 taskId, string indexed homework);
+    // event TaskSubmitted(address indexed traveler, uint8 questId, uint8 taskId, string indexed homework);
 
-    event TaskReviewed(address indexed reviewer, address indexed traveler, uint8 questId, uint16 taskId, uint8 review);
+    // event TaskReviewed(address indexed reviewer, address indexed traveler, uint8 questId, uint16 taskId, uint8 review);
 
-    event TravelerRewardClaimed(address indexed creator, uint256 amount);
+    // event TravelerRewardClaimed(address indexed creator, uint256 amount);
 
-    event CreatorRewardClaimed(address indexed creator, uint256 amount);
+    // event CreatorRewardClaimed(address indexed creator, uint256 amount);
 
-    event ReviewerXpUpdated(uint8 xp);
+    // event ReviewerXpUpdated(uint8 xp);
 
-    event Arm0ryFeeUpdatedXpUpdated(uint8 arm0ryFee);
+    // event Arm0ryFeeUpdatedXpUpdated(uint8 arm0ryFee);
 
-    event ContractsUpdated(IArm0ryTravelers indexed travelers, IArm0ryMission indexed mission);
+    // event ContractsUpdated(IArm0ryTravelers indexed travelers, IArm0ryMission indexed mission);
 
     /// -----------------------------------------------------------------------
     /// Custom Errors
     /// -----------------------------------------------------------------------
+
+    error InvalidStart();
 
     error NotAuthorized();
 
@@ -261,8 +156,6 @@ contract Arm0ryQuests is NFTreceiver {
     error QuestInactive();
 
     error QuestActive();
-
-    error QuestExpired();
 
     error InvalidReviewer();
 
@@ -290,7 +183,7 @@ contract Arm0ryQuests is NFTreceiver {
 
     uint256 public immutable THRESHOLD = 10 * 1e18;
     
-    address payable public arm0ry;
+    address payable public admin;
 
     IArm0ryTravelers public travelers;
 
@@ -355,13 +248,13 @@ contract Arm0ryQuests is NFTreceiver {
     constructor(
         IArm0ryTravelers _travelers,
         IArm0ryMission _mission,
-        address payable _arm0ry
+        address payable _admin
     ) {
         travelers = _travelers;
         mission = _mission;
-        arm0ry = _arm0ry;
+        admin = _admin;
 
-        emit ContractsUpdated(travelers, mission);
+        // emit ContractsUpdated(travelers, mission);
     }
 
     /// -----------------------------------------------------------------------
@@ -375,30 +268,18 @@ contract Arm0ryQuests is NFTreceiver {
         external
         payable
     {
-        // uint256 id = uint256(uint160(msg.sender));
+        // Confirm Traveler possesses Traveler's Pass
         if (travelers.balanceOf(msg.sender) == 0) revert InvalidTraveler();
         uint8 qNonce = questNonce[msg.sender];
 
-        // If Traveler picked a BASIC path, i.e., missionId = 0, 
-        // lock Traveler Pass
-        // if (missionId == 0) {
-            // travelers.safeTransferFrom(msg.sender, address(this), id);
-        // } 
+        if (quests[msg.sender][qNonce].start != 0) revert InvalidStart();
 
         // If Traveler picked a non-BASIC path, i.e., missionId != 0, 
-        // lock Traveler Pass, and burn Traveler's token
+        // burn Traveler's token
         if (missionId != 0) {
-            if (IERC20(arm0ry).balanceOf(msg.sender) < THRESHOLD) revert NeedMoreCoins();
-            // travelers.safeTransferFrom(msg.sender, address(this), id);
+            if (IERC20(admin).balanceOf(msg.sender) < THRESHOLD) revert NeedMoreCoins();
         }
 
-        // If Mission requires fee, distribute to the Mission creator
-        (, uint40 _duration, , , , address _creator, uint256 _fee, ) = mission.getMission(missionId);
-        if (_fee != 0) {
-            if (msg.value < _fee) revert NeedMoreCoins(); 
-
-            payable(_creator)._safeTransferETH(_fee);
-        }
 
         // Initialize reviewer xp
         if (qNonce == 0) {
@@ -406,6 +287,7 @@ contract Arm0ryQuests is NFTreceiver {
         }
 
         // Initialize Quest
+        (, uint40 _duration, , , , , , ) = mission.getMission(missionId);
         quests[msg.sender][qNonce] = Quest({
             start: uint40(block.timestamp),
             duration: _duration,
@@ -429,22 +311,21 @@ contract Arm0ryQuests is NFTreceiver {
             questNonce[msg.sender] = qNonce;
         }
 
-        emit QuestStarted(msg.sender, missionId);
+        // emit QuestStarted(msg.sender, missionId);
     }
 
     /// @notice Traveler to continue an existing but inactive Quest.
     /// @param questId Identifier of a Quest.
     /// @dev 
     function resumeQuest(uint8 questId) external payable {
-        // Confirm Quest has been paused
+        // Confirm no Quest is active 
+        if (questing[msg.sender] != type(uint8).max) revert QuestActive();
+
+        // Confirm Quest to resume has been paused
         if (quests[msg.sender][questId].start > 0) revert QuestActive();
 
-        // Confirm Traveler owns Traveler's Pass to prevent double-questing
+        // Confirm Traveler possesses Traveler's Pass
         if (travelers.balanceOf(msg.sender) == 0) revert InvalidTraveler();
-
-        // Lock Traveler Pass
-        uint256 id = uint256(uint160(msg.sender));
-        travelers.safeTransferFrom(msg.sender, address(this), id);
         
         // Mark Quest as active
         questing[msg.sender] = questId;
@@ -452,7 +333,7 @@ contract Arm0ryQuests is NFTreceiver {
         // Update Quest start time
         quests[msg.sender][questId].start = uint40(block.timestamp);
 
-        emit QuestResumed(msg.sender, questId);
+        // emit QuestResumed(msg.sender, questId);
     }
 
     /// @notice Traveler to pause an active Quest.
@@ -464,7 +345,7 @@ contract Arm0ryQuests is NFTreceiver {
 
         // Confirm Quest has not expired
         (uint40 start, uint40 duration , , , , , , ) = this.getQuest(msg.sender, questId);
-        if (uint40(block.timestamp) > start + duration) revert QuestExpired();
+        if (uint40(block.timestamp) > start + duration) revert QuestInactive();
 
         // Use max value to mark Quest as paused
         questing[msg.sender] = type(uint8).max;
@@ -482,7 +363,7 @@ contract Arm0ryQuests is NFTreceiver {
         // Return locked NFT when pausing a Quest
         travelers.transferFrom(address(this), msg.sender, uint256(uint160(msg.sender)));
 
-        emit QuestPaused(msg.sender, questId);
+        // emit QuestPaused(msg.sender, questId);
     }
 
     /// @notice Traveler to submit Homework for Task completion.
@@ -506,7 +387,7 @@ contract Arm0ryQuests is NFTreceiver {
 
         // Confirm Quest has not expired
         (uint40 start, uint40 duration , , , , , , ) = this.getQuest(msg.sender, questId);
-        if (uint40(block.timestamp) > start + duration) revert QuestExpired();
+        if (uint40(block.timestamp) > start + duration) revert QuestInactive();
 
         // Update reviewer xp
         reviewerXp[msg.sender]--;
@@ -516,7 +397,7 @@ contract Arm0ryQuests is NFTreceiver {
         // Update Homework
         taskHomework[msg.sender][taskId] = homework;
 
-        emit TaskSubmitted(msg.sender, questId, taskId, homework);
+        // emit TaskSubmitted(msg.sender, questId, taskId, homework);
     }
 
     /// -----------------------------------------------------------------------
@@ -539,7 +420,7 @@ contract Arm0ryQuests is NFTreceiver {
         // Reviewer must have completed 2 quests
         bool _isManager = mission.isManager(msg.sender);
 
-        if (arm0ry != msg.sender && !_isManager) {
+        if (admin != msg.sender && !_isManager) {
             if (questNonce[msg.sender] < 2) revert InvalidReviewer();
         }
 
@@ -565,10 +446,27 @@ contract Arm0ryQuests is NFTreceiver {
             // Mark Task completion
             isTaskCompleted[traveler][taskId] = true;
 
-            finalizeQuestTask(traveler, questId, taskId, bonusXp);
+            updateQuestDetail(traveler, questId, taskId, bonusXp);
         } 
 
-        emit TaskReviewed(msg.sender, traveler, questId, taskId, review);
+        // emit TaskReviewed(msg.sender, traveler, questId, taskId, review);
+    }
+
+    function finalizeExpiredQuest(address traveler, uint8 questId) external payable {
+        (uint40 start, uint40 duration , uint8 missionId, , , uint8 progress, , ) = this.getQuest(traveler, questId);
+        (uint8 missionXp, , , , , , , ) = mission.getMission(missionId);
+        if ((uint40(block.timestamp) < start + duration) && progress != 100) {
+
+            IKaliShareManager(admin).burnShares(traveler, missionXp / 2);
+
+            if (questing[msg.sender] != type(uint8).max) {
+                questing[msg.sender] = type(uint8).max;
+            }
+
+            quests[traveler][questId].start = 0;    
+        } else {
+            revert QuestActive();
+        } 
     }
 
     /// -----------------------------------------------------------------------
@@ -593,9 +491,9 @@ contract Arm0ryQuests is NFTreceiver {
         quests[msg.sender][questId].claimed = xp;
 
         // Mint rewards
-        IKaliShareManager(arm0ry).mintShares(msg.sender, reward * 1e18);
+        IKaliShareManager(admin).mintShares(msg.sender, reward * 1e18);
 
-        emit TravelerRewardClaimed(msg.sender, reward * 1e18);
+        // emit TravelerRewardClaimed(msg.sender, reward * 1e18);
     }
 
     /// @notice Task creator to claim rewards.
@@ -611,9 +509,9 @@ contract Arm0ryQuests is NFTreceiver {
         missionCreatorRewards[msg.sender] = 0;
 
         // Mint rewards
-        IKaliShareManager(arm0ry).mintShares(msg.sender, (missionReward + taskReward) * 1e18);
+        IKaliShareManager(admin).mintShares(msg.sender, (missionReward + taskReward) * 1e18);
 
-        emit CreatorRewardClaimed(msg.sender, (missionReward + taskReward) * 1e18);
+        // emit CreatorRewardClaimed(msg.sender, (missionReward + taskReward) * 1e18);
     }
 
     /// -----------------------------------------------------------------------
@@ -625,11 +523,11 @@ contract Arm0ryQuests is NFTreceiver {
     /// @param _mission Contract address of Arm0ryMission.sol.
     /// @dev 
     function updateContracts(IArm0ryTravelers _travelers, IArm0ryMission _mission) external payable {
-        if (msg.sender != arm0ry) revert NotAuthorized();
+        if (msg.sender != admin) revert NotAuthorized();
         travelers = _travelers;
         mission = _mission;
 
-        emit ContractsUpdated(travelers, mission);
+        // emit ContractsUpdated(travelers, mission);
     }
 
     /// @notice Update Reviewer xp.
@@ -637,10 +535,13 @@ contract Arm0ryQuests is NFTreceiver {
     /// @param _xp Xp to assign to Reviewer.
     /// @dev 
     function updateReviewerXp(address reviewer, uint8 _xp) external payable {
-        if (msg.sender != arm0ry) revert NotAuthorized();
+        if (msg.sender != admin) revert NotAuthorized();
         reviewerXp[reviewer] = _xp;
+    }
 
-        emit ReviewerXpUpdated(_xp);
+    function updateAdmin(address payable _admin) external payable {
+        if (msg.sender != _admin) revert NotAuthorized();
+        admin = _admin;
     }
 
     /// -----------------------------------------------------------------------
@@ -675,34 +576,21 @@ contract Arm0ryQuests is NFTreceiver {
     /// Internal Functions
     /// -----------------------------------------------------------------------
 
-    /// @notice Return locked NFT & staked arm0ry token.
-    /// @param traveler .
-    /// @param questId .
+    /// @notice Calculate Quest progress.
+    /// @param _completions The number of completed Tasks.
+    /// @param _starts The number of Tasks started.
     /// @dev 
-    function finalizeQuest(address traveler, uint8 questId) internal {
-        // Return Traveler NFT
-        // travelers.transferFrom(
-        //     address(this),
-        //     traveler,
-        //     uint256(uint160(traveler))
-        // );
-
-        // Clean up Quest
-        quests[traveler][questId].start = 0;
-
-        // Mark Quest as "Inactive" 
-        questing[msg.sender] = type(uint8).max;
-
-        missionCompeletions[quests[traveler][questId].missionId].push(traveler);
-
-        emit QuestCompleted(traveler, questId);
-    }
-
     function calculateProgress(uint _completions, uint _starts) internal pure returns (uint) {
         return _completions*(10**2)/_starts; 
     }
 
-    function finalizeQuestTask(address traveler, uint8 questId, uint8 taskId, uint8 bonusXp) internal {
+    /// @notice Update, and finalize when appropriate, Quest detail.
+    /// @param traveler .
+    /// @param questId .
+    /// @param taskId .
+    /// @param bonusXp .
+    /// @dev 
+    function updateQuestDetail(address traveler, uint8 questId, uint8 taskId, uint8 bonusXp) internal {
         // Retrieve to update Task reward
             (, , uint8 missionId, uint8 completed, , , , ) = this.getQuest(traveler, questId);
             (uint8 taskXp, , address taskCreator , , ) = mission.getTask(taskId);
@@ -732,10 +620,20 @@ contract Arm0ryQuests is NFTreceiver {
                 taskCreatorRewards[taskCreator] += taskXp;
             }
 
-            // Update Quest progress
+            // Finalize and close out Quest when progress is 100
             if (progress == 100) {
+
+                // Increment Mission creator rewards
                 missionCreatorRewards[missionCreator] += missionXp;
-                finalizeQuest(traveler, questId);
+
+                // Clean up Quest
+                quests[traveler][questId].start = 0;
+
+                // Mark Quest as "Inactive" 
+                questing[msg.sender] = type(uint8).max;
+
+                // Add Traveler to completion array
+                missionCompeletions[missionId].push(traveler);
             }
     }
 
