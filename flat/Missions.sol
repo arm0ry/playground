@@ -562,7 +562,7 @@ struct Quest {
 }
 
 interface IArm0ryQuests {
-    function getQuest(address _traveler, uint8 _questId) external view returns (uint40, uint40, uint8, uint8, uint8, uint8, uint8, uint8);
+    function getQuest(address _traveler, uint8 _missionId) external view returns (uint40, uint40, uint8, uint8, uint8, uint8, uint8, uint8);
 
     function getMissionTravelersCount(uint8 _missionId) external view returns (uint8);
 
@@ -762,6 +762,10 @@ contract Arm0ryMission is ERC1155, Multicall {
         uint256 length = taskData.length;
 
         for (uint256 i = 0; i < length; ) {
+            unchecked {
+                ++taskId;
+            }
+
             (
                 uint8 xp, // Xp of a Task
                 uint40 duration, // Time allocated to complete a Task
@@ -784,23 +788,22 @@ contract Arm0ryMission is ERC1155, Multicall {
             // the array index counter which cannot possibly overflow.
             unchecked {
                 ++i;
-                ++taskId;
             }
         }
     }
 
     /// @notice Update tasks
-    /// @param ids A list of tasks to be updated
+    /// @param taskIds A list of tasks to be updated
     /// @param taskData Encoded data to update as Task
     /// @dev
-    function updateTasks(uint8[] calldata ids, bytes[] calldata taskData)
+    function updateTasks(uint8[] calldata taskIds, bytes[] calldata taskData)
         external
         payable
     {
         if (msg.sender != admin && !isManager[msg.sender])
             revert NotAuthorized();
 
-        uint256 length = ids.length;
+        uint256 length = taskIds.length;
 
         if (length != taskData.length) revert LengthMismatch();
 
@@ -846,6 +849,10 @@ contract Arm0ryMission is ERC1155, Multicall {
         if (msg.sender != admin && !isManager[msg.sender])
             revert NotAuthorized();
 
+        unchecked {
+            ++missionId;
+        }
+
         // Calculate xp and duration for Mission
         (uint8 totalXp, uint40 duration) = 
             calculateMissionDetail(missionId, _taskIds);
@@ -854,7 +861,7 @@ contract Arm0ryMission is ERC1155, Multicall {
         // Supply 01/01/2050 as deadline for first mission
          missions[missionId] = Mission({
             xp: totalXp,
-            duration: (missionId == 0) ? 2524626000 : duration,
+            duration: (missionId == 1) ? 2524626000 : duration,
             taskIds: _taskIds, // The Task identifiers in a Mission
             details: _details, // Additional Mission detail
             title: _title, // Title of a Mission
@@ -862,9 +869,6 @@ contract Arm0ryMission is ERC1155, Multicall {
             fee: _fee // Fee of a Mission
         });
 
-        unchecked {
-            ++missionId;
-        }
         emit MissionUpdated(missionId);
     }
 
