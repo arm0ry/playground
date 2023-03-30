@@ -208,7 +208,7 @@ contract Arm0ryQuests is NFTreceiver {
 
     // Status indicating if a Task of an active Quest is ready for review
     // Traveler => Task Id => True/False
-    mapping(address => mapping(uint256 => bool)) public taskReadyForReview;
+    // mapping(address => mapping(uint256 => bool)) public taskReadyForReview;
 
     // Review results of a Task of a Quest
     // 0 - not yet reviewed
@@ -223,7 +223,10 @@ contract Arm0ryQuests is NFTreceiver {
 
     // Status indicating if a Task of a Quest is completed
     // Traveler => Task Id => True/False
-    mapping(address => mapping(uint256 => bool)) public isTaskCompleted;
+    // mapping(address => mapping(uint256 => bool)) public isTaskCompleted;
+    // Traveler => Quest Id => Task Id => True/False
+    mapping(address => mapping(uint8 => mapping(uint256 => bool))) public isQuestTaskCompleted;
+
 
     // Rewards per Task creator
     // Task creator => Reward points
@@ -372,16 +375,16 @@ contract Arm0ryQuests is NFTreceiver {
     /// @param homework Task homework to turn in.
     /// @dev 
     function submitTasks(
-        uint8 questId,
-        uint8 taskId,
+        uint8 questId, 
+        uint8 taskId, 
         string calldata homework
     ) external payable {
         // Confirm Quest is active
         if (questId != questing[msg.sender]) revert QuestInactive();
 
         // Confirm Task not already completed
-        if (isTaskCompleted[msg.sender][taskId]) revert TaskAlreadyCompleted();
-        
+        if (isQuestTaskCompleted[msg.sender][questId][taskId]) revert TaskAlreadyCompleted();
+                
         // Traveler must have at least 1 reviewer xp
         if (reviewerXp[msg.sender] == 0) revert InsufficientReviewerXp();
 
@@ -444,7 +447,7 @@ contract Arm0ryQuests is NFTreceiver {
 
         if (review == 1) {
             // Mark Task completion
-            isTaskCompleted[traveler][taskId] = true;
+            isQuestTaskCompleted[traveler][questId][taskId] = true;
 
             updateQuestDetail(traveler, questId, taskId, bonusXp);
         } 
@@ -592,49 +595,49 @@ contract Arm0ryQuests is NFTreceiver {
     /// @dev 
     function updateQuestDetail(address traveler, uint8 questId, uint8 taskId, uint8 bonusXp) internal {
         // Retrieve to update Task reward
-            (, , uint8 missionId, uint8 completed, , , , ) = this.getQuest(traveler, questId);
-            (uint8 taskXp, , address taskCreator , , ) = mission.getTask(taskId);
-            (uint8 missionXp, , , , , address missionCreator, , uint256 missionTaskCount ) = mission.getMission(missionId);
+        (, , uint8 missionId, uint8 completed, , , , ) = this.getQuest(traveler, questId);
+        (uint8 taskXp, , address taskCreator , , ) = mission.getTask(taskId);
+        (uint8 missionXp, , , , , address missionCreator, , uint256 missionTaskCount ) = mission.getMission(missionId);
 
-            taskXp += bonusXp;
-            
-            // cannot possibly overflow
-            uint progress;
-            unchecked { 
-                ++completed;
+        taskXp += bonusXp;
+        
+        // cannot possibly overflow
+        uint progress;
+        unchecked { 
+            ++completed;
 
-                // Update complted Task count
-                quests[traveler][questId].completed = completed;
+            // Update complted Task count
+            quests[traveler][questId].completed = completed;
 
-                // Update incomplete Task count
-                quests[traveler][questId].incomplete = uint8(missionTaskCount) - completed;
+            // Update incomplete Task count
+            quests[traveler][questId].incomplete = uint8(missionTaskCount) - completed;
 
-                // Update Quest progress
-                progress = calculateProgress(completed, missionTaskCount);
-                quests[traveler][questId].progress = uint8(progress);
+            // Update Quest progress
+            progress = calculateProgress(completed, missionTaskCount);
+            quests[traveler][questId].progress = uint8(progress);
 
-                // Update Task reward
-                quests[traveler][questId].xp += missionXp;
+            // Update Task reward
+            quests[traveler][questId].xp += missionXp;
 
-                // Record task creator rewards
-                taskCreatorRewards[taskCreator] += taskXp;
-            }
+            // Record task creator rewards
+            taskCreatorRewards[taskCreator] += taskXp;
+        }
 
-            // Finalize and close out Quest when progress is 100
-            if (progress == 100) {
+        // Finalize and close out Quest when progress is 100
+        if (progress == 100) {
 
-                // Increment Mission creator rewards
-                missionCreatorRewards[missionCreator] += missionXp;
+            // Increment Mission creator rewards
+            missionCreatorRewards[missionCreator] += missionXp;
 
-                // Clean up Quest
-                quests[traveler][questId].start = 0;
+            // Clean up Quest
+            quests[traveler][questId].start = 0;
 
-                // Mark Quest as "Inactive" 
-                questing[msg.sender] = type(uint8).max;
+            // Mark Quest as "Inactive" 
+            questing[msg.sender] = type(uint8).max;
 
-                // Add Traveler to completion array
-                missionCompeletions[missionId].push(traveler);
-            }
+            // Add Traveler to completion array
+            missionCompeletions[missionId].push(traveler);
+        }
     }
 
     receive() external payable {}
