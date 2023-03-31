@@ -296,6 +296,28 @@ contract Arm0ryQuests is NFTreceiver {
         // emit QuestStarted(msg.sender, missionId);
     }
 
+    /// @notice Traveler to continue an existing but inactive Quest.
+    /// @param _missionId Identifier of a Quest.
+    /// @dev 
+    // function resumeQuest(uint8 _missionId) external payable {
+    //     // Lock Traveler Pass
+    //     travelers.safeTransferFrom(msg.sender, address(this), uint256(uint160(msg.sender)));
+
+    //     // Confirm no Quest is active 
+    //     // if (questing[msg.sender] != 0) revert QuestActive();
+
+    //     // Confirm Quest to resume has been paused
+    //     if (quests[msg.sender][_missionId].start > 0) revert QuestActive();
+        
+    //     // Mark _missionId as active Quest
+    //     questing[msg.sender] = _missionId;
+
+    //     // Update Quest start time
+    //     quests[msg.sender][_missionId].start = uint40(block.timestamp);
+
+    //     // emit QuestResumed(msg.sender, missionId);
+    // }
+
     /// @notice Traveler to pause an active Quest.
     /// @param _missionId Identifier of a Quest.
     /// @dev 
@@ -516,14 +538,13 @@ contract Arm0ryQuests is NFTreceiver {
         return uint8(missionCompeletions[_missionId].length);
     }
 
-    function getMissionImpact(uint8 _missionId) external view returns (uint8) {
-        uint8 ratio;
-        uint8 starts = uint8(missionTravelers[_missionId].length);
-        uint8 completions = uint8(missionCompeletions[_missionId].length);
-
+    function getMissionImpact(uint8 _missionId) external view returns (uint256) {
+        uint256 ratio;
+        uint256 starts = missionTravelers[_missionId].length;
+        uint256 completions = missionCompeletions[_missionId].length;
 
         if (starts != 0) {
-            ratio = completions / starts * 100;
+            ratio = completions * 100 / starts;
         } else {
             return 0;
         }
@@ -589,7 +610,7 @@ contract Arm0ryQuests is NFTreceiver {
             quests[traveler][missionId].start = 0;
 
             // Mark Quest as "Inactive" 
-            questing[msg.sender] = 0;
+            questing[traveler] = 0;
 
             // Add Traveler to completion array
             missionCompeletions[missionId].push(traveler);
