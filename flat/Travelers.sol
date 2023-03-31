@@ -32,7 +32,7 @@ library Strings {
         return string(buffer);
     }
 
-    /**
+    /*
      * @dev Converts a `uint256` to its ASCII `string` hexadecimal representation.
      */
     function toHexString(uint256 value) internal pure returns (string memory) {
@@ -427,7 +427,7 @@ interface IArm0ryTravelers {
 interface IArm0ryQuests {
     function questing(address traveler) external view returns (uint8);
 
-    function getQuest(address _traveler, uint8 _questId) external view returns (uint40, uint40, uint8, uint8, uint8, uint8, uint8, uint8);
+    function getQuest(address _traveler, uint8 _missionId) external view returns (uint40, uint40, uint8, uint8, uint8, uint8, uint8);
 
     function getMissionTravelersCount(uint8 _missionId) external view returns (uint8);
 
@@ -544,8 +544,8 @@ contract Arm0ryTravelers is ERC721 {
     {
         // Retrieve seeds
         address traveler = address(uint160(tokenId));
-        uint8 questId = quests.questing(traveler);
-        (, , uint8 missionId, , , uint8 progress, uint8 questXp, ) = quests.getQuest(traveler, questId);
+        uint8 missionId = quests.questing(traveler);
+        (, , , , uint8 progress, uint8 questXp, ) = quests.getQuest(traveler, missionId);
         (, , , , string memory missionTitle, , , ) = mission.getMission(missionId);
 
         // Prepare palette
@@ -563,10 +563,10 @@ contract Arm0ryTravelers is ERC721 {
                     '<text x="180" y="120" class="score" stroke="black" stroke-width="2">',Strings.toString(questXp),'</text>',
                     '<text x="272" y="120" class="tiny" stroke="grey">Xp</text>',
                     '<text x="15" y="170" class="medium" stroke="grey">QUEST: </text>',
-                    '<rect x="15" y="175" width="205" height="40" style="fill:white;opacity:0.5"/>',
-                    '<text x="20" y="190" class="medium" stroke="black">',bytes(missionTitle).length == 0 ? ' ' : missionTitle ,'</text>',
+                    '<rect x="15" y="175" width="300" height="40" style="fill:white;opacity:0.5"/>',
+                    '<text x="20" y="200" class="medium" stroke="black">',bytes(missionTitle).length == 0 ? ' ' : missionTitle ,'</text>',
                     unicode'  <text x="30" y="260" class="tiny" stroke="grey">Thank you for joining us at g0v 55th Hackathon! 🤙</text>',
-                    '<style>.svgBody {font-family: "Courier New" } .tiny {font-size:8px; } .small {font-size: 12px;}.medium {font-size: 18px;}.score {font-size: 70px;}</style>',
+                    '<style>.svgBody {font-family: "Courier New" } .tiny {font-size:8px; } .small {font-size: 12px;}.medium {font-size: 18px;}.score {font-size: 50px;}</style>',
                     "</svg>"
                 )
             );
