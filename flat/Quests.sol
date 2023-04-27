@@ -74,11 +74,11 @@ interface IArm0ryMission {
         external
         returns (bool);
 
-    function isManager(address manager) external returns (bool);
+    // function isManager(address manager) external returns (bool);
 
     function getTask(uint8 taskId) external view returns (uint8, uint40, address, string memory, string memory);
 
-    function getMission(uint8 _missionId) external view returns (uint8, uint40, uint8[] memory, string memory, string memory, address, uint256, uint256);
+    function getMission(uint8 _missionId) external view returns (uint8, uint40, uint8[] memory, string memory, string memory, address, uint8, uint256, uint256);
 }
 
 /// @title Arm0ry Quests
@@ -106,27 +106,25 @@ contract Arm0ryQuests is NFTreceiver {
     /// Events
     /// -----------------------------------------------------------------------
 
-    // event QuestStarted(address indexed traveler, uint8 missionId);
+    event QuestStarted(address indexed traveler, uint8 missionId);
     
-    // event QuestPaused(address indexed traveler, uint8 missionId);
+    event QuestPaused(address indexed traveler, uint8 missionId);
 
-    // event QuestResumed(address indexed traveler, uint8 missionId);
+    event QuestResumed(address indexed traveler, uint8 missionId);
 
-    // event QuestCompleted(address indexed traveler, uint8 missionId);
+    event QuestCompleted(address indexed traveler, uint8 missionId);
 
     event TaskSubmitted(address indexed traveler, uint8 missionId, uint8 taskId, string indexed homework);
 
     event TaskReviewed(address indexed reviewer, address indexed traveler, uint8 missionId, uint8 taskId, Review review);
 
-    // event TravelerRewardClaimed(address indexed creator, uint256 amount);
+    event TravelerRewardClaimed(address indexed creator, uint256 amount);
 
-    // event CreatorRewardClaimed(address indexed creator, uint256 amount);
+    event CreatorRewardClaimed(address indexed creator, uint256 amount);
 
-    // event ReviewerXpUpdated(uint8 xp);
+    event ReviewersUpdated(address[] indexed reviewers);
 
-    // event Arm0ryFeeUpdatedXpUpdated(uint8 arm0ryFee);
-
-    // event ContractsUpdated(IArm0ryTravelers indexed travelers, IArm0ryMission indexed mission);
+    event ContractsUpdated(IArm0ryTravelers indexed travelers, IArm0ryMission indexed mission);
 
     /// -----------------------------------------------------------------------
     /// Custom Errors
@@ -164,13 +162,11 @@ contract Arm0ryQuests is NFTreceiver {
 
     error LengthMismatch();
 
-    error NeedMoreCoins();
+    error NeedMoreXp();
 
     /// -----------------------------------------------------------------------
     /// Quest Storage
     /// -----------------------------------------------------------------------
-
-    uint256 public immutable THRESHOLD = 10 * 1e18;
     
     address payable public admin;
 
@@ -194,8 +190,11 @@ contract Arm0ryQuests is NFTreceiver {
     // Review results of a Task of a Quest
     mapping(address => mapping(uint256 => Review)) public taskReviews;
 
-    // Reviewer mapping
-    mapping(address => mapping(uint256 => address)) public taskReviewers;
+    address[] public reviewers;
+
+    // Status indicating if an address is a Manager
+    // Account -> True/False 
+    mapping(address => bool) public isReviewer;
 
     // Xp per reviewer
     // Reviewer => Xp
@@ -215,11 +214,31 @@ contract Arm0ryQuests is NFTreceiver {
 
     // Travelers per Mission Id
     // Mission Id => Travelers 
-    mapping(uint8 => address[]) public missionTravelers;
+    mapping(uint8 => address[]) public missionStarts;
 
     // Traveler completions by Mission Id
     // Mission Id => Travelers 
     mapping(uint8 => address[]) public missionCompeletions;
+
+    /// -----------------------------------------------------------------------
+    /// Modifier
+    /// -----------------------------------------------------------------------
+
+    modifier onlyReviewer() {
+        if (isReviewer[msg.sender]) {
+            _;
+        } else {
+            revert InvalidReviewer();
+        }
+    }
+
+    modifier onlyAdmin() {
+        if (admin == msg.sender) {
+            _;
+        } else {
+            revert NotAuthorized();
+        }
+    }
 
     /// -----------------------------------------------------------------------
     /// Constructor
@@ -234,7 +253,7 @@ contract Arm0ryQuests is NFTreceiver {
         mission = _mission;
         admin = _admin;
 
-        // emit ContractsUpdated(travelers, mission);
+        emit ContractsUpdated(travelers, mission);
     }
 
     /// -----------------------------------------------------------------------
@@ -248,29 +267,15 @@ contract Arm0ryQuests is NFTreceiver {
         external
         payable
     {
-        // Confirm if Mission is not 0
-        if (missionId == 0) revert InvalidMission();
-
-        if (questing[msg.sender] != 0) revert InvalidStart();
-        
-        (, uint40 _duration, , , , , , ) = mission.getMission(missionId);
+        (, uint40 _duration, , , , , uint8 requiredXp, , ) = mission.getMission(missionId);
+        // Confirm Mission is questable 
         if (_duration == 0) revert InvalidMission();
 
-        // if (quests[msg.sender][missionId].start != 0) revert InvalidStart();
-
-        // Lock Traveler Pass
-        travelers.safeTransferFrom(msg.sender, address(this), uint256(uint160(msg.sender)));
-
-        // If Traveler picked a non-BASIC path, i.e., missionId != 0, 
-        if (missionId != 1) {
-            if (IERC20(admin).balanceOf(msg.sender) < THRESHOLD) revert NeedMoreCoins();
-        }
-
-        // Initialize reviewer xp
-        // if (quests[msg.sender][missionId].duration == 0) {
-        // }
-
-        if (quests[msg.sender][missionId].duration == 0) {
+        // Confirm Traveler has sufficient xp to quest Misson
+        if (IERC20(admin).balanceOf(msg.sender) < requiredXp * 1e18 ) revert NeedMoreXp();
+        
+        // Confirm Traveler has recently completed a Mission or finalized an expired Mission
+        if (questing[msg.sender] != 0 && quests[msg.sender][questing[msg.sender]].start == 0) {
             // Initialize Quest
             quests[msg.sender][missionId] = Quest({
                 start: uint40(block.timestamp),
@@ -282,41 +287,49 @@ contract Arm0ryQuests is NFTreceiver {
                 claimed: 0
             });
 
-            reviewerXp[msg.sender] = 5;
+            // Add Traveler to list of mission participants
+            missionStarts[missionId].push(msg.sender);
+
+            // Mark active quest for Traveler
+            questing[msg.sender] = missionId;
+            
+            emit QuestStarted(msg.sender, missionId);
+
+        } else if (questing[msg.sender] == 0) {
+            // Initiatlize new quest or resume previously paused quest
+
+            // Lock Traveler Pass
+            travelers.safeTransferFrom(msg.sender, address(this), uint256(uint160(msg.sender)));
+
+            if (quests[msg.sender][missionId].duration == 0) {
+                // Initialize Quest
+                quests[msg.sender][missionId] = Quest({
+                    start: uint40(block.timestamp),
+                    duration: _duration,
+                    completed: 0,
+                    incomplete: 0,
+                    progress: 0,
+                    xp: 0,
+                    claimed: 0
+                });
+
+                // Add Traveler to list of mission participants
+                missionStarts[missionId].push(msg.sender);
+
+                // Mark active quest for Traveler
+                questing[msg.sender] = missionId;
+                
+                emit QuestStarted(msg.sender, missionId);
+            } else {
+                // Resume Quest
+                quests[msg.sender][missionId].start = uint40(block.timestamp);
+
+                emit QuestResumed(msg.sender, missionId);
+            }
         } else {
-            quests[msg.sender][missionId].start = uint40(block.timestamp);
+            revert InvalidStart();
         }
-
-        // Add Traveler to list of mission participants
-        missionTravelers[missionId].push(msg.sender);
-
-        // Mark active quest for Traveler
-        questing[msg.sender] = missionId;
-
-        // emit QuestStarted(msg.sender, missionId);
     }
-
-    /// @notice Traveler to continue an existing but inactive Quest.
-    /// @param _missionId Identifier of a Quest.
-    /// @dev 
-    // function resumeQuest(uint8 _missionId) external payable {
-    //     // Lock Traveler Pass
-    //     travelers.safeTransferFrom(msg.sender, address(this), uint256(uint160(msg.sender)));
-
-    //     // Confirm no Quest is active 
-    //     // if (questing[msg.sender] != 0) revert QuestActive();
-
-    //     // Confirm Quest to resume has been paused
-    //     if (quests[msg.sender][_missionId].start > 0) revert QuestActive();
-        
-    //     // Mark _missionId as active Quest
-    //     questing[msg.sender] = _missionId;
-
-    //     // Update Quest start time
-    //     quests[msg.sender][_missionId].start = uint40(block.timestamp);
-
-    //     // emit QuestResumed(msg.sender, missionId);
-    // }
 
     /// @notice Traveler to pause an active Quest.
     /// @param _missionId Identifier of a Quest.
@@ -336,7 +349,7 @@ contract Arm0ryQuests is NFTreceiver {
         if (_missionId != 1) {
             uint40 diff;
             unchecked { 
-                 diff = uint40(block.timestamp) - start;
+                 diff = uint40(block.timestamp) - start;  
             }
             quests[msg.sender][_missionId].start = 0;
             quests[msg.sender][_missionId].duration = diff;
@@ -345,7 +358,7 @@ contract Arm0ryQuests is NFTreceiver {
         // Return locked NFT when pausing a Quest
         travelers.transferFrom(address(this), msg.sender, uint256(uint160(msg.sender)));
 
-        // emit QuestPaused(msg.sender, missionId);
+        emit QuestPaused(msg.sender, _missionId);
     }
 
     /// @notice Traveler to submit Homework for Task completion.
@@ -363,19 +376,13 @@ contract Arm0ryQuests is NFTreceiver {
 
         // Confirm Task not already completed
         if (isMissionTaskCompleted[msg.sender][_missionId][taskId]) revert TaskAlreadyCompleted();
-                
-        // Traveler must have at least 1 reviewer xp
-        if (reviewerXp[msg.sender] == 0) revert InsufficientReviewerXp();
-
+      
         // Confirm Quest has not expired
         (uint40 start, uint40 duration , , , , , ) = this.getQuest(msg.sender, _missionId);
         if (uint40(block.timestamp) > start + duration) revert QuestInactive();
 
         // Confirm Task is part of Mission
         if (!mission.isTaskInMission(_missionId, uint8(taskId))) revert InvalidMission();
-
-        // Update reviewer xp
-        reviewerXp[msg.sender]--;
 
         // Update Homework
         taskHomework[msg.sender][taskId] = homework;
@@ -391,37 +398,25 @@ contract Arm0ryQuests is NFTreceiver {
     /// @param traveler Identifier of a Traveler.
     /// @param missionId Identifier of a Quest.
     /// @param taskId Identifier of a Task.
-    /// @param review Result of review, i.e., 0, 1, or 2.
+    /// @param review Result of review
     /// @dev 
     function reviewTasks(
         address traveler,
         uint8 missionId,
         uint8 taskId,
-        Review review,
-        uint8 bonusXp
-    ) external payable {
-        // Reviewer must have completed 2 quests
-        bool _isManager = mission.isManager(msg.sender);
-
-        if (admin != msg.sender && !_isManager) {
-            if (IERC20(admin).balanceOf(msg.sender) < THRESHOLD) revert NeedMoreCoins();
-        }
-
-        // Reviewer cannot review own Task
-        if (traveler == msg.sender) revert InvalidReview();
-
-        // Reviewer must provide valid review data
+        Review review
+    ) onlyReviewer external payable {
+        // Confirm Reviewer has submitted valid review data
         if (review == Review.NOT_READY) revert InvalidReview();
 
-        // Traveler must have submitted homework
+        // Confirm Traveler has submitted homework
         if (bytes(taskHomework[traveler][taskId]).length == 0) revert TaskNotReadyForReview();
 
-        // Reviewer must not have already reviewed instant Task
+        // Confirm Task has not already been reviewed
         if (taskReviews[traveler][taskId] != Review.NOT_READY) revert AlreadyReviewed();
 
-        // Record review & reviewer
+        // Record review
         taskReviews[traveler][taskId] = review;
-        taskReviewers[traveler][taskId] = msg.sender;
 
         // Update reviewer xp
         reviewerXp[msg.sender]++;
@@ -430,7 +425,7 @@ contract Arm0ryQuests is NFTreceiver {
             // Mark Task completion
             isMissionTaskCompleted[traveler][missionId][taskId] = true;
 
-            updateQuestDetail(traveler, missionId, taskId, bonusXp);
+            updateQuestDetail(traveler, missionId, taskId);
         } 
 
         emit TaskReviewed(msg.sender, traveler, missionId, taskId, review);
@@ -438,7 +433,7 @@ contract Arm0ryQuests is NFTreceiver {
 
     function finalizeExpiredQuest(address traveler, uint8 missionId) external payable {
         (uint40 start, uint40 duration , , , uint8 progress, , ) = this.getQuest(traveler, missionId);
-        (uint8 missionXp, , , , , , , ) = mission.getMission(missionId);
+        (uint8 missionXp, , , , , , , , ) = mission.getMission(missionId);
         if ((uint40(block.timestamp) < start + duration) && progress != 100) {
 
             IKaliShareManager(admin).burnShares(traveler, missionXp / 2);
@@ -474,7 +469,7 @@ contract Arm0ryQuests is NFTreceiver {
         // Mint rewards
         IKaliShareManager(admin).mintShares(msg.sender, reward * 1e18);
 
-        // emit TravelerRewardClaimed(msg.sender, reward * 1e18);
+        emit TravelerRewardClaimed(msg.sender, reward * 1e18);
     }
 
     /// @notice Task creator to claim rewards.
@@ -492,7 +487,7 @@ contract Arm0ryQuests is NFTreceiver {
         // Mint rewards
         IKaliShareManager(admin).mintShares(msg.sender, (missionReward + taskReward) * 1e18);
 
-        // emit CreatorRewardClaimed(msg.sender, (missionReward + taskReward) * 1e18);
+        emit CreatorRewardClaimed(msg.sender, (missionReward + taskReward) * 1e18);
     }
 
     /// -----------------------------------------------------------------------
@@ -503,25 +498,48 @@ contract Arm0ryQuests is NFTreceiver {
     /// @param _travelers Contract address of Arm0ryTraveler.sol.
     /// @param _mission Contract address of Arm0ryMission.sol.
     /// @dev 
-    function updateContracts(IArm0ryTravelers _travelers, IArm0ryMission _mission) external payable {
-        if (msg.sender != admin) revert NotAuthorized();
+    function updateContracts(IArm0ryTravelers _travelers, IArm0ryMission _mission) 
+        onlyAdmin 
+        external 
+        payable 
+    {
         travelers = _travelers;
         mission = _mission;
 
-        // emit ContractsUpdated(travelers, mission);
+        emit ContractsUpdated(travelers, mission);
     }
 
-    /// @notice Update Reviewer xp.
-    /// @param reviewer Reviewer's address.
-    /// @param _xp Xp to assign to Reviewer.
-    /// @dev 
-    function updateReviewerXp(address reviewer, uint8 _xp) external payable {
-        if (msg.sender != admin) revert NotAuthorized();
-        reviewerXp[reviewer] = _xp;
+    /// @notice Update reviewers
+    /// @param _reviewers The addresses to update managers to
+    /// @dev
+    function updateReviewers(address[] calldata _reviewers)
+        onlyAdmin
+        external
+        payable
+    {
+        delete reviewers;
+
+        for (uint8 i = 0 ; i < _reviewers.length;) {
+
+            if (_reviewers[i] != address(0)) {
+                reviewers.push(_reviewers[i]);
+                isReviewer[_reviewers[i]] = true;
+            }
+
+            // cannot possibly overflow
+            unchecked {
+                ++i;
+            }
+        }
+
+        emit ReviewersUpdated(reviewers);
     }
 
-    function updateAdmin(address payable _admin) external payable {
-        if (msg.sender != admin) revert NotAuthorized();
+    function updateAdmin(address payable _admin) 
+        onlyAdmin 
+        external 
+        payable 
+    {
         admin = _admin;
     }
 
@@ -534,13 +552,17 @@ contract Arm0ryQuests is NFTreceiver {
         return (quest.start, quest.duration, quest.completed, quest.incomplete, quest.progress, quest.xp, quest.claimed);
     }
 
-    function getMissionCompletionsCount(uint8 _missionId) external view returns (uint8) {
-        return uint8(missionCompeletions[_missionId].length);
+    function getMissionCompletionsCount(uint8 _missionId) external view returns (uint256) {
+        return missionCompeletions[_missionId].length;
+    }
+
+    function getMissionStartCount(uint8 _missionId) external view returns (uint256) {
+        return missionStarts[_missionId].length;
     }
 
     function getMissionImpact(uint8 _missionId) external view returns (uint256) {
         uint256 ratio;
-        uint256 starts = missionTravelers[_missionId].length;
+        uint256 starts = missionStarts[_missionId].length;
         uint256 completions = missionCompeletions[_missionId].length;
 
         if (starts != 0) {
@@ -564,19 +586,16 @@ contract Arm0ryQuests is NFTreceiver {
         return _completions*(10**2)/_starts; 
     }
 
-    /// @notice Update, and finalize when appropriate, Quest detail.
-    /// @param traveler .
-    /// @param missionId .
-    /// @param taskId .
-    /// @param bonusXp .
+    /// @notice Update, and finalize when appropriate, the Quest detail.
+     /// @param traveler Identifier of a Traveler.
+    /// @param missionId Identifier of a Quest.
+    /// @param taskId Identifier of a Task.
     /// @dev 
-    function updateQuestDetail(address traveler, uint8 missionId, uint8 taskId, uint8 bonusXp) internal {
+    function updateQuestDetail(address traveler, uint8 missionId, uint8 taskId) internal {
         // Retrieve to update Task reward
         (, , uint8 completed, , , , ) = this.getQuest(traveler, missionId);
         (uint8 taskXp, , address taskCreator , , ) = mission.getTask(taskId);
-        (uint8 missionXp, , , , , address missionCreator, , uint256 missionTaskCount ) = mission.getMission(missionId);
-
-        taskXp += bonusXp;
+        (uint8 missionXp, , , , , address missionCreator, , , uint256 missionTaskCount) = mission.getMission(missionId);
         
         // cannot possibly overflow
         uint progress;
@@ -596,27 +615,22 @@ contract Arm0ryQuests is NFTreceiver {
             // Update Task reward
             quests[traveler][missionId].xp += taskXp;
 
-            // Record task creator rewards
+            // Reward Task creator
             taskCreatorRewards[taskCreator] += taskXp;
         }
 
         // Finalize and close out Quest when progress is 100
         if (progress == 100) {
-
-            // Increment Mission creator rewards
+            // Reward Mission creator 
             missionCreatorRewards[missionCreator] += missionXp;
-
-            // Clean up Quest
-            quests[traveler][missionId].start = 0;
-
-            // Mark Quest as "Inactive" 
-            questing[traveler] = 0;
 
             // Add Traveler to completion array
             missionCompeletions[missionId].push(traveler);
 
-            // Return locked NFT when Quest is completed
-            travelers.transferFrom(address(this), traveler, uint256(uint160(traveler)));
+            // Mark Quest complete
+            quests[traveler][missionId].start = 0;
+
+            emit QuestCompleted(traveler, missionId);
         }
     }
 

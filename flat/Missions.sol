@@ -564,11 +564,11 @@ struct Quest {
 interface IArm0ryQuests {
     function getQuest(address _traveler, uint8 _missionId) external view returns (uint40, uint40, uint8, uint8, uint8, uint8, uint8, uint8);
 
-    function getMissionTravelersCount(uint8 _missionId) external view returns (uint8);
+    function getMissionStartCount(uint8 _missionId) external view returns (uint8);
 
-    function getMissionCompletionsCount(uint8 _missionId) external view returns (uint8);
+    function getMissionCompletionsCount(uint8 _missionId) external view returns (uint256);
 
-    function getMissionImpact(uint8 _missionId) external view returns (uint8);
+    function getMissionImpact(uint8 _missionId) external view returns (uint256);
 }
 
 interface IArm0ryMission {
@@ -578,7 +578,7 @@ interface IArm0ryMission {
 
     function getTask(uint8 taskId) external view returns (uint8, uint40, address, string memory, string memory);
 
-    function getMission(uint8 _missionId) external view returns (uint8, uint40, uint8[] memory, string memory, string memory, address, uint256, uint256);
+    function getMission(uint8 _missionId) external view returns (uint8, uint40, uint8[] memory, string memory, string memory, address, uint8, uint256, uint256);
 }
 
 /// @title Arm0ry Mission
@@ -586,21 +586,22 @@ interface IArm0ryMission {
 /// @author audsssy.eth
 
 struct Mission {
-    uint8 xp; //
-    uint40 duration; //
-    uint8[] taskIds; // 
-    string details;
-    string title;
-    address creator;
+    uint8 xp; // Total XP
+    uint8 requiredXp; // Xp required to participate
+    uint40 duration; // Time allotted to complete Mission
+    address creator; // Creator of Mission
+    string title; // Title of Mission
+    string details; // Additional detail of Mission
+    uint8[] taskIds; // Tasks associated with Mission
     uint256 fee;
 }
 
 struct Task {
-    uint8 xp;
-    uint40 duration;
-    address creator;
-    string details;
-    string title; 
+    uint8 xp; // Xp of a Task
+    uint40 duration; // Time allocated to complete a Task
+    address creator; // Creator of a Task
+    string title; // Title of a Task
+    string details; // Additional Task detail
 }
 
 contract Arm0ryMission is ERC1155, Multicall {
@@ -621,8 +622,7 @@ contract Arm0ryMission is ERC1155, Multicall {
 
     event PermissionUpdated(
         address indexed caller,
-        address indexed admin,
-        address[] indexed managers
+        address indexed admin
     );
 
     /// -----------------------------------------------------------------------
@@ -638,14 +638,6 @@ contract Arm0ryMission is ERC1155, Multicall {
     /// -----------------------------------------------------------------------
 
     address public admin;
-
-    address[] public managers;
-
-    // Status indicating if an address is a Manager
-    // Account -> True/False 
-    mapping(address => bool) public isManager;
-
-    uint8 public tripId;
 
     uint8 public taskId;
 
@@ -664,6 +656,18 @@ contract Arm0ryMission is ERC1155, Multicall {
     IArm0ryQuests public quests;
 
     /// -----------------------------------------------------------------------
+    /// Modifier
+    /// -----------------------------------------------------------------------
+
+    modifier onlyAdmin() {
+        if (admin == msg.sender) {
+            _;
+        } else {
+            revert NotAuthorized();
+        }
+    }
+
+    /// -----------------------------------------------------------------------
     /// Metadata Storage & Logic
     /// -----------------------------------------------------------------------
 
@@ -680,7 +684,7 @@ contract Arm0ryMission is ERC1155, Multicall {
                 Strings.toString(_missionId)
             )
         );
-        string memory description = "Arm0ry Trips";
+        string memory description = "Arm0ry Missions";
         string memory image = generateBase64Image(_missionId);
 
         return
@@ -718,9 +722,9 @@ contract Arm0ryMission is ERC1155, Multicall {
         view
         returns (string memory)
     {
-        (, , , , string memory _title, , , ) = this.getMission(uint8(_missionId));
-        uint8 completions = quests.getMissionCompletionsCount(uint8(_missionId));
-        uint8 ratio = quests.getMissionImpact(uint8(_missionId));
+        (, , , , string memory _title, , , , ) = this.getMission(uint8(_missionId));
+        uint256 completions = quests.getMissionCompletionsCount(uint8(_missionId));
+        uint256 ratio = quests.getMissionImpact(uint8(_missionId));
         
         return
             string(
@@ -755,10 +759,11 @@ contract Arm0ryMission is ERC1155, Multicall {
     /// @notice Create tasks
     /// @param taskData Encoded data to store as Task
     /// @dev
-    function setTasks(bytes[] calldata taskData) external payable {
-        if (msg.sender != admin && !isManager[msg.sender])
-            revert NotAuthorized();
-
+    function setTasks(bytes[] calldata taskData) 
+        onlyAdmin 
+        external 
+        payable 
+    {
         uint256 length = taskData.length;
 
         for (uint256 i = 0; i < length; ) {
@@ -767,11 +772,11 @@ contract Arm0ryMission is ERC1155, Multicall {
             }
 
             (
-                uint8 xp, // Xp of a Task
-                uint40 duration, // Time allocated to complete a Task
-                address creator, // Creator of a Task
-                string memory title, // Title of a Task
-                string memory details // Additional Task detail
+                uint8 xp, 
+                uint40 duration,
+                address creator,
+                string memory title,
+                string memory details
             ) = abi.decode(taskData[i], (uint8, uint40, address, string, string));
 
             tasks[taskId] = Task({
@@ -797,23 +802,21 @@ contract Arm0ryMission is ERC1155, Multicall {
     /// @param taskData Encoded data to update as Task
     /// @dev
     function updateTasks(uint8[] calldata taskIds, bytes[] calldata taskData)
+        onlyAdmin
         external
         payable
     {
-        if (msg.sender != admin && !isManager[msg.sender])
-            revert NotAuthorized();
-
         uint256 length = taskIds.length;
 
         if (length != taskData.length) revert LengthMismatch();
 
         for (uint256 i = 0; i < length; ) {
             (
-                uint8 xp, // Xp of a Task
-                uint40 duration, // Time allocated to complete a Task
-                address creator, // Creator of a Task
-                string memory title, // Title of a Task
-                string memory details // Additional Task detail
+                uint8 xp, 
+                uint40 duration, 
+                address creator, 
+                string memory title, 
+                string memory details 
             ) = abi.decode(taskData[i], (uint8, uint40, address, string, string));
 
             tasks[taskId] = Task({
@@ -844,11 +847,9 @@ contract Arm0ryMission is ERC1155, Multicall {
         string calldata _details,
         string calldata _title,
         address _creator,
+        uint8 _requiredXp,
         uint256 _fee
-    ) external payable {
-        if (msg.sender != admin && !isManager[msg.sender])
-            revert NotAuthorized();
-
+    ) onlyAdmin external payable {
         unchecked {
             ++missionId;
         }
@@ -858,15 +859,15 @@ contract Arm0ryMission is ERC1155, Multicall {
             calculateMissionDetail(missionId, _taskIds);
 
         // Create a Mission
-        // Supply 01/01/2050 as deadline for first mission
          missions[missionId] = Mission({
             xp: totalXp,
-            duration: (missionId == 1) ? 2524626000 : duration,
-            taskIds: _taskIds, // The Task identifiers in a Mission
-            details: _details, // Additional Mission detail
-            title: _title, // Title of a Mission
-            creator: _creator, // Creator of a Mission
-            fee: _fee // Fee of a Mission
+            requiredXp: _requiredXp,
+            duration: duration,
+            creator: _creator,
+            title: _title,
+            details: _details,
+            taskIds: _taskIds,
+            fee: _fee
         });
 
         emit MissionUpdated(missionId);
@@ -884,24 +885,22 @@ contract Arm0ryMission is ERC1155, Multicall {
         string calldata _details,
         string calldata _title,
         address _creator,
+        uint8 _requiredXp,
         uint256 _fee
-    ) external payable {
-        if (msg.sender != admin && !isManager[msg.sender])
-            revert NotAuthorized();
-
+    ) onlyAdmin external payable {
         // Calculate xp and duration for Mission
         (uint8 totalXp, uint40 duration) = 
             calculateMissionDetail(_missionId, _taskIds);
 
         // Update existing Mission
-        // Supply 01/01/2050 as deadline for first mission
         missions[_missionId] = Mission({
             xp: totalXp,
-            duration: (missionId == 0) ? 2524626000 : duration,
-            taskIds: _taskIds,
-            details: _details,
-            title: _title,
+            requiredXp: _requiredXp,
+            duration: duration,
             creator: _creator,
+            title: _title,
+            details: _details,
+            taskIds: _taskIds,
             fee: _fee
         });
 
@@ -912,50 +911,21 @@ contract Arm0ryMission is ERC1155, Multicall {
     /// @param _admin The address to update admin to
     /// @dev
     function updateAdmin(address _admin)
+        onlyAdmin
         external
         payable
     {
-        if (admin != msg.sender) revert NotAuthorized();
-
         if (_admin != admin) {
             admin = _admin;
         }
 
-        emit PermissionUpdated(msg.sender, admin, managers);
+        emit PermissionUpdated(msg.sender, admin);
     }
 
-    /// @notice Update missions
-    /// @param _managers The addresses to update managers to
-    /// @dev
-    function updateManagers(address[] calldata _managers)
-        external
-        payable
-    {
-        if (admin != msg.sender) revert NotAuthorized();
-
-        delete managers;
-
-        for (uint8 i = 0 ; i < _managers.length;) {
-
-            if (_managers[i] != address(0)) {
-                managers.push(_managers[i]);
-                isManager[_managers[i]] = true;
-            }
-
-            // cannot possibly overflow
-            unchecked {
-                ++i;
-            }
-        }
-
-        emit PermissionUpdated(msg.sender, admin, managers);
-    }
-
-     /// @notice Update Arm0ry contracts.
+    /// @notice Update Arm0ry contracts.
     /// @param _quests Contract address of Arm0ryTraveler.sol.
     /// @dev 
-    function updateContracts(IArm0ryQuests _quests) external payable {
-        if (msg.sender != admin) revert NotAuthorized();
+    function updateContracts(IArm0ryQuests _quests) onlyAdmin external payable {
         quests = _quests;
     }
 
@@ -967,13 +937,13 @@ contract Arm0ryMission is ERC1155, Multicall {
     /// @param _missionId The identifier of the Mission.
     /// @dev
     function purchase(uint8 _missionId) external payable {
-        missions[_missionId].creator._safeTransferETH(missions[_missionId].fee);
+        (, , , ,, address creator, , uint256 fee, ) = this.getMission(uint8(_missionId));
+
+        uint256 royalties = fee * 10 / 100;
+        creator._safeTransferETH(royalties);
+        admin._safeTransferETH(fee - royalties);
 
         _mint(msg.sender, _missionId, 1, "0x");
-
-        unchecked {
-          ++tripId;
-        }
     }
 
     /// -----------------------------------------------------------------------
@@ -982,12 +952,12 @@ contract Arm0ryMission is ERC1155, Multicall {
 
     function getTask(uint8 _taskId) external view returns (uint8, uint40, address, string memory, string memory) {
         Task memory task = tasks[_taskId];
-        return (task.xp, task.duration, task.creator, task.details, task.title);
+        return (task.xp, task.duration, task.creator, task.title, task.details);
     }
 
-    function getMission(uint8 _missionId) external view returns (uint8, uint40, uint8[] memory, string memory, string memory, address, uint256, uint256) {
+    function getMission(uint8 _missionId) external view returns (uint8, uint40, uint8[] memory, string memory, string memory, address, uint8, uint256, uint256) {
         Mission memory mission = missions[_missionId];
-        return (mission.xp, mission.duration, mission.taskIds, mission.details, mission.title, mission.creator, mission.fee, mission.taskIds.length);
+        return (mission.xp, mission.duration, mission.taskIds, mission.details, mission.title, mission.creator, mission.requiredXp, mission.fee, mission.taskIds.length);
     }
 
     /// -----------------------------------------------------------------------
