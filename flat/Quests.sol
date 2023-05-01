@@ -267,7 +267,7 @@ contract Arm0ryQuests is NFTreceiver {
         external
         payable
     {
-        (, uint40 _duration, , , , , uint8 requiredXp, , ) = mission.getMission(missionId);
+        (, uint40 _duration, , , , , uint8 requiredXp, , uint256 tasksCount) = mission.getMission(missionId);
         // Confirm Mission is questable 
         if (_duration == 0) revert InvalidMission();
 
@@ -281,7 +281,7 @@ contract Arm0ryQuests is NFTreceiver {
                 start: uint40(block.timestamp),
                 duration: _duration,
                 completed: 0,
-                incomplete: 0,
+                incomplete: uint8(tasksCount),
                 progress: 0,
                 xp: 0,
                 claimed: 0
@@ -307,7 +307,7 @@ contract Arm0ryQuests is NFTreceiver {
                     start: uint40(block.timestamp),
                     duration: _duration,
                     completed: 0,
-                    incomplete: 0,
+                    incomplete: uint8(tasksCount),
                     progress: 0,
                     xp: 0,
                     claimed: 0
@@ -578,12 +578,12 @@ contract Arm0ryQuests is NFTreceiver {
     /// Internal Functions
     /// -----------------------------------------------------------------------
 
-    /// @notice Calculate Quest progress.
-    /// @param _completions The number of completed Tasks.
-    /// @param _starts The number of Tasks started.
+    /// @notice Calculate a percentage.
+    /// @param numerator The numerator.
+    /// @param denominator The denominator.
     /// @dev 
-    function calculateProgress(uint _completions, uint _starts) internal pure returns (uint) {
-        return _completions*(10**2)/_starts; 
+    function calculateProgress(uint numerator, uint denominator) internal pure returns (uint8) {
+        return uint8(numerator*(10**2)/denominator); 
     }
 
     /// @notice Update, and finalize when appropriate, the Quest detail.
@@ -593,24 +593,20 @@ contract Arm0ryQuests is NFTreceiver {
     /// @dev 
     function updateQuestDetail(address traveler, uint8 missionId, uint8 taskId) internal {
         // Retrieve to update Task reward
-        (, , uint8 completed, , , , ) = this.getQuest(traveler, missionId);
         (uint8 taskXp, , address taskCreator , , ) = mission.getTask(taskId);
         (uint8 missionXp, , , , , address missionCreator, , , uint256 missionTaskCount) = mission.getMission(missionId);
         
         // cannot possibly overflow
         uint progress;
         unchecked { 
-            ++completed;
-
             // Update complted Task count
-            quests[traveler][missionId].completed = completed;
+            ++quests[traveler][missionId].completed;
 
             // Update incomplete Task count
-            quests[traveler][missionId].incomplete = uint8(missionTaskCount) - completed;
+            --quests[traveler][missionId].incomplete;
 
             // Update Quest progress
-            progress = calculateProgress(completed, missionTaskCount);
-            quests[traveler][missionId].progress = uint8(progress);
+            quests[traveler][missionId].progress = calculateProgress(quests[traveler][missionId].completed, missionTaskCount);
 
             // Update Task reward
             quests[traveler][missionId].xp += taskXp;
