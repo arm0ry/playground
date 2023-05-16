@@ -1,113 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.4;
 
-/// @notice Receiver hook utility for NFT 'safe' transfers
-abstract contract NFTreceiver {
-    function onERC721Received(
-        address,
-        address,
-        uint256,
-        bytes calldata
-    ) external pure returns (bytes4) {
-        return 0x150b7a02;
-    }
-
-    function onERC1155Received(
-        address,
-        address,
-        uint256,
-        uint256,
-        bytes calldata
-    ) external pure returns (bytes4) {
-        return 0xf23a6e61;
-    }
-
-    function onERC1155BatchReceived(
-        address,
-        address,
-        uint256[] calldata,
-        uint256[] calldata,
-        bytes calldata
-    ) external pure returns (bytes4) {
-        return 0xbc197c81;
-    }
-}
-
-interface ITravelers {
-    function ownerOf(uint256 id) external view returns (address);
-
-    function balanceOf(address account) external view returns (uint256);
-
-    function transferFrom(
-        address from,
-        address to,
-        uint256 id
-    ) external payable;
-
-    function safeTransferFrom(
-        address from,
-        address to,
-        uint256 id
-    ) external payable;
-}
-
-interface IMissions {
-    function isTaskInMission(uint256 missionId, uint256 taskId)
-        external
-        returns (bool);
-
-    function getTask(uint256 taskId) external view returns (uint8, uint40, address, string memory, string memory);
-
-    function getMission(uint256 _missionId) external view returns (uint8, uint40, uint8[] memory, string memory, string memory, address, uint8, uint256, uint256);
-}
-
-/// @notice Kali DAO share manager interface
-interface IKaliShareManager {
-    function mintShares(address to, uint256 amount) external payable;
-
-    function burnShares(address from, uint256 amount) external payable;
-}
-
-/// @dev Interface of the ERC20 standard as defined in the EIP.
-/// @dev This includes the optional name, symbol, and decimals metadata.
-interface IERC20 {
-    /// @dev Emitted when `value` tokens are moved from one account (`from`) to another (`to`).
-    event Transfer(address indexed from, address indexed to, uint256 value);
-
-    /// @dev Emitted when the allowance of a `spender` for an `owner` is set, where `value`
-    /// is the new allowance.
-    event Approval(address indexed owner, address indexed spender, uint256 value);
-
-    /// @notice Returns the amount of tokens in existence.
-    function totalSupply() external view returns (uint256);
-
-    /// @notice Returns the amount of tokens owned by `account`.
-    function balanceOf(address account) external view returns (uint256);
-
-    /// @notice Moves `amount` tokens from the caller's account to `to`.
-    function transfer(address to, uint256 amount) external returns (bool);
-
-    /// @notice Returns the remaining number of tokens that `spender` is allowed
-    /// to spend on behalf of `owner`
-    function allowance(address owner, address spender) external view returns (uint256);
-
-    /// @notice Sets `amount` as the allowance of `spender` over the caller's tokens.
-    /// @dev Be aware of front-running risks: https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
-    function approve(address spender, uint256 amount) external returns (bool);
-
-    /// @notice Moves `amount` tokens from `from` to `to` using the allowance mechanism.
-    /// `amount` is then deducted from the caller's allowance.
-    function transferFrom(address from, address to, uint256 amount) external returns (bool);
-
-    /// @notice Returns the name of the token.
-    function name() external view returns (string memory);
-
-    /// @notice Returns the symbol of the token.
-    function symbol() external view returns (string memory);
-
-    /// @notice Returns the decimals places of the token.
-    function decimals() external view returns (uint8);
-}
+import { NFTreceiver } from "./utils/NFTreceiver.sol";
+import { ITravelers } from "./interface/ITravelers.sol";
+import { IMissions } from "./interface/IMissions.sol";
+import { IKaliShareManager} from "./interface/IKaliShareManager.sol";
+import { IERC20 } from "forge-std/interfaces/IERC20.sol";
 
 /// @title Arm0ry Quests
 /// @notice Quest-to-Earn RPG.
@@ -129,7 +27,7 @@ enum Review {
     FAIL
 }
 
-contract Arm0ryQuests is NFTreceiver {
+contract Quests is NFTreceiver {
     /// -----------------------------------------------------------------------
     /// Events
     /// -----------------------------------------------------------------------
