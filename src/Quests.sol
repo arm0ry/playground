@@ -1,151 +1,98 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.4;
 
-import { NFTreceiver } from "./utils/NFTreceiver.sol";
-import { ITravelers } from "./interface/ITravelers.sol";
-import { IMissions } from "./interface/IMissions.sol";
-import { IKaliShareManager} from "./interface/IKaliShareManager.sol";
-import { IERC20 } from "forge-std/interfaces/IERC20.sol";
+import {IMissions} from "./interface/IMissions.sol";
+import {IKaliTokenManager} from "./interface/IKaliTokenManager.sol";
+import {IERC721} from "forge-std/interfaces/IERC721.sol";
 
-/// @title Arm0ry Quests
-/// @notice Quest-to-Earn RPG.
+/// @title  Quests
+/// @notice RPG for NFTs.
 /// @author audsssy.eth
 
-struct Quest {
-    uint40 start;
-    uint40 duration;
-    uint8 completed;
-    uint8 incomplete;
-    uint8 progress;
-    uint8 xp;
-    uint8 claimed;
+struct QuestDetail {
+    bool active; // Indicates whether a quest is active
+    uint16 nonce; // Number of times a user activated quest
+    uint40 timestamp; // Timestamp to calculate
+    uint40 timeLeft; // Time left to complete quest
+    uint40 completed; // Number of tasks completed in quest
+    uint8 progress; // 0-100%
+}
+
+struct Reward {
+    uint40 earned; // Rewards earned from quests
+    uint40 claimed; // Rewards claimed to date
 }
 
 enum Review {
-    NOT_READY,
+    NA, // Not available
     PASS,
     FAIL
 }
 
-contract Quests is NFTreceiver {
-    /// -----------------------------------------------------------------------
-    /// Events
-    /// -----------------------------------------------------------------------
-
-    // event QuestStarted(address indexed traveler, uint8 missionId);
-    
-    // event QuestPaused(address indexed traveler, uint8 missionId);
-
-    // event QuestResumed(address indexed traveler, uint8 missionId);
-
-    // event QuestCompleted(address indexed traveler, uint8 missionId);
-
-    // event TaskSubmitted(address indexed traveler, uint8 missionId, uint8 taskId, string indexed homework);
-
-    // event TaskReviewed(address indexed reviewer, address indexed traveler, uint8 missionId, uint8 taskId, Review review);
-
-    // event TravelerRewardClaimed(address indexed creator, uint256 amount);
-
-    // event CreatorRewardClaimed(address indexed creator, uint256 amount);
-
-    // event ReviewersUpdated(address[] indexed reviewers);
-
-    // event ContractsUpdated(ITravelers indexed travelers, IMissions indexed mission);
-
+contract Quests {
     /// -----------------------------------------------------------------------
     /// Custom Errors
     /// -----------------------------------------------------------------------
-
-    error InvalidStart();
 
     error InvalidMission();
 
     error NotAuthorized();
 
-    error InvalidTraveler();
+    error InvalidUser();
 
     error NothingToClaim();
 
     error QuestInactive();
 
-    error QuestActive();
+    error QuestInProgress();
+
+    error QuestLapsed();
 
     error InvalidReviewer();
 
-    error InsufficientReviewerXp();
+    error InvalidResponse();
 
     error InvalidReview();
-
-    error InvalidBonus();
-
-    error AlreadyReviewed();
-
-    error TaskNotReadyForReview();
-
-    error TaskAlreadyCompleted();
-
-    error AlreadyClaimed();
-
-    error LengthMismatch();
 
     error NeedMoreXp();
 
     /// -----------------------------------------------------------------------
     /// Quest Storage
     /// -----------------------------------------------------------------------
-    
-    address payable public admin;
 
-    ITravelers public travelers;
+    address payable public admin;
 
     IMissions public mission;
 
-    // Traveler's history of quests
-    // Traveler => Mission Id => Quest
-    mapping(address => mapping(uint256 => Quest)) public quests;
+    // questKey => QuestDetail
+    mapping(bytes => QuestDetail) public questDetail;
 
-    // Active mission by Traveler 
-    // One active mission per Traveler ; 0 signals "no active quest"
-    // Traveler => Mission Id
-    mapping(address => uint256) public questing;
+    // msg.sender => questKey
+    mapping(address => bytes[]) public quests;
 
-    // Homework per Task of an active Quest
-    // Traveler => Task Id => Homework
-    mapping(address => mapping(uint256 => string)) public taskHomework;
+    // taskKey => [string]
+    mapping(bytes => string[]) public responses;
 
-    // Review results of a Task of a Quest
-    // Traveler => Task Id => Rreview 
-    mapping(address => mapping(uint256 => Review)) public taskReviews;
+    // taskKey => [Review]
+    mapping(bytes => Review[]) public reviews;
 
-    // A list of accounts with permission to review taskHomework
-    address[] public reviewers;
+    // questKey => Reward
+    mapping(bytes => Reward) public rewards;
 
     // Status indicating if an address is a Manager
-    // Account -> True/False 
+    // Account -> True/False
     mapping(address => bool) public isReviewer;
 
-    // Xp per reviewer
-    // Reviewer => Xp
-    mapping(address => uint256) public reviewerXp;
+    // Tally xp per creator
+    // Tasks & Missions creators => Reward
+    mapping(address => Reward) public creatorRewards;
 
-    // Status indicating if a Task of a Quest is completed
-    // Traveler => Mission Id => Task Id => True/False
-    mapping(address => mapping(uint256 => mapping(uint256 => bool))) public isMissionTaskCompleted;
-
-    // Rewards per Task creator
-    // Task creator => Reward points
-    mapping(address => uint16) public taskCreatorRewards;
-
-    // Rewards per Mission creator
-    // Mission creator => Reward points
-    mapping(address => uint16) public missionCreatorRewards;
-
-    // Travelers per Mission Id
-    // Mission Id => Travelers 
+    // Users per Mission Id
+    // Mission Id => Users
     mapping(uint256 => address[]) public missionStarts;
 
     // Traveler completions by Mission Id
-    // Mission Id => Travelers 
+    // Mission Id => Users
     mapping(uint256 => address[]) public missionCompeletions;
 
     /// -----------------------------------------------------------------------
@@ -166,16 +113,9 @@ contract Quests is NFTreceiver {
     /// Constructor
     /// -----------------------------------------------------------------------
 
-    constructor(
-        ITravelers _travelers,
-        IMissions _mission,
-        address payable _admin
-    ) {
-        travelers = _travelers;
+    constructor(IMissions _mission, address payable _admin) {
         mission = _mission;
         admin = _admin;
-
-        // emit ContractsUpdated(travelers, mission);
     }
 
     /// -----------------------------------------------------------------------
@@ -183,133 +123,120 @@ contract Quests is NFTreceiver {
     /// -----------------------------------------------------------------------
 
     /// @notice Traveler to start a new Quest.
-    /// @param missionId Identifier of a Mission.
-    /// @dev 
-    function startQuest(uint256 missionId)
-        external
-        payable
-    {
-        (, uint40 _duration, , , , , uint8 requiredXp, , uint256 tasksCount) = mission.getMission(missionId);
-        // Confirm Mission is questable 
-        if (_duration == 0) revert InvalidMission();
+    /// @param tokenAddress .
+    /// @param tokenId .
+    /// @param missionId .
+    /// @dev
+    function startQuest(address tokenAddress, uint256 tokenId, uint256 missionId) external payable {
+        (, uint40 duration,,,,, uint256 requiredXp,,) = mission.getMission(missionId);
+
+        // Confirm Mission is questable
+        if (duration == 0) revert InvalidMission();
 
         // Confirm Traveler has sufficient xp to quest Misson
-        if (IERC20(admin).balanceOf(msg.sender) < requiredXp * 1e18 ) revert NeedMoreXp();
-        
-        // Confirm Traveler has recently completed a Mission or finalized an expired Mission
-        if (questing[msg.sender] != 0 && quests[msg.sender][questing[msg.sender]].start == 0) {
-            // Initialize Quest
-            quests[msg.sender][missionId] = Quest({
-                start: uint40(block.timestamp),
-                duration: _duration,
-                completed: 0,
-                incomplete: uint8(tasksCount),
-                progress: 0,
-                xp: 0,
-                claimed: 0
-            });
+        if (IKaliTokenManager(admin).balanceOf(msg.sender) < requiredXp) revert NeedMoreXp();
 
-            // Add Traveler to list of mission participants
-            missionStarts[missionId].push(msg.sender);
+        // Confirm User is owner of NFT
+        if (IERC721(tokenAddress).ownerOf(tokenId) != msg.sender) revert InvalidUser();
 
-            // Mark active quest for Traveler
-            questing[msg.sender] = missionId;
-            
-            // emit QuestStarted(msg.sender, missionId);
+        // Retrieve quest id and corresponding quest detail
+        bytes memory questKey = this.encode(tokenAddress, tokenId, missionId, 0);
+        QuestDetail memory qd = questDetail[questKey];
 
-        } else if (questing[msg.sender] == 0) {
-            // Initiatlize new quest or resume previously paused quest
+        // Confirm Quest is not already in progress
+        if (qd.active) revert QuestInProgress();
 
-            // Lock Traveler Pass
-            travelers.safeTransferFrom(msg.sender, address(this), uint256(uint160(msg.sender)));
-
-            if (quests[msg.sender][missionId].duration == 0) {
-                // Initialize Quest
-                quests[msg.sender][missionId] = Quest({
-                    start: uint40(block.timestamp),
-                    duration: _duration,
-                    completed: 0,
-                    incomplete: uint8(tasksCount),
-                    progress: 0,
-                    xp: 0,
-                    claimed: 0
-                });
-
-                // Add Traveler to list of mission participants
-                missionStarts[missionId].push(msg.sender);
-
-                // Mark active quest for Traveler
-                questing[msg.sender] = missionId;
-                
-                // emit QuestStarted(msg.sender, missionId);
-            } else {
-                // Resume Quest
-                quests[msg.sender][missionId].start = uint40(block.timestamp);
-
-                // emit QuestResumed(msg.sender, missionId);
-            }
+        // Check if quest was previously paused
+        if (qd.timeLeft > 0) {
+            // Update quest detail
+            questDetail[questKey].active = true;
+            questDetail[questKey].timestamp = uint40(block.timestamp);
         } else {
-            revert InvalidStart();
+            // initialize quest detail
+            questDetail[questKey].active = true;
+            questDetail[questKey].nonce = ++qd.nonce;
+            questDetail[questKey].timestamp = uint40(block.timestamp);
+            questDetail[questKey].timeLeft = duration;
+
+            missionStarts[missionId].push(msg.sender);
         }
     }
 
     /// @notice Traveler to pause an active Quest.
-    /// @param _missionId Identifier of a Quest.
-    /// @dev 
-    function pauseQuest(uint256 _missionId) external payable {
+    /// @param tokenAddress .
+    /// @param tokenId .
+    /// @param missionId .
+    /// @dev
+    function pauseQuest(address tokenAddress, uint256 tokenId, uint256 missionId) external payable {
+        // Confirm User is owner of NFT
+        if (IERC721(tokenAddress).ownerOf(tokenId) != msg.sender) revert InvalidUser();
+
+        // Retrieve quest id and corresponding quest detail
+        bytes memory questKey = this.encode(tokenAddress, tokenId, missionId, 0);
+        QuestDetail memory qd = questDetail[questKey];
+
         // Confirm Quest is active
-        if (_missionId != questing[msg.sender]) revert QuestInactive();
+        if (!qd.active) revert QuestInactive();
 
-        // Confirm Quest has not expired
-        (uint40 start, uint40 duration , , , , , ) = this.getQuest(msg.sender, _missionId);
-        if (uint40(block.timestamp) > start + duration) revert QuestInactive();
+        uint40 lapse = uint40(block.timestamp) - qd.timestamp;
+        if (qd.timeLeft > lapse) {
+            questDetail[questKey] = QuestDetail({
+                active: false,
+                nonce: qd.nonce,
+                timestamp: 0,
+                timeLeft: qd.timeLeft - lapse,
+                completed: qd.completed,
+                progress: qd.progress
+            });
+        } else {
+            questDetail[questKey] = QuestDetail({
+                active: false,
+                nonce: qd.nonce,
+                timestamp: 0,
+                timeLeft: 0,
+                completed: qd.completed,
+                progress: qd.progress
+            });
 
-        // Use 0 to mark Quest as paused
-        questing[msg.sender] = 0;
-
-        // Update Quest start time and duration
-        if (_missionId != 1) {
-            uint40 diff;
-            unchecked { 
-                 diff = uint40(block.timestamp) - start;  
-            }
-            quests[msg.sender][_missionId].start = 0;
-            quests[msg.sender][_missionId].duration = diff;
+            revert QuestLapsed();
         }
-
-        // Return locked NFT when pausing a Quest
-        travelers.transferFrom(address(this), msg.sender, uint256(uint160(msg.sender)));
-
-        // emit QuestPaused(msg.sender, _missionId);
     }
 
     /// @notice Traveler to submit Homework for Task completion.
-    /// @param _missionId Identifier of a Quest.
-    /// @param taskId Identifier of a Task.
-    /// @param homework Task homework to turn in.
-    /// @dev 
-    function submitTasks(
-        uint256 _missionId, 
-        uint256 taskId, 
-        string calldata homework
+    /// @param tokenAddress .
+    /// @param tokenId .
+    /// @param missionId .
+    /// @param taskId .
+    /// @param response .
+    /// @dev
+    function addResponse(
+        address tokenAddress,
+        uint256 tokenId,
+        uint256 missionId,
+        uint256 taskId,
+        string calldata response
     ) external payable {
-        // Confirm Quest is active
-        if (_missionId != questing[msg.sender]) revert QuestInactive();
+        // Confirm User is owner of NFT
+        if (IERC721(tokenAddress).ownerOf(tokenId) != msg.sender) revert InvalidUser();
 
-        // Confirm Task not already completed
-        if (isMissionTaskCompleted[msg.sender][_missionId][taskId]) revert TaskAlreadyCompleted();
-      
-        // Confirm Quest has not expired
-        (uint40 start, uint40 duration , , , , , ) = this.getQuest(msg.sender, _missionId);
-        if (uint40(block.timestamp) > start + duration) revert QuestInactive();
+        // Retrieve quest id and corresponding quest detail
+        bytes memory questKey = this.encode(tokenAddress, tokenId, missionId, 0);
+        QuestDetail memory qd = questDetail[questKey];
+
+        // Confirm Quest is active
+        if (!qd.active) revert QuestInactive();
 
         // Confirm Task is part of Mission
-        if (!mission.isTaskInMission(_missionId, uint8(taskId))) revert InvalidMission();
+        if (!mission.isTaskInMission(missionId, uint8(taskId))) revert InvalidMission();
 
-        // Update Homework
-        taskHomework[msg.sender][taskId] = homework;
+        // Add response to Task
+        bytes memory taskKey = this.encode(tokenAddress, tokenId, missionId, taskId);
+        uint256 responsesLength = responses[taskKey].length;
+        uint256 reviewsLength = reviews[taskKey].length;
 
-        // emit TaskSubmitted(msg.sender, _missionId, uint8(taskId), homework);
+        if (responsesLength == reviewsLength && bytes(response).length != 0) {
+            responses[taskKey].push(response);
+        }
     }
 
     /// -----------------------------------------------------------------------
@@ -317,160 +244,93 @@ contract Quests is NFTreceiver {
     /// -----------------------------------------------------------------------
 
     /// @notice Reviewer to submit review of task completion.
-    /// @param traveler Identifier of a Traveler.
-    /// @param missionId Identifier of a Quest.
-    /// @param taskId Identifier of a Task.
-    /// @param review Result of review
-    /// @dev 
-    function reviewTasks(
-        address traveler,
-        uint256 missionId,
-        uint256 taskId,
-        Review review
-    ) onlyReviewer external payable {
+    /// @param tokenAddress .
+    /// @param tokenId .
+    /// @param missionId .
+    /// @param taskId .
+    /// @param review .
+    /// @dev
+    function reviewTasks(address tokenAddress, uint256 tokenId, uint256 missionId, uint256 taskId, Review review)
+        external
+        payable
+        onlyReviewer
+    {
         // Confirm Reviewer has submitted valid review data
-        if (review == Review.NOT_READY) revert InvalidReview();
+        if (review == Review.NA) revert InvalidReview();
 
-        // Confirm Traveler has submitted homework
-        if (bytes(taskHomework[traveler][taskId]).length == 0) revert TaskNotReadyForReview();
+        bytes memory taskKey = this.encode(tokenAddress, tokenId, missionId, taskId);
+        reviews[taskKey].push(review);
 
-        // Confirm Task has not already been reviewed
-        if (taskReviews[traveler][taskId] != Review.NOT_READY) revert AlreadyReviewed();
-
-        // Record review
-        taskReviews[traveler][taskId] = review;
-
-        // Update reviewer xp
-        reviewerXp[msg.sender]++;
-
+        // Update quest detail
         if (review == Review.PASS) {
-            // Mark Task completion
-            isMissionTaskCompleted[traveler][missionId][taskId] = true;
-
-            updateQuestDetail(traveler, missionId, taskId);
-        } 
-
-        // emit TaskReviewed(msg.sender, traveler, missionId, taskId, review);
-    }
-
-    function finalizeExpiredQuest(address traveler, uint256 missionId) external payable {
-        (uint40 start, uint40 duration , , , uint8 progress, , ) = this.getQuest(traveler, missionId);
-        (uint8 missionXp, , , , , , , , ) = mission.getMission(missionId);
-        if ((uint40(block.timestamp) > start + duration) && progress != 100) {
-
-            IKaliShareManager(admin).burnShares(traveler, missionXp / 2);
-
-            quests[traveler][missionId].start = 0;
-            quests[traveler][missionId].duration = 0;    
-        } else {
-            revert QuestActive();
-        } 
+            distributeTaskRewards(tokenAddress, tokenId, missionId, taskId);
+            updateQuestDetail(tokenAddress, tokenId, missionId);
+        }
     }
 
     /// -----------------------------------------------------------------------
     /// Claim Rewards Functions
     /// -----------------------------------------------------------------------
 
-    /// @notice Task creator to claim rewards.
-    /// @dev 
-    function claimTravelerReward(uint256 missionId) external payable {
-        // Retrieve to inspect reward availability
-        (, , , , , uint8 xp, uint8 claimed) = this.getQuest(msg.sender, missionId);
-        if (xp == 0) revert NothingToClaim();
-        if (xp <= claimed) revert NothingToClaim();
+    /// @notice User function to claim rewards.
+    /// @dev
+    function claimRewards(address tokenAddress, uint256 tokenId, uint256 missionId) external payable {
+        // Confirm User is owner of NFT
+        if (IERC721(tokenAddress).ownerOf(tokenId) != msg.sender) revert InvalidUser();
 
-        // Calculate reward
-        uint8 reward;
-        unchecked {
-            reward = xp - claimed;
+        // Retrieve quest id and corresponding quest detail
+        bytes memory questKey = this.encode(tokenAddress, tokenId, missionId, 0);
+        Reward memory r = rewards[questKey];
+
+        if (r.earned > r.claimed) {
+            IKaliTokenManager(admin).mintShares(msg.sender, r.earned - r.claimed);
+            r.claimed = r.earned;
+        } else {
+            revert NothingToClaim();
         }
-
-        // Update Quest claim 
-        quests[msg.sender][missionId].claimed = xp;
-
-        // Mint rewards
-        IKaliShareManager(admin).mintShares(msg.sender, reward * 1e18);
-
-        // emit TravelerRewardClaimed(msg.sender, reward * 1e18);
     }
 
-    /// @notice Task creator to claim rewards.
-    /// @dev 
+    /// @notice Creator function to claim rewards.
+    /// @dev
     function claimCreatorReward() external payable {
-        if (taskCreatorRewards[msg.sender] == 0 && missionCreatorRewards[msg.sender] == 0) revert NothingToClaim();
+        Reward memory r = creatorRewards[msg.sender];
 
-        uint16 taskReward = taskCreatorRewards[msg.sender];
-        uint16 missionReward = missionCreatorRewards[msg.sender];
-
-        // Update Creator rewards
-        delete taskCreatorRewards[msg.sender];
-        delete missionCreatorRewards[msg.sender];
-
-        // Mint rewards
-        IKaliShareManager(admin).mintShares(msg.sender, (missionReward + taskReward) * 1e18);
-
-        // emit CreatorRewardClaimed(msg.sender, (missionReward + taskReward) * 1e18);
+        if (r.earned > r.claimed) {
+            IKaliTokenManager(admin).mintShares(msg.sender, r.earned - r.claimed);
+            r.claimed = r.earned;
+        } else {
+            revert NothingToClaim();
+        }
     }
 
     /// -----------------------------------------------------------------------
-    /// Arm0ry Functions
+    /// Admin Functions
     /// -----------------------------------------------------------------------
 
-    /// @notice Update Arm0ry contracts.
-    /// @param _travelers Contract address of Arm0ryTraveler.sol.
-    /// @param _mission Contract address of Arm0ryMission.sol.
-    /// @dev 
-    function updateContracts(ITravelers _travelers, IMissions _mission) 
-        onlyAdmin 
-        external 
-        payable 
-    {
-        travelers = _travelers;
+    /// @notice Update contracts.
+    /// @param _mission Contract address of Missions.sol.
+    /// @dev
+    function updateContracts(IMissions _mission) external payable onlyAdmin {
         mission = _mission;
-
-        // emit ContractsUpdated(travelers, mission);
     }
 
     /// @notice Update reviewers
-    /// @param _reviewers The addresses to update managers to
+    /// @param reviewers The addresses to update managers to
     /// @dev
-    function updateReviewers(address[] calldata _reviewers)
-        onlyAdmin
-        external
-        payable
-    {
-        
-        for (uint8 i = 0 ; i < reviewers.length;) {
-            isReviewer[reviewers[i]] = false;
+    function updateReviewers(address[] calldata reviewers, bool[] calldata status) external payable onlyAdmin {
+        uint256 length = reviewers.length;
+
+        for (uint8 i = 0; i < length;) {
+            isReviewer[reviewers[i]] = status[i];
 
             // cannot possibly overflow
             unchecked {
                 ++i;
             }
         }
-
-        delete reviewers;
-
-        for (uint8 i = 0 ; i < _reviewers.length;) {
-            if (_reviewers[i] != address(0)) {
-                reviewers.push(_reviewers[i]);
-                isReviewer[_reviewers[i]] = true;
-            }
-
-            // cannot possibly overflow
-            unchecked {
-                ++i;
-            }
-        }
-
-        // emit ReviewersUpdated(reviewers);
     }
 
-    function updateAdmin(address payable _admin) 
-        onlyAdmin 
-        external 
-        payable 
-    {
+    function updateAdmin(address payable _admin) external payable onlyAdmin {
         admin = _admin;
     }
 
@@ -478,87 +338,111 @@ contract Quests is NFTreceiver {
     /// Getter Functions
     /// -----------------------------------------------------------------------
 
-    function getQuest(address _traveler, uint256 _missionId) external view returns (uint40, uint40, uint8, uint8, uint8, uint8, uint8) {
-        Quest memory quest = quests[_traveler][_missionId];
-        return (quest.start, quest.duration, quest.completed, quest.incomplete, quest.progress, quest.xp, quest.claimed);
+    function getQuestDetail(address tokenAddress, uint256 tokenId, uint256 missionId)
+        external
+        view
+        returns (bool, uint16, uint40, uint40, uint40, uint8)
+    {
+        // Retrieve quest id and corresponding quest detail
+        bytes memory questKey = this.encode(tokenAddress, tokenId, missionId, 0);
+        QuestDetail memory qd = questDetail[questKey];
+        return (qd.active, qd.nonce, qd.timestamp, qd.timeLeft, qd.completed, qd.progress);
     }
 
-    function getMissionCompletionsCount(uint256 _missionId) external view returns (uint256) {
-        return missionCompeletions[_missionId].length;
+    function getMissionCompletionsCount(uint256 missionId) external view returns (uint256) {
+        return missionCompeletions[missionId].length;
     }
 
-    function getMissionStartCount(uint256 _missionId) external view returns (uint256) {
-        return missionStarts[_missionId].length;
+    function getMissionStartCount(uint256 missionId) external view returns (uint256) {
+        return missionStarts[missionId].length;
     }
 
-    function getMissionImpact(uint256 _missionId) external view returns (uint256) {
-        uint256 ratio;
-        uint256 starts = missionStarts[_missionId].length;
-        uint256 completions = missionCompeletions[_missionId].length;
+    /// -----------------------------------------------------------------------
+    /// Helper Functions
+    /// -----------------------------------------------------------------------
 
-        if (starts != 0) {
-            ratio = completions * 100 / starts;
+    function encode(address tokenAddress, uint256 tokenId, uint256 missionId, uint256 taskId)
+        external
+        pure
+        returns (bytes memory)
+    {
+        if (taskId == 0) return abi.encode(tokenAddress, tokenId, missionId);
+        else return abi.encode(tokenAddress, tokenId, missionId, taskId);
+    }
+
+    function decode(bytes calldata b)
+        external
+        pure
+        returns (address tokenAddress, uint256 tokenId, uint256 missionId, uint256 taskId)
+    {
+        if (bytes(b).length == 128) {
+            return abi.decode(b, (address, uint256, uint256, uint256));
         } else {
-            return 0;
+            (tokenAddress, tokenId, missionId) = abi.decode(b, (address, uint256, uint256));
+            return (tokenAddress, tokenId, missionId, 0);
         }
+    }
 
-        return ratio;
+    /// @notice Calculate a percentage.
+    /// @param numerator The numerator.
+    /// @param denominator The denominator.
+    /// @dev
+    function calculateProgress(uint256 numerator, uint256 denominator) private pure returns (uint8) {
+        return uint8(numerator * (10 ** 2) / denominator);
     }
 
     /// -----------------------------------------------------------------------
     /// Internal Functions
     /// -----------------------------------------------------------------------
 
-    /// @notice Calculate a percentage.
-    /// @param numerator The numerator.
-    /// @param denominator The denominator.
-    /// @dev 
-    function calculateProgress(uint numerator, uint denominator) internal pure returns (uint8) {
-        return uint8(numerator*(10**2)/denominator); 
+    /// @notice Update, and finalize when appropriate, the Quest detail.
+    /// @param tokenAddress .
+    /// @param tokenId .
+    /// @param missionId .
+    /// @dev
+    function updateQuestDetail(address tokenAddress, uint256 tokenId, uint256 missionId) internal {
+        // Retrieve to update Mission reward
+        (uint8 missionXp,,,,, address missionCreator,,, uint256 missionTaskCount) = mission.getMission(missionId);
+
+        // Retrieve quest id and corresponding quest detail
+        bytes memory questKey = this.encode(tokenAddress, tokenId, missionId, 0);
+        QuestDetail memory qd = questDetail[questKey];
+
+        // Calculate and udpate quest detail
+        ++qd.completed;
+        qd.progress = calculateProgress(qd.completed, missionTaskCount);
+
+        // Store quest detail
+        questDetail[questKey].completed = qd.completed;
+        questDetail[questKey].progress = qd.progress;
+
+        // Finalize quest
+        if (qd.progress == 100) {
+            // Toggle active status
+            questDetail[questKey].active = false;
+
+            // Reward Mission creator
+            creatorRewards[missionCreator].earned += missionXp;
+
+            // Add User to completion array
+            missionCompeletions[missionId].push(msg.sender);
+        }
     }
 
-    /// @notice Update, and finalize when appropriate, the Quest detail.
-     /// @param traveler Identifier of a Traveler.
-    /// @param missionId Identifier of a Quest.
-    /// @param taskId Identifier of a Task.
-    /// @dev 
-    function updateQuestDetail(address traveler, uint256 missionId, uint256 taskId) internal {
-        // Retrieve to update Task reward
-        (uint8 taskXp, , address taskCreator , , ) = mission.getTask(taskId);
-        (uint8 missionXp, , , , , address missionCreator, , , uint256 missionTaskCount) = mission.getMission(missionId);
+    /// @notice Distribute Task rewards.
+    /// @param tokenAddress .
+    /// @param tokenId .
+    /// @param missionId .
+    /// @param taskId .
+    /// @dev
+    function distributeTaskRewards(address tokenAddress, uint256 tokenId, uint256 missionId, uint256 taskId) internal {
+        // Distribute creator rewards
+        (uint8 taskXp,, address taskCreator,,) = mission.getTask(taskId);
+        creatorRewards[taskCreator].earned += taskXp;
 
-        // Update incomplete Task count
-        --quests[traveler][missionId].incomplete;
-        
-        // cannot possibly overflow
-        uint progress;
-        unchecked { 
-            // Update complted Task count
-            ++quests[traveler][missionId].completed;
-
-            // Update Quest progress
-            quests[traveler][missionId].progress = calculateProgress(quests[traveler][missionId].completed, missionTaskCount);
-
-            // Update Task reward
-            quests[traveler][missionId].xp += taskXp;
-
-            // Reward Task creator
-            taskCreatorRewards[taskCreator] += taskXp;
-        }
-
-        // Finalize and close out Quest when progress is 100
-        if (progress == 100) {
-            // Reward Mission creator 
-            missionCreatorRewards[missionCreator] += missionXp;
-
-            // Add Traveler to completion array
-            missionCompeletions[missionId].push(traveler);
-
-            // Mark Quest complete
-            delete quests[traveler][missionId].start;
-
-            // emit QuestCompleted(traveler, missionId);
-        }
+        // Distribute user rewards
+        bytes memory questKey = this.encode(tokenAddress, tokenId, missionId, 0);
+        rewards[questKey].earned += taskXp;
     }
 
     receive() external payable {}
