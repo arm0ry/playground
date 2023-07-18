@@ -35,10 +35,13 @@ contract MissionsTest is Test {
     IQuests iQuests;
     IMissions iMissions;
 
+    Task task;
     Task[] tasks;
     uint256[] taskIds;
+
     Mission mission;
 
+    uint256 royalties;
     /// @dev Users.
 
     address public immutable alice = makeAddr("alice");
@@ -62,7 +65,12 @@ contract MissionsTest is Test {
     /// @notice Set up the testing suite.
 
     function setUp() public payable {
+        // Deploy the Missions contract
         missions = new Missions(arm0ry, IQuests(address(quests)));
+
+        // Validate global variables
+        assertEq(missions.royalties(), 10);
+        assertEq(missions.admin(), arm0ry);
 
         // Prepare to create new Tasks
         Task memory task1 = Task({
@@ -105,16 +113,21 @@ contract MissionsTest is Test {
         taskIds.push(3);
         taskIds.push(4);
 
+        // Validate Task setup
+        task = missions.getTask(1);
+        assertEq(task.creator, arm0ry);
+        assertEq(task.xp, 1);
+
         // Create new mission
         vm.prank(arm0ry);
         missions.setMission(
             true,
             0,
-            arm0ry,
+            bob,
             "Welcome to New School",
             "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza",
             taskIds,
-            0
+            1e18 // 1 ETH
         );
 
         // Validate Mission setup
@@ -122,28 +135,70 @@ contract MissionsTest is Test {
         assertEq(missions.missionId(), 1);
         assertEq(mission.xp, 10);
         assertEq(mission.duration, 8000000);
-        assertEq(mission.creator, arm0ry);
+        assertEq(mission.creator, bob);
         assertEq(mission.requiredXp, 0);
+
+        // Validate tasks exist in Mission
+        assertEq(missions.isTaskInMission(1, 1), true);
+        assertEq(missions.isTaskInMission(1, 2), true);
+        assertEq(missions.isTaskInMission(1, 3), true);
+        assertEq(missions.isTaskInMission(1, 4), true);
+        assertEq(missions.isTaskInMission(1, 5), false);
     }
 
-    /// @notice Check deployment.
+    function testReceiveETH() public payable {
+        (bool sent,) = address(quests).call{value: 5 ether}("");
+        assert(sent);
+        assert(address(quests).balance == 5 ether);
+    }
+
+    function testUpdateAdmin() public payable {
+        vm.prank(arm0ry);
+        missions.updateAdmin(charlie);
+
+        // Validate admin update
+        assertEq(missions.admin(), charlie);
+    }
+
+    function testUpdateContracts() public payable {
+        vm.prank(arm0ry);
+        iQuests = IQuests(address(charlie));
+        missions.updateContracts(iQuests);
+
+        emit log_address(address(iQuests));
+
+        // Validate admin update
+        assertEq(address(missions.quests()), address(iQuests));
+    }
+
+    function testUpdateRoyalties() public payable {
+        vm.prank(arm0ry);
+        missions.updateRoyalties(12);
+
+        // Validate royalties update
+        assertEq(missions.royalties(), 12);
+    }
 
     function testPurchase() public payable {
+        // Deal Alice 100 eth
         deal(alice, 100e18);
-        assertEq(alice.balance, 100e18);
 
+        // Validate existing balances
+        assertEq(alice.balance, 100e18);
+        assertEq(bob.balance, 0);
+        assertEq(address(arm0ry).balance, 0);
+
+        // Alice makes purchase
         vm.prank(alice);
-        missions.purchase(1);
+        missions.purchase{value: 1e18}(1);
         assertEq(missions.balanceOf(alice, 1), 1);
 
-        // TEST ROYALTIES DISTRIBUTION
+        // Validate royalties distribution
+        assertEq(address(bob).balance, 0.1e18);
+        assertEq(address(arm0ry).balance, 0.9e18);
     }
 
     function testUpdateTask() public payable {}
 
     function testUpdateMission() public payable {}
-
-    function testUpdateAdmin() public payable {}
-
-    function testUpdateRoyalties() public payable {}
 }

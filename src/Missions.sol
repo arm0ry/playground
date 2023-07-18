@@ -34,13 +34,15 @@ contract Missions is ERC1155 {
     /// Custom Errors
     /// -----------------------------------------------------------------------
 
-    error NotAuthorized();
-
     error TransferFailed();
+
+    error InvalidRoyalties();
+
+    error InvalidContract();
 
     error NotForSale();
 
-    error InvalidRoyalties();
+    error AmountMismatch();
 
     /// -----------------------------------------------------------------------
     /// Task Storage
@@ -71,7 +73,7 @@ contract Missions is ERC1155 {
     /// -----------------------------------------------------------------------
 
     modifier onlyAdmin() {
-        if (admin != msg.sender) revert NotAuthorized();
+        if (admin != msg.sender) revert Unauthorized();
         _;
     }
 
@@ -138,7 +140,7 @@ contract Missions is ERC1155 {
     constructor(address _admin, IQuests _quests) {
         admin = _admin;
         quests = _quests;
-        royalties = 10;
+        royalties = 10; // default royalties 10%
     }
 
     /// -----------------------------------------------------------------------
@@ -288,6 +290,7 @@ contract Missions is ERC1155 {
     /// @param _quests Contract address of Quests.sol.
     /// @dev
     function updateContracts(IQuests _quests) external payable onlyAdmin {
+        if (address(_quests) == address(0)) revert InvalidContract();
         quests = _quests;
     }
 
@@ -303,8 +306,9 @@ contract Missions is ERC1155 {
 
         // Confirm Mission is for purchase
         if (!mission.forPurchase) revert NotForSale();
+        if (mission.fee != msg.value) revert AmountMismatch();
 
-        uint256 r = mission.fee * royalties / 100;
+        uint256 r = msg.value * royalties / 100;
         (bool success,) = mission.creator.call{value: r}("");
         if (!success) revert TransferFailed();
 
@@ -352,4 +356,6 @@ contract Missions is ERC1155 {
 
         return (totalXp, duration);
     }
+
+    receive() external payable {}
 }
