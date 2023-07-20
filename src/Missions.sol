@@ -12,8 +12,6 @@ import {LibString} from "solbase/utils/LibString.sol";
 
 struct Mission {
     bool forPurchase; // Status for purchase
-    uint8 xp; // The sum of xp of all Tasks in Mission
-    uint40 duration; // The sum of time limit of all Tasks in Mission
     address creator; // Creator of Mission
     string title; // Title of Mission
     string detail; // Mission detail
@@ -40,6 +38,8 @@ contract Missions is ERC1155 {
 
     error InvalidContract();
 
+    error InvalidMission();
+
     error NotForSale();
 
     error AmountMismatch();
@@ -61,10 +61,6 @@ contract Missions is ERC1155 {
 
     // A list of missions ordered by missionId
     mapping(uint256 => Mission) public missions;
-
-    // Status indicating if a Task is part of a Mission
-    // MissionId => TaskId => True/False
-    mapping(uint256 => mapping(uint256 => bool)) public isTaskInMission;
 
     IQuests public quests;
 
@@ -147,62 +143,55 @@ contract Missions is ERC1155 {
     /// Mission / Task Logic
     /// -----------------------------------------------------------------------
 
-    /// @notice Create tasks
-    /// @param _tasks Encoded data to store as Task
-    /// @dev
-    function setTasks(Task[] calldata _tasks) external payable onlyAdmin {
-        uint256 length = _tasks.length;
-
-        for (uint256 i = 0; i < length;) {
-            unchecked {
-                ++taskId;
-            }
-
-            tasks[taskId] = Task({
-                xp: _tasks[i].xp,
-                duration: _tasks[i].duration,
-                creator: _tasks[i].creator,
-                detail: _tasks[i].detail
-            });
-
-            // Unchecked because the only math done is incrementing
-            // the array index counter which cannot possibly overflow.
-            unchecked {
-                ++i;
-            }
-        }
-    }
-
-    /// @notice Update tasks
-    /// @param taskIds A list of tasks to be updated
-    /// @param _tasks Encoded data to update as Task
-    /// @dev
-    function updateTasks(uint8[] calldata taskIds, Task[] calldata _tasks) external payable onlyAdmin {
+    /// @dev  Create or update tasks.
+    /// Note: Recommend calling updateMission immediately after to update associated missions.
+    function setTasks(uint256[] calldata taskIds, Task[] calldata _tasks) external payable onlyAdmin {
         uint256 length = taskIds.length;
-        if (length != _tasks.length) revert LengthMismatch();
 
-        for (uint256 i = 0; i < length;) {
-            tasks[taskIds[i]] = Task({
-                xp: _tasks[i].xp,
-                duration: _tasks[i].duration,
-                creator: _tasks[i].creator,
-                detail: _tasks[i].detail
-            });
+        if (taskIds.length == 0) {
+            uint256 tasksLength = _tasks.length;
 
-            // Unchecked because the only math done is incrementing
-            // the array index counter which cannot possibly overflow.
-            unchecked {
-                ++i;
+            for (uint256 i; i < tasksLength;) {
+                unchecked {
+                    ++taskId;
+                }
+
+                tasks[taskId] = Task({
+                    xp: _tasks[i].xp,
+                    duration: _tasks[i].duration,
+                    creator: _tasks[i].creator,
+                    detail: _tasks[i].detail
+                });
+
+                // Unchecked because the only math done is incrementing
+                // the array index counter which cannot possibly overflow.
+                unchecked {
+                    ++i;
+                }
+            }
+        } else {
+            if (length != _tasks.length) revert LengthMismatch();
+
+            for (uint256 i; i < length;) {
+                tasks[taskIds[i]] = Task({
+                    xp: _tasks[i].xp,
+                    duration: _tasks[i].duration,
+                    creator: _tasks[i].creator,
+                    detail: _tasks[i].detail
+                });
+
+                // Unchecked because the only math done is incrementing
+                // the array index counter which cannot possibly overflow.
+                unchecked {
+                    ++i;
+                }
             }
         }
     }
 
-    /// @notice Create missions
-    /// @param _taskIds A list of tasks to be added to a Mission
-    /// @param _detail Docs of a Mission
-    /// @param _title Title of a Mission
-    /// @dev
+    /// @dev Create missions.
     function setMission(
+        uint8 _missionId,
         bool _forPurchase,
         uint256 _requiredXp,
         address _creator,
@@ -211,84 +200,57 @@ contract Missions is ERC1155 {
         uint256[] calldata _taskIds,
         uint256 _fee
     ) external payable onlyAdmin {
-        unchecked {
-            ++missionId;
+        if (_taskIds.length == 0) revert InvalidMission();
+
+        if (_missionId == 0) {
+            unchecked {
+                ++missionId;
+            }
+
+            // Create a Mission
+            missions[missionId] = Mission({
+                forPurchase: _forPurchase,
+                requiredXp: _requiredXp,
+                creator: _creator,
+                title: _title,
+                detail: _detail,
+                taskIds: _taskIds,
+                fee: _fee
+            });
+        } else {
+            delete missions[_missionId];
+
+            // Update a Mission
+            missions[_missionId] = Mission({
+                forPurchase: _forPurchase,
+                requiredXp: _requiredXp,
+                creator: _creator,
+                title: _title,
+                detail: _detail,
+                taskIds: _taskIds,
+                fee: _fee
+            });
         }
-
-        // Calculate xp and duration for Mission
-        (uint8 totalXp, uint40 duration) = calculateMissionDetail(missionId, _taskIds);
-
-        // Create a Mission
-        missions[missionId] = Mission({
-            forPurchase: _forPurchase,
-            xp: totalXp,
-            requiredXp: _requiredXp,
-            duration: duration,
-            creator: _creator,
-            title: _title,
-            detail: _detail,
-            taskIds: _taskIds,
-            fee: _fee
-        });
-    }
-
-    /// @notice Update missions
-    /// @param _missionId Identifiers of Mission to be updated
-    /// @param _taskIds Identifiers of tasks to be updated
-    /// @param _detail Docs of a Mission
-    /// @param _title Title of a Mission
-    /// @dev
-    function updateMission(
-        uint8 _missionId,
-        bool _forPurchase,
-        uint8 _requiredXp,
-        address _creator,
-        string calldata _title,
-        string calldata _detail,
-        uint256[] calldata _taskIds,
-        uint256 _fee
-    ) external payable onlyAdmin {
-        // Calculate xp and duration for Mission
-        (uint8 totalXp, uint40 duration) = calculateMissionDetail(_missionId, _taskIds);
-
-        // Update existing Mission
-        missions[_missionId] = Mission({
-            forPurchase: _forPurchase,
-            xp: totalXp,
-            requiredXp: _requiredXp,
-            duration: duration,
-            creator: _creator,
-            title: _title,
-            detail: _detail,
-            taskIds: _taskIds,
-            fee: _fee
-        });
     }
 
     /// -----------------------------------------------------------------------
     /// Admin Logic
     /// -----------------------------------------------------------------------
 
-    /// @notice Update missions
-    /// @param _admin The address to update admin to
-    /// @dev
+    /// @dev Update missions
     function updateAdmin(address _admin) external payable onlyAdmin {
         if (_admin != admin) {
             admin = _admin;
         }
     }
 
-    /// @notice Update royalties.
-    /// @param _royalties address of Arm0ryTraveler.sol.
-    /// @dev
+    /// @dev Update royalties.
     function updateRoyalties(uint256 _royalties) external payable onlyAdmin {
         if (_royalties > 100) revert InvalidRoyalties();
         royalties = _royalties;
     }
 
-    /// @notice Update contracts.
-    /// @param _quests Contract address of Quests.sol.
-    /// @dev
+    /// @dev Update contracts.
     function updateContracts(IQuests _quests) external payable onlyAdmin {
         if (address(_quests) == address(0)) revert InvalidContract();
         quests = _quests;
@@ -298,9 +260,7 @@ contract Missions is ERC1155 {
     /// Mint Logic
     /// -----------------------------------------------------------------------
 
-    /// @notice Purchase a Mission NFT
-    /// @param _missionId The identifier of the Mission.
-    /// @dev
+    /// @dev Purchase a Mission NFT.
     function purchase(uint256 _missionId) external payable {
         (Mission memory mission,) = this.getMission(_missionId);
 
@@ -319,34 +279,50 @@ contract Missions is ERC1155 {
     }
 
     /// -----------------------------------------------------------------------
-    /// Getter Functions
+    /// Helper Functions
     /// -----------------------------------------------------------------------
 
+    /// @dev Retrieve a Task.
     function getTask(uint256 _taskId) external view returns (Task memory) {
         return tasks[_taskId];
     }
 
+    /// @dev Retrieve a Mission
     function getMission(uint256 _missionId) external view returns (Mission memory mission, uint256) {
         mission = missions[_missionId];
         return (mission, mission.taskIds.length);
     }
 
-    /// -----------------------------------------------------------------------
-    /// Internal Functions
-    /// -----------------------------------------------------------------------
+    function isTaskInMission(uint256 _missionId, uint256 _taskId) external payable returns (bool) {
+        (Mission memory mission, uint256 length) = this.getMission(_missionId);
+        if (length > 1) {
+            for (uint256 i; i < length;) {
+                if (mission.taskIds[i] == _taskId) return true;
 
-    function calculateMissionDetail(uint256 _missionId, uint256[] calldata _taskIds) internal returns (uint8, uint40) {
+                unchecked {
+                    ++i;
+                }
+            }
+            return false;
+        } else if (length == 1) {
+            if (mission.taskIds[0] == _taskId) return true;
+            else return false;
+        } else {
+            revert InvalidMission();
+        }
+    }
+
+    /// @dev Calculate total xp and duration of a set of Tasks
+    function aggregateTasksData(uint256[] calldata _taskIds) external payable returns (uint256, uint40) {
         // Calculate xp and duration for Mission
         uint8 totalXp;
         uint40 duration;
-        for (uint256 i = 0; i < _taskIds.length;) {
+
+        for (uint256 i; i < _taskIds.length;) {
             // Aggregate Task duration to create Mission duration
             Task memory task = this.getTask(_taskIds[i]);
             duration += task.duration;
             totalXp += task.xp;
-
-            // Update task status
-            isTaskInMission[_missionId][_taskIds[i]] = true;
 
             // cannot possibly overflow
             unchecked {

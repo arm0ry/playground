@@ -4,25 +4,10 @@ pragma solidity ^0.8.17;
 import "forge-std/Test.sol";
 import "forge-std/console2.sol";
 
-import {Quests} from "src/Quests.sol";
 import {Missions, Task, Mission} from "src/Missions.sol";
-
 import {IMissions} from "src/interface/IMissions.sol";
+import {Quests} from "src/Quests.sol";
 import {IQuests} from "src/interface/IQuests.sol";
-
-import {IERC1155} from "forge-std/interfaces/IERC1155.sol";
-
-/// @dev Mocks.
-// import {MockERC20} from "solbase-test/utils/mocks/MockERC20.sol";
-// import {MockERC721} from "solbase-test/utils/mocks/MockERC721.sol";
-// import {MockERC1155} from "solbase-test/utils/mocks/MockERC1155.sol";
-// import {MockERC1271Wallet} from "solbase-test/utils/mocks/MockERC1271Wallet.sol";
-
-/// -----------------------------------------------------------------------
-/// Errors
-/// -----------------------------------------------------------------------
-
-error Initialized();
 
 /// -----------------------------------------------------------------------
 /// Test Logic
@@ -37,7 +22,9 @@ contract MissionsTest is Test {
 
     Task task;
     Task[] tasks;
+    Task[] newTasks;
     uint256[] taskIds;
+    uint256[] newTaskIds;
 
     Mission mission;
 
@@ -72,7 +59,7 @@ contract MissionsTest is Test {
         assertEq(missions.royalties(), 10);
         assertEq(missions.admin(), arm0ry);
 
-        // Prepare to create new Tasks
+        // Prepare data to create new Tasks
         Task memory task1 = Task({
             xp: 1,
             duration: 2000000,
@@ -105,7 +92,12 @@ contract MissionsTest is Test {
 
         // Create new Tasks
         vm.prank(arm0ry);
-        missions.setTasks(tasks);
+        missions.setTasks(taskIds, tasks);
+
+        // Validate Task setup
+        task = missions.getTask(1);
+        assertEq(task.creator, arm0ry);
+        assertEq(task.xp, 1);
 
         // Prepare to create new Mission
         taskIds.push(1);
@@ -113,14 +105,10 @@ contract MissionsTest is Test {
         taskIds.push(3);
         taskIds.push(4);
 
-        // Validate Task setup
-        task = missions.getTask(1);
-        assertEq(task.creator, arm0ry);
-        assertEq(task.xp, 1);
-
         // Create new mission
         vm.prank(arm0ry);
         missions.setMission(
+            0,
             true,
             0,
             bob,
@@ -133,8 +121,6 @@ contract MissionsTest is Test {
         // Validate Mission setup
         (mission,) = missions.getMission(1);
         assertEq(missions.missionId(), 1);
-        assertEq(mission.xp, 10);
-        assertEq(mission.duration, 8000000);
         assertEq(mission.creator, bob);
         assertEq(mission.requiredXp, 0);
 
@@ -144,6 +130,8 @@ contract MissionsTest is Test {
         assertEq(missions.isTaskInMission(1, 3), true);
         assertEq(missions.isTaskInMission(1, 4), true);
         assertEq(missions.isTaskInMission(1, 5), false);
+
+        delete taskIds;
     }
 
     function testReceiveETH() public payable {
@@ -164,8 +152,6 @@ contract MissionsTest is Test {
         vm.prank(arm0ry);
         iQuests = IQuests(address(charlie));
         missions.updateContracts(iQuests);
-
-        emit log_address(address(iQuests));
 
         // Validate admin update
         assertEq(address(missions.quests()), address(iQuests));
@@ -198,7 +184,80 @@ contract MissionsTest is Test {
         assertEq(address(arm0ry).balance, 0.9e18);
     }
 
-    function testUpdateTask() public payable {}
+    function testUpdateTasks() public payable {
+        // Prepare data to create new Tasks
+        Task memory task1 = Task({
+            xp: 4,
+            duration: 2000000,
+            creator: arm0ry,
+            detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
+        });
+        Task memory task2 = Task({
+            xp: 3,
+            duration: 2000000,
+            creator: alice,
+            detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
+        });
+        Task memory task3 = Task({
+            xp: 2,
+            duration: 2000000,
+            creator: bob,
+            detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
+        });
+        Task memory task4 = Task({
+            xp: 1,
+            duration: 2000000,
+            creator: charlie,
+            detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
+        });
 
-    function testUpdateMission() public payable {}
+        newTasks.push(task1);
+        newTasks.push(task2);
+        newTasks.push(task3);
+        newTasks.push(task4);
+
+        newTaskIds.push(1);
+        newTaskIds.push(2);
+        newTaskIds.push(3);
+        newTaskIds.push(4);
+
+        // Update Tasks
+        vm.prank(arm0ry);
+        missions.setTasks(newTaskIds, newTasks);
+
+        // Validate Task setup
+        task = missions.getTask(1);
+        assertEq(task.creator, arm0ry);
+        assertEq(task.xp, 4);
+    }
+
+    function testUpdateMission() public payable {
+        // Prepare to create new Mission
+        taskIds.push(2);
+        taskIds.push(5);
+
+        // Create new mission
+        vm.prank(arm0ry);
+        missions.setMission(
+            1,
+            false,
+            2e18,
+            charlie,
+            "Welcome to New School",
+            "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza",
+            taskIds,
+            1e18 // 1 ETH
+        );
+
+        // Validate Mission setup
+        (mission,) = missions.getMission(1);
+        assertEq(missions.missionId(), 1);
+        assertEq(mission.creator, charlie);
+        assertEq(mission.requiredXp, 2e18);
+        assertEq(mission.taskIds.length, 2);
+    }
+
+    function testAggregateTasksDate() public payable {}
+
+    function testIsTaskInMission() public payable {}
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.4;
 
-import {IMissions, Mission} from "./interface/IMissions.sol";
+import {IMissions, Mission, Task} from "./interface/IMissions.sol";
 import {IERC721} from "forge-std/interfaces/IERC721.sol";
 import {IKaliTokenManager} from "./interface/IKaliTokenManager.sol";
 
@@ -13,7 +13,6 @@ struct QuestDetail {
     bool active; // Indicates whether a quest is active.
     bool review; // Indicates whether quest tasks require reviews.
     uint8 progress; // 0-100%.
-    uint16 nonce; // Number of times a user activated quest.
     uint40 timestamp; // Timestamp to calculate.
     uint40 timeLeft; // Time left to complete quest.
     uint40 completed; // Number of tasks completed in quest.
@@ -482,7 +481,8 @@ contract Quests {
             questDetail[questKey].timeLeft = 0;
 
             // Reward Mission creator
-            creatorRewards[m.creator].earned += m.xp;
+            (uint256 xp,) = mission.aggregateTasksData(m.taskIds);
+            creatorRewards[m.creator].earned += uint40(xp);
 
             // Add User to completion array
             missionCompeletions[missionId].push(msg.sender);
@@ -497,12 +497,12 @@ contract Quests {
     /// @dev
     function distributeTaskRewards(address tokenAddress, uint256 tokenId, uint256 missionId, uint256 taskId) internal {
         // Distribute creator rewards
-        (uint8 taskXp,, address taskCreator,,) = mission.getTask(taskId);
-        creatorRewards[taskCreator].earned += taskXp;
+        Task memory t = mission.getTask(taskId);
+        creatorRewards[t.creator].earned += t.xp;
 
         // Distribute user rewards
         bytes memory questKey = this.encode(tokenAddress, tokenId, missionId, 0);
-        rewards[questKey].earned += taskXp;
+        rewards[questKey].earned += t.xp;
     }
 
     /// @notice Traveler to pause an active Quest.
@@ -529,10 +529,10 @@ contract Quests {
     /// @param missionId .
     /// @dev
     function _start(address tokenAddress, uint256 tokenId, uint256 missionId) internal virtual {
-        (Mission memory m,) = mission.getMission(missionId);
+        (Mission memory m, uint256 mLength) = mission.getMission(missionId);
 
         // Confirm Mission is questable
-        if (m.duration == 0) revert InvalidMission();
+        if (mLength == 0) revert InvalidMission();
 
         // Confirm Traveler has sufficient xp to quest Misson
         if (IKaliTokenManager(admin).balanceOf(msg.sender) < m.requiredXp) revert NeedMoreXp();
@@ -550,12 +550,15 @@ contract Quests {
             questDetail[questKey].active = true;
             questDetail[questKey].timestamp = uint40(block.timestamp);
         } else {
+            // Calculate Task duration in aggregate
+            (, uint40 duration) = mission.aggregateTasksData(m.taskIds);
+
             // Initialize quest detail.
             // By default, no review is required.
             questDetail[questKey].active = true;
-            questDetail[questKey].nonce = ++qd.nonce;
             questDetail[questKey].timestamp = uint40(block.timestamp);
-            questDetail[questKey].timeLeft = m.duration;
+
+            questDetail[questKey].timeLeft = duration;
 
             missionStarts[missionId].push(msg.sender);
         }
@@ -580,7 +583,6 @@ contract Quests {
             questDetail[questKey] = QuestDetail({
                 active: false,
                 review: qd.review,
-                nonce: qd.nonce,
                 timestamp: 0,
                 timeLeft: timeLeft,
                 completed: qd.completed,
@@ -611,7 +613,7 @@ contract Quests {
         if (!qd.active) revert QuestInactive();
 
         // Confirm Task is part of Mission
-        if (!mission.isTaskInMission(missionId, uint8(taskId))) revert InvalidMission();
+        if (!mission.isTaskInMission(missionId, taskId)) revert InvalidMission();
 
         // Add response to Task
         bytes memory taskKey = this.encode(tokenAddress, tokenId, missionId, taskId);
