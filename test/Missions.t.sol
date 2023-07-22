@@ -52,86 +52,14 @@ contract MissionsTest is Test {
     /// @notice Set up the testing suite.
 
     function setUp() public payable {
-        // Deploy the Missions contract
+        // Deploy contract
         missions = new Missions(arm0ry, IQuests(address(quests)));
 
         // Validate global variables
         assertEq(missions.royalties(), 10);
         assertEq(missions.admin(), arm0ry);
 
-        // Prepare data to create new Tasks
-        Task memory task1 = Task({
-            xp: 1,
-            duration: 2000000,
-            creator: arm0ry,
-            detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
-        });
-        Task memory task2 = Task({
-            xp: 2,
-            duration: 2000000,
-            creator: alice,
-            detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
-        });
-        Task memory task3 = Task({
-            xp: 3,
-            duration: 2000000,
-            creator: bob,
-            detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
-        });
-        Task memory task4 = Task({
-            xp: 4,
-            duration: 2000000,
-            creator: charlie,
-            detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
-        });
-
-        tasks.push(task1);
-        tasks.push(task2);
-        tasks.push(task3);
-        tasks.push(task4);
-
-        // Create new Tasks
-        vm.prank(arm0ry);
-        missions.setTasks(taskIds, tasks);
-
-        // Validate Task setup
-        task = missions.getTask(1);
-        assertEq(task.creator, arm0ry);
-        assertEq(task.xp, 1);
-
-        // Prepare to create new Mission
-        taskIds.push(1);
-        taskIds.push(2);
-        taskIds.push(3);
-        taskIds.push(4);
-
-        // Create new mission
-        vm.prank(arm0ry);
-        missions.setMission(
-            0,
-            true,
-            0,
-            bob,
-            "Welcome to New School",
-            "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza",
-            taskIds,
-            1e18 // 1 ETH
-        );
-
-        // Validate Mission setup
-        (mission,) = missions.getMission(1);
-        assertEq(missions.missionId(), 1);
-        assertEq(mission.creator, bob);
-        assertEq(mission.requiredXp, 0);
-
-        // Validate tasks exist in Mission
-        assertEq(missions.isTaskInMission(1, 1), true);
-        assertEq(missions.isTaskInMission(1, 2), true);
-        assertEq(missions.isTaskInMission(1, 3), true);
-        assertEq(missions.isTaskInMission(1, 4), true);
-        assertEq(missions.isTaskInMission(1, 5), false);
-
-        delete taskIds;
+        setupTasksAndMissions();
     }
 
     function testReceiveETH() public payable {
@@ -257,7 +185,107 @@ contract MissionsTest is Test {
         assertEq(mission.taskIds.length, 2);
     }
 
-    function testAggregateTasksDate() public payable {}
+    function testAggregateTasksDate() public payable {
+        taskIds.push(2);
+        taskIds.push(3);
 
-    function testIsTaskInMission() public payable {}
+        (uint256 xp, uint40 duration) = missions.aggregateTasksData(taskIds);
+
+        assertEq(xp, 5);
+        assertEq(duration, 4000000);
+    }
+
+    function testIsTaskInMission() public payable {
+        bool existTask1 = missions.isTaskInMission(1, 1);
+        bool existTask2 = missions.isTaskInMission(1, 2);
+        bool existTask3 = missions.isTaskInMission(1, 3);
+        bool existTask4 = missions.isTaskInMission(1, 4);
+        bool existTask5 = missions.isTaskInMission(1, 5);
+
+        assertEq(existTask1, true);
+        assertEq(existTask2, true);
+        assertEq(existTask3, true);
+        assertEq(existTask4, true);
+        assertEq(existTask5, false);
+    }
+
+    /// -----------------------------------------------------------------------
+    /// Internal Functions
+    /// -----------------------------------------------------------------------
+
+    function setupTasksAndMissions() internal {
+        // Prepare data to create new Tasks
+        Task memory task1 = Task({
+            xp: 1,
+            duration: 100,
+            creator: address(arm0ry),
+            detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
+        });
+        Task memory task2 = Task({
+            xp: 2,
+            duration: 100,
+            creator: alice,
+            detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
+        });
+        Task memory task3 = Task({
+            xp: 3,
+            duration: 100,
+            creator: bob,
+            detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
+        });
+        Task memory task4 = Task({
+            xp: 4,
+            duration: 100,
+            creator: charlie,
+            detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
+        });
+
+        tasks.push(task1);
+        tasks.push(task2);
+        tasks.push(task3);
+        tasks.push(task4);
+
+        // Create new Tasks
+        vm.prank(address(arm0ry));
+        missions.setTasks(taskIds, tasks);
+
+        // Validate Task setup
+        task = missions.getTask(1);
+        assertEq(task.creator, address(arm0ry));
+        assertEq(task.xp, 1);
+
+        // Prepare to create new Mission
+        taskIds.push(1);
+        taskIds.push(2);
+        taskIds.push(3);
+        taskIds.push(4);
+
+        // Create new mission
+        vm.prank(address(arm0ry));
+        missions.setMission(
+            0,
+            true,
+            0,
+            bob,
+            "Welcome to New School",
+            "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza",
+            taskIds,
+            1e18 // 1 ETH
+        );
+
+        // Validate Mission setup
+        (mission,) = missions.getMission(1);
+        assertEq(missions.missionId(), 1);
+        assertEq(mission.creator, bob);
+        assertEq(mission.requiredXp, 0);
+
+        // Validate tasks exist in Mission
+        assertEq(missions.isTaskInMission(1, 1), true);
+        assertEq(missions.isTaskInMission(1, 2), true);
+        assertEq(missions.isTaskInMission(1, 3), true);
+        assertEq(missions.isTaskInMission(1, 4), true);
+        assertEq(missions.isTaskInMission(1, 5), false);
+
+        delete taskIds;
+    }
 }
