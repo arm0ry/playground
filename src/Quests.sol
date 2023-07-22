@@ -56,6 +56,8 @@ contract Quests {
     /// Quest Storage
     /// -----------------------------------------------------------------------
 
+    bool public immutable defaultReviewStatus;
+
     address payable public admin;
 
     IMissions public mission;
@@ -146,9 +148,10 @@ contract Quests {
     /// Constructor
     /// -----------------------------------------------------------------------
 
-    constructor(IMissions _mission, address payable _admin) {
+    constructor(IMissions _mission, address payable _admin, bool _defaultReviewStatus) {
         mission = _mission;
         admin = _admin;
+        defaultReviewStatus = _defaultReviewStatus;
 
         INITIAL_CHAIN_ID = block.chainid;
         INITIAL_DOMAIN_SEPARATOR = _computeDomainSeparator();
@@ -300,8 +303,8 @@ contract Quests {
 
         // Update quest detail
         if (review_ == Review.PASS) {
-            distributeTaskRewards(tokenAddress, tokenId, missionId, taskId);
-            updateQuestDetail(tokenAddress, tokenId, missionId);
+            distributeTaskRewards(questKey, taskId);
+            updateQuestDetail(questKey, missionId);
         }
     }
 
@@ -393,6 +396,15 @@ contract Quests {
         admin = _admin;
     }
 
+    function updateQuestReviewStatus(address tokenAddress, uint256 tokenId, uint256 missionId, bool __review)
+        external
+        payable
+        onlyAdmin
+    {
+        bytes memory questKey = this.encode(tokenAddress, tokenId, missionId, 0);
+        questDetail[questKey].review = __review;
+    }
+
     /// -----------------------------------------------------------------------
     /// Getter Functions
     /// -----------------------------------------------------------------------
@@ -454,16 +466,14 @@ contract Quests {
     /// -----------------------------------------------------------------------
 
     /// @notice Update, and finalize when appropriate, the Quest detail.
-    /// @param tokenAddress .
-    /// @param tokenId .
+    /// @param questKey .
     /// @param missionId .
     /// @dev
-    function updateQuestDetail(address tokenAddress, uint256 tokenId, uint256 missionId) internal {
+    function updateQuestDetail(bytes memory questKey, uint256 missionId) internal {
         // Retrieve to update Mission reward
         (Mission memory m, uint256 tasksCount) = mission.getMission(missionId);
 
-        // Retrieve quest id and corresponding quest detail
-        bytes memory questKey = this.encode(tokenAddress, tokenId, missionId, 0);
+        // Retrieve quest detail
         QuestDetail memory qd = questDetail[questKey];
 
         // Calculate and udpate quest detail
@@ -490,18 +500,15 @@ contract Quests {
     }
 
     /// @notice Distribute Task rewards.
-    /// @param tokenAddress .
-    /// @param tokenId .
-    /// @param missionId .
+    /// @param questKey .
     /// @param taskId .
     /// @dev
-    function distributeTaskRewards(address tokenAddress, uint256 tokenId, uint256 missionId, uint256 taskId) internal {
+    function distributeTaskRewards(bytes memory questKey, uint256 taskId) internal {
         // Distribute creator rewards
         Task memory t = mission.getTask(taskId);
         creatorRewards[t.creator].earned += t.xp;
 
         // Distribute user rewards
-        bytes memory questKey = this.encode(tokenAddress, tokenId, missionId, 0);
         rewards[questKey].earned += t.xp;
     }
 
@@ -509,14 +516,14 @@ contract Quests {
     /// @param timestamp .
     /// @param questKey .
     /// @dev
-    function hasQuestExpired(uint40 timestamp, bytes memory questKey) internal returns (uint40) {
+    function hasQuestExpired(uint40 timestamp, uint40 timeLeft, bytes memory questKey) internal returns (uint40) {
         uint40 lapse = uint40(block.timestamp) - timestamp;
         if (timestamp < lapse) {
             delete questDetail[questKey];
             return 0;
         }
 
-        return lapse;
+        return timeLeft - lapse;
     }
 
     /// -----------------------------------------------------------------------
@@ -554,10 +561,9 @@ contract Quests {
             (, uint40 duration) = mission.aggregateTasksData(m.taskIds);
 
             // Initialize quest detail.
-            // By default, no review is required.
             questDetail[questKey].active = true;
+            questDetail[questKey].review = defaultReviewStatus;
             questDetail[questKey].timestamp = uint40(block.timestamp);
-
             questDetail[questKey].timeLeft = duration;
 
             missionStarts[missionId].push(msg.sender);
@@ -577,7 +583,7 @@ contract Quests {
         // Confirm Quest is active.
         if (!qd.active) revert QuestInactive();
 
-        uint40 timeLeft = hasQuestExpired(qd.timestamp, questKey);
+        uint40 timeLeft = hasQuestExpired(qd.timestamp, qd.timeLeft, questKey);
 
         if (timeLeft > 0) {
             questDetail[questKey] = QuestDetail({
@@ -626,8 +632,8 @@ contract Quests {
 
         if (!qd.review) {
             responses[taskKey].push(response);
-            distributeTaskRewards(tokenAddress, tokenId, missionId, taskId);
-            updateQuestDetail(tokenAddress, tokenId, missionId);
+            distributeTaskRewards(questKey, taskId);
+            updateQuestDetail(questKey, missionId);
         } else if (responsesLength == reviewsLength && bytes(response).length != 0) {
             responses[taskKey].push(response);
         }
@@ -657,8 +663,8 @@ contract Quests {
 
         // Update quest detail
         if (review_ == Review.PASS) {
-            distributeTaskRewards(tokenAddress, tokenId, missionId, taskId);
-            updateQuestDetail(tokenAddress, tokenId, missionId);
+            distributeTaskRewards(questKey, taskId);
+            updateQuestDetail(questKey, missionId);
         }
     }
 
