@@ -15,7 +15,6 @@ struct Mission {
     address creator; // Creator of Mission
     string title; // Title of Mission
     string detail; // Mission detail
-    uint256 requiredXp; // Xp required to participate
     uint256[] taskIds; // Tasks associated with Mission
     uint256 fee; // Amount for purchase
 }
@@ -196,7 +195,6 @@ contract Missions is ERC1155 {
     function setMission(
         uint8 _missionId,
         bool _forPurchase,
-        uint256 _requiredXp,
         address _creator,
         string calldata _title,
         string calldata _detail,
@@ -213,7 +211,6 @@ contract Missions is ERC1155 {
             // Create a Mission
             missions[missionId] = Mission({
                 forPurchase: _forPurchase,
-                requiredXp: _requiredXp,
                 creator: _creator,
                 title: _title,
                 detail: _detail,
@@ -226,7 +223,6 @@ contract Missions is ERC1155 {
             // Update a Mission
             missions[_missionId] = Mission({
                 forPurchase: _forPurchase,
-                requiredXp: _requiredXp,
                 creator: _creator,
                 title: _title,
                 detail: _detail,

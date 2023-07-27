@@ -24,11 +24,17 @@ enum RewardType {
     ERC20
 }
 
+struct QuestConfig {
+    uint8 multiplier;
+    address gateToken;
+    uint256 gateAmount;
+    RewardType rewardType;
+    address rewardToken;
+}
+
 struct Reward {
     uint40 earned; // Rewards earned from quests
     uint40 claimed; // Rewards claimed to date
-    address rewardToken; // Reward token address
-    RewardType rewardType; // Type of reward to distribute
 }
 
 enum Review {
@@ -58,13 +64,15 @@ contract Quests {
 
     error InvalidReview();
 
+    error InvalidReward();
+
     error NeedMoreXp();
 
     /// -----------------------------------------------------------------------
     /// Quest Storage
     /// -----------------------------------------------------------------------
 
-    address payable public admin;
+    address public admin;
 
     IMissions public mission;
 
@@ -88,11 +96,15 @@ contract Quests {
     // questKey => Reward
     mapping(bytes => Reward) public rewards;
 
+    // Reward type per Mission Id
+    // Mission Id => QuestConfig
+    mapping(uint256 => QuestConfig) public questConfigs;
+
     // Users per Mission Id
     // Mission Id => Users
     mapping(uint256 => address[]) public missionStarts;
 
-    // Traveler completions by Mission Id
+    // User completions by Mission Id
     // Mission Id => Users
     mapping(uint256 => address[]) public missionCompeletions;
 
@@ -151,7 +163,7 @@ contract Quests {
     /// Constructor
     /// -----------------------------------------------------------------------
 
-    function initialize(IMissions _mission, address payable _admin) public payable {
+    function initialize(IMissions _mission, address _admin) public payable {
         mission = _mission;
         admin = _admin;
     }
@@ -327,12 +339,15 @@ contract Quests {
     {
         bytes memory questKey = this.encode(tokenAddress, tokenId, missionId, 0);
         Reward memory r = rewards[questKey];
+        QuestConfig memory qc = questConfigs[missionId];
 
         if (r.earned > r.claimed) {
-            if (r.rewardType == RewardType.DAO_ERC20) {
-                IKaliTokenManager(r.rewardToken).mintShares(msg.sender, r.earned - r.claimed);
+            if (qc.rewardType == RewardType.DAO_ERC20) {
+                IKaliTokenManager(qc.rewardToken).mintShares(msg.sender, r.earned - r.claimed);
             } else {
-                IERC20(r.rewardToken).transferFrom(address(this), msg.sender, r.earned - r.claimed);
+                if (IERC20(qc.rewardToken).transferFrom(address(this), msg.sender, r.earned - r.claimed)) {
+                    revert NothingToClaim();
+                }
             }
 
             r.claimed = r.earned;
@@ -368,7 +383,7 @@ contract Quests {
         }
     }
 
-    function updateAdmin(address payable _admin) external payable onlyAdmin {
+    function updateAdmin(address _admin) external payable onlyAdmin {
         admin = _admin;
     }
 
@@ -381,16 +396,31 @@ contract Quests {
         questDetail[questKey].review = __review;
     }
 
-    function updateRewards(
-        address tokenAddress,
-        uint256 tokenId,
-        uint256 missionId,
-        RewardType rewardType,
-        address rewardToken
-    ) external payable onlyAdmin {
-        bytes memory questKey = this.encode(tokenAddress, tokenId, missionId, 0);
-        rewards[questKey].rewardType = rewardType;
-        rewards[questKey].rewardToken = rewardToken;
+    function updateQuestConfigs(uint256 missionId, QuestConfig calldata _questConfig) external payable onlyAdmin {
+        (, uint256 tasksCount) = mission.getMission(missionId);
+
+        // Confirm Mission is questable
+        if (tasksCount == 0) revert InvalidMission();
+
+        if (_questConfig.rewardType == RewardType.DAO_ERC20) {
+            questConfigs[missionId] = QuestConfig({
+                multiplier: _questConfig.multiplier,
+                gateToken: _questConfig.gateToken,
+                gateAmount: _questConfig.gateAmount,
+                rewardType: _questConfig.rewardType,
+                rewardToken: admin
+            });
+        } else {
+            // Confirm reward is supplied
+            if (_questConfig.rewardToken == address(0)) revert InvalidReward();
+            questConfigs[missionId] = QuestConfig({
+                multiplier: _questConfig.multiplier,
+                gateToken: _questConfig.gateToken,
+                gateAmount: _questConfig.gateAmount,
+                rewardType: _questConfig.rewardType,
+                rewardToken: _questConfig.rewardToken
+            });
+        }
     }
 
     /// -----------------------------------------------------------------------
@@ -405,6 +435,11 @@ contract Quests {
         bytes memory questKey = this.encode(tokenAddress, tokenId, missionId, 0);
         QuestDetail memory qd = questDetail[questKey];
         return qd;
+    }
+
+    function getQuestConfig(uint256 missionId) external view returns (QuestConfig memory) {
+        QuestConfig memory qc = questConfigs[missionId];
+        return qc;
     }
 
     function getMissionCompletionsCount(uint256 missionId) external view returns (uint256) {
@@ -506,10 +541,6 @@ contract Quests {
         return timeLeft - lapse;
     }
 
-    /// -----------------------------------------------------------------------
-    /// EIP-2612 Internal Functions
-    /// -----------------------------------------------------------------------
-
     /// @notice Internal function using signature to start quest.
     /// @param tokenAddress .
     /// @param tokenId .
@@ -521,13 +552,16 @@ contract Quests {
         // Confirm Mission is questable
         if (mLength == 0) revert InvalidMission();
 
+        // Confirm user has sufficient xp to quest Misson
+        QuestConfig memory rc = questConfigs[missionId];
+        if (rc.rewardToken == address(0)) revert InvalidMission();
+        if (rc.gateToken != address(0) && IERC20(rc.gateToken).balanceOf(msg.sender) <= rc.gateAmount) {
+            revert NeedMoreXp();
+        }
+
         // Retrieve quest id and corresponding quest detail
         bytes memory questKey = this.encode(tokenAddress, tokenId, missionId, 0);
         QuestDetail memory qd = questDetail[questKey];
-        Reward memory r = rewards[questKey];
-
-        // Confirm user has sufficient xp to quest Misson
-        if (IERC20(r.rewardToken).balanceOf(msg.sender) < m.requiredXp) revert NeedMoreXp();
 
         // Confirm Quest is not already in progress
         if (qd.active) revert QuestInProgress();
@@ -544,9 +578,8 @@ contract Quests {
             uint256 inMission = this.getMissionStartCount(missionId) - this.getMissionCompletionsCount(missionId);
 
             // Confirm reward is supplied
-            if (r.rewardToken == address(this)) revert InvalidMission();
-            if (r.rewardType == RewardType.ERC20) {
-                if (IERC20(r.rewardToken).balanceOf(address(this)) < totalXp * inMission) {
+            if (rc.rewardType == RewardType.ERC20) {
+                if (IERC20(rc.rewardToken).balanceOf(address(this)) < totalXp * inMission) {
                     revert InvalidMission();
                 } else {}
             }

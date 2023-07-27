@@ -170,7 +170,6 @@ contract MissionsTest is Test {
         missions.setMission(
             1,
             false,
-            2e18,
             charlie,
             "Welcome to New School",
             "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza",
@@ -182,7 +181,6 @@ contract MissionsTest is Test {
         (mission,) = missions.getMission(1);
         assertEq(missions.missionId(), 1);
         assertEq(mission.creator, charlie);
-        assertEq(mission.requiredXp, 2e18);
         assertEq(mission.taskIds.length, 2);
     }
 
@@ -266,7 +264,6 @@ contract MissionsTest is Test {
         missions.setMission(
             0,
             true,
-            0,
             bob,
             "Welcome to New School",
             "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza",
@@ -278,7 +275,6 @@ contract MissionsTest is Test {
         (mission,) = missions.getMission(1);
         assertEq(missions.missionId(), 1);
         assertEq(mission.creator, bob);
-        assertEq(mission.requiredXp, 0);
 
         // Validate tasks exist in Mission
         assertEq(missions.isTaskInMission(1, 1), true);

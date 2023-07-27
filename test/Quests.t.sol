@@ -8,7 +8,7 @@ import {IMissions} from "src/interface/IMissions.sol";
 import {IQuests} from "src/interface/IQuests.sol";
 
 import {KaliDAO} from "src/kali/KaliDAO.sol";
-import {Quests, QuestDetail, Reward, Review} from "src/Quests.sol";
+import {Quests, QuestConfig, QuestDetail, Reward, RewardType, Review} from "src/Quests.sol";
 import {Missions, Task, Mission} from "src/Missions.sol";
 
 /// @dev Mocks.
@@ -23,9 +23,11 @@ contract QuestsTest is Test {
     IQuests iQuests;
     IMissions iMissions;
     Quests quests;
+    Quests quests_Erc20;
     Missions missions;
 
     MockERC721 erc721;
+    MockERC20 erc20;
 
     Task task;
     Task[] tasks;
@@ -40,6 +42,7 @@ contract QuestsTest is Test {
     uint32[16] govSettings;
 
     QuestDetail qd;
+    QuestConfig qc;
 
     /// @dev Users.
     address payable public immutable alice = payable(makeAddr("alice"));
@@ -68,14 +71,26 @@ contract QuestsTest is Test {
         // Deploy contracts
         missions = new Missions();
         missions.initialize(IQuests(address(quests)), address(arm0ry));
+
+        // Quest that reward DAO tokens
         quests = new Quests();
-        quests.initialize(IMissions(address(missions)), payable(address(arm0ry)));
+        quests.initialize(IMissions(address(missions)), address(arm0ry));
+
+        // Quest that reward ERC20 tokens
+        quests_Erc20 = new Quests();
+        quests_Erc20.initialize(IMissions(address(missions)), address(arm0ry));
 
         mintAliceNft();
         setupTasksAndMissions();
+        setupRewards_Dao();
+        setupRewards_Erc20();
 
         vm.warp(1000);
     }
+
+    /// -----------------------------------------------------------------------
+    /// DAO Token as Rewards
+    /// -----------------------------------------------------------------------
 
     function testStart() public payable {
         vm.prank(alice);
@@ -152,12 +167,18 @@ contract QuestsTest is Test {
     }
 
     function testReview() public payable {
-        testRespond_NonReviewable_Task();
+        testRespond_Reviewable_Task();
     }
 
     function testClaimRewards() public payable {}
 
-    function testClaimCreatorReward() public payable {}
+    /// -----------------------------------------------------------------------
+    /// ERC20 Token as Rewards
+    /// -----------------------------------------------------------------------
+
+    /// -----------------------------------------------------------------------
+    /// Admin functions
+    /// -----------------------------------------------------------------------
 
     function testUpdateAdmin() public payable {
         vm.prank(address(arm0ry));
@@ -255,7 +276,6 @@ contract QuestsTest is Test {
         missions.setMission(
             0,
             true,
-            0,
             bob,
             "Welcome to New School",
             "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza",
@@ -267,7 +287,6 @@ contract QuestsTest is Test {
         (mission,) = missions.getMission(1);
         assertEq(missions.missionId(), 1);
         assertEq(mission.creator, bob);
-        assertEq(mission.requiredXp, 0);
 
         // Validate tasks exist in Mission
         assertEq(missions.isTaskInMission(1, 1), true);
@@ -281,5 +300,45 @@ contract QuestsTest is Test {
         setupTasks();
         setupMissions();
         delete taskIds;
+    }
+
+    function setupRewards_Dao() internal {
+        vm.prank(address(arm0ry));
+        quests.updateQuestConfigs(
+            1,
+            QuestConfig({
+                multiplier: 2,
+                gateToken: address(0),
+                gateAmount: 0,
+                rewardType: RewardType.DAO_ERC20,
+                rewardToken: address(arm0ry)
+            })
+        );
+
+        // Validate quest configurations
+        qc = quests.getQuestConfig(1);
+        assertEq(qc.multiplier, 2);
+        assertEq(qc.rewardToken, address(arm0ry));
+    }
+
+    function setupRewards_Erc20() internal {
+        erc20 = new MockERC20("TEST_20", "TEST_20", 18);
+        // erc20.mint(address(arm0ry), 1);
+
+        vm.prank(address(arm0ry));
+
+        QuestConfig memory _qc = QuestConfig({
+            multiplier: 2,
+            gateToken: address(0),
+            gateAmount: 0,
+            rewardType: RewardType.ERC20,
+            rewardToken: address(erc20)
+        });
+
+        quests_Erc20.updateQuestConfigs(1, _qc);
+
+        qc = quests.getQuestConfig(1);
+        assertEq(qc.multiplier, 2);
+        assertEq(qc.rewardToken, address(arm0ry));
     }
 }
