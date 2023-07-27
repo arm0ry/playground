@@ -133,10 +133,13 @@ contract Missions is ERC1155 {
     /// Constructor
     /// -----------------------------------------------------------------------
 
-    constructor(address _admin, IQuests _quests) {
+    constructor() {
+        royalties = 10; // default royalties 10%
+    }
+
+    function initialize(IQuests _quests, address _admin) public payable {
         admin = _admin;
         quests = _quests;
-        royalties = 10; // default royalties 10%
     }
 
     /// -----------------------------------------------------------------------

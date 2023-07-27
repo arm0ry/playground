@@ -3,6 +3,7 @@ pragma solidity >=0.8.4;
 
 import {IMissions, Mission, Task} from "./interface/IMissions.sol";
 import {IERC721} from "forge-std/interfaces/IERC721.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {IKaliTokenManager} from "./interface/IKaliTokenManager.sol";
 
 /// @title  Quests
@@ -18,9 +19,16 @@ struct QuestDetail {
     uint40 completed; // Number of tasks completed in quest.
 }
 
+enum RewardType {
+    DAO_ERC20, // default
+    ERC20
+}
+
 struct Reward {
     uint40 earned; // Rewards earned from quests
     uint40 claimed; // Rewards claimed to date
+    address rewardToken; // Reward token address
+    RewardType rewardType; // Type of reward to distribute
 }
 
 enum Review {
@@ -56,8 +64,6 @@ contract Quests {
     /// Quest Storage
     /// -----------------------------------------------------------------------
 
-    bool public immutable defaultReviewStatus;
-
     address payable public admin;
 
     IMissions public mission;
@@ -78,12 +84,9 @@ contract Quests {
     // Account -> True/False
     mapping(address => bool) public isReviewer;
 
+    // Reward per quest
     // questKey => Reward
     mapping(bytes => Reward) public rewards;
-
-    // Tally xp per creator
-    // Tasks & Missions creators => Reward
-    mapping(address => Reward) public creatorRewards;
 
     // Users per Mission Id
     // Mission Id => Users
@@ -148,13 +151,9 @@ contract Quests {
     /// Constructor
     /// -----------------------------------------------------------------------
 
-    constructor(IMissions _mission, address payable _admin, bool _defaultReviewStatus) {
+    function initialize(IMissions _mission, address payable _admin) public payable {
         mission = _mission;
         admin = _admin;
-        defaultReviewStatus = _defaultReviewStatus;
-
-        INITIAL_CHAIN_ID = block.chainid;
-        INITIAL_DOMAIN_SEPARATOR = _computeDomainSeparator();
     }
 
     /// -----------------------------------------------------------------------
@@ -290,22 +289,7 @@ contract Quests {
         payable
         onlyReviewer
     {
-        // Confirm Reviewer has submitted valid review data
-        if (review_ == Review.NA) revert InvalidReview();
-
-        // Retrieve quest id and corresponding quest detail
-        bytes memory questKey = this.encode(tokenAddress, tokenId, missionId, 0);
-        QuestDetail memory qd = questDetail[questKey];
-        if (!qd.review) revert InvalidReview();
-
-        bytes memory taskKey = this.encode(tokenAddress, tokenId, missionId, taskId);
-        reviews[taskKey].push(review_);
-
-        // Update quest detail
-        if (review_ == Review.PASS) {
-            distributeTaskRewards(questKey, taskId);
-            updateQuestDetail(questKey, missionId);
-        }
+        _review(tokenAddress, tokenId, missionId, taskId, review_);
     }
 
     function reviewBySig(
@@ -345,21 +329,13 @@ contract Quests {
         Reward memory r = rewards[questKey];
 
         if (r.earned > r.claimed) {
-            IKaliTokenManager(admin).mintShares(msg.sender, r.earned - r.claimed);
+            if (r.rewardType == RewardType.DAO_ERC20) {
+                IKaliTokenManager(r.rewardToken).mintShares(msg.sender, r.earned - r.claimed);
+            } else {
+                IERC20(r.rewardToken).transferFrom(address(this), msg.sender, r.earned - r.claimed);
+            }
+
             r.claimed = r.earned;
-        } else {
-            revert NothingToClaim();
-        }
-    }
-
-    /// @notice Creator function to claim rewards.
-    /// @dev
-    function claimCreatorReward() external payable {
-        Reward memory cr = creatorRewards[msg.sender];
-
-        if (cr.earned > cr.claimed) {
-            IKaliTokenManager(admin).mintShares(msg.sender, cr.earned - cr.claimed);
-            cr.claimed = cr.earned;
         } else {
             revert NothingToClaim();
         }
@@ -403,6 +379,18 @@ contract Quests {
     {
         bytes memory questKey = this.encode(tokenAddress, tokenId, missionId, 0);
         questDetail[questKey].review = __review;
+    }
+
+    function updateRewards(
+        address tokenAddress,
+        uint256 tokenId,
+        uint256 missionId,
+        RewardType rewardType,
+        address rewardToken
+    ) external payable onlyAdmin {
+        bytes memory questKey = this.encode(tokenAddress, tokenId, missionId, 0);
+        rewards[questKey].rewardType = rewardType;
+        rewards[questKey].rewardToken = rewardToken;
     }
 
     /// -----------------------------------------------------------------------
@@ -471,7 +459,7 @@ contract Quests {
     /// @dev
     function updateQuestDetail(bytes memory questKey, uint256 missionId) internal {
         // Retrieve to update Mission reward
-        (Mission memory m, uint256 tasksCount) = mission.getMission(missionId);
+        (, uint256 tasksCount) = mission.getMission(missionId);
 
         // Retrieve quest detail
         QuestDetail memory qd = questDetail[questKey];
@@ -490,25 +478,17 @@ contract Quests {
             questDetail[questKey].active = false;
             questDetail[questKey].timeLeft = 0;
 
-            // Reward Mission creator
-            (uint256 xp,) = mission.aggregateTasksData(m.taskIds);
-            creatorRewards[m.creator].earned += uint40(xp);
-
             // Add User to completion array
             missionCompeletions[missionId].push(msg.sender);
         }
     }
 
-    /// @notice Distribute Task rewards.
+    /// @notice Distribute Task reward.
     /// @param questKey .
     /// @param taskId .
     /// @dev
     function distributeTaskRewards(bytes memory questKey, uint256 taskId) internal {
-        // Distribute creator rewards
         Task memory t = mission.getTask(taskId);
-        creatorRewards[t.creator].earned += t.xp;
-
-        // Distribute user rewards
         rewards[questKey].earned += t.xp;
     }
 
@@ -541,12 +521,13 @@ contract Quests {
         // Confirm Mission is questable
         if (mLength == 0) revert InvalidMission();
 
-        // Confirm Traveler has sufficient xp to quest Misson
-        if (IKaliTokenManager(admin).balanceOf(msg.sender) < m.requiredXp) revert NeedMoreXp();
-
         // Retrieve quest id and corresponding quest detail
         bytes memory questKey = this.encode(tokenAddress, tokenId, missionId, 0);
         QuestDetail memory qd = questDetail[questKey];
+        Reward memory r = rewards[questKey];
+
+        // Confirm user has sufficient xp to quest Misson
+        if (IERC20(r.rewardToken).balanceOf(msg.sender) < m.requiredXp) revert NeedMoreXp();
 
         // Confirm Quest is not already in progress
         if (qd.active) revert QuestInProgress();
@@ -558,11 +539,20 @@ contract Quests {
             questDetail[questKey].timestamp = uint40(block.timestamp);
         } else {
             // Calculate Task duration in aggregate
-            (, uint40 duration) = mission.aggregateTasksData(m.taskIds);
+            (uint256 totalXp, uint40 duration) = mission.aggregateTasksData(m.taskIds);
+
+            uint256 inMission = this.getMissionStartCount(missionId) - this.getMissionCompletionsCount(missionId);
+
+            // Confirm reward is supplied
+            if (r.rewardToken == address(this)) revert InvalidMission();
+            if (r.rewardType == RewardType.ERC20) {
+                if (IERC20(r.rewardToken).balanceOf(address(this)) < totalXp * inMission) {
+                    revert InvalidMission();
+                } else {}
+            }
 
             // Initialize quest detail.
             questDetail[questKey].active = true;
-            questDetail[questKey].review = defaultReviewStatus;
             questDetail[questKey].timestamp = uint40(block.timestamp);
             questDetail[questKey].timeLeft = duration;
 
