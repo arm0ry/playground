@@ -6,7 +6,6 @@ struct Mission {
     address creator;
     string title;
     string detail;
-    uint256 requiredXp;
     uint256[] taskIds;
     uint256 fee;
 }

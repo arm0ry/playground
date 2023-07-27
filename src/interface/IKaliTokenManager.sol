@@ -5,7 +5,5 @@ pragma solidity ^0.8.17;
 interface IKaliTokenManager {
     function mintShares(address to, uint256 amount) external payable;
 
-    function burnShares(address from, uint256 amount) external payable;
-
     function balanceOf(address account) external view returns (uint256);
 }
