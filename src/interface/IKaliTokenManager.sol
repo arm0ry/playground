@@ -8,5 +8,4 @@ interface IKaliTokenManager {
     function burnShares(address from, uint256 amount) external payable;
 
     function balanceOf(address account) external view returns (uint256);
-
 }
