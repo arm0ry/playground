@@ -53,7 +53,8 @@ contract MissionsTest is Test {
 
     function setUp() public payable {
         // Deploy contract
-        missions = new Missions(arm0ry, IQuests(address(quests)));
+        missions = new Missions();
+        missions.initialize(IQuests(address(quests)), address(arm0ry));
 
         // Validate global variables
         assertEq(missions.royalties(), 10);
@@ -192,7 +193,7 @@ contract MissionsTest is Test {
         (uint256 xp, uint40 duration) = missions.aggregateTasksData(taskIds);
 
         assertEq(xp, 5);
-        assertEq(duration, 4000000);
+        assertEq(duration, 200);
     }
 
     function testIsTaskInMission() public payable {

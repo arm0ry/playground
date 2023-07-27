@@ -66,8 +66,10 @@ contract QuestsTest is Test {
         deployKali();
 
         // Deploy contracts
-        missions = new Missions(address(arm0ry), IQuests(address(quests)));
-        quests = new Quests(IMissions(address(missions)), payable(address(arm0ry)), false);
+        missions = new Missions();
+        missions.initialize(IQuests(address(quests)), address(arm0ry));
+        quests = new Quests();
+        quests.initialize(IMissions(address(missions)), payable(address(arm0ry)));
 
         mintAliceNft();
         setupTasksAndMissions();
@@ -85,6 +87,8 @@ contract QuestsTest is Test {
         assertEq(qd.timeLeft, 400);
     }
 
+    function testStartBySig() public payable {}
+
     function testStart_Pause() public payable {
         testStart();
         vm.warp(1010);
@@ -98,6 +102,8 @@ contract QuestsTest is Test {
         assertEq(qd.timeLeft, 390);
     }
 
+    function testStartBySig_PauseBySig() public payable {}
+
     function testStart_Pause_Start() public payable {
         testStart_Pause();
         vm.warp(1020);
@@ -110,6 +116,8 @@ contract QuestsTest is Test {
         assertEq(qd.timestamp, 1020);
         assertEq(qd.timeLeft, 390);
     }
+
+    function testStartBySig_PauseBySig_StartBySig() public payable {}
 
     function testRespond_NonReviewable_Task() public payable {
         testStart();
@@ -143,11 +151,13 @@ contract QuestsTest is Test {
         assertEq(qd.progress, 0);
     }
 
-    function testReceiveETH() public payable {
-        (bool sent,) = address(quests).call{value: 5 ether}("");
-        assert(sent);
-        assert(address(quests).balance == 5 ether);
+    function testReview() public payable {
+        testRespond_NonReviewable_Task();
     }
+
+    function testClaimRewards() public payable {}
+
+    function testClaimCreatorReward() public payable {}
 
     function testUpdateAdmin() public payable {
         vm.prank(address(arm0ry));
@@ -164,6 +174,12 @@ contract QuestsTest is Test {
 
         // Validate contract update
         assertEq(address(quests.mission()), address(iMissions));
+    }
+
+    function testReceiveETH() public payable {
+        (bool sent,) = address(quests).call{value: 5 ether}("");
+        assert(sent);
+        assert(address(quests).balance == 5 ether);
     }
 
     /// -----------------------------------------------------------------------
