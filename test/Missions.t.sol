@@ -54,19 +54,19 @@ contract MissionsTest is Test {
     function setUp() public payable {
         // Deploy contract
         missions = new Missions();
-        missions.initialize(IQuests(address(quests)), address(arm0ry));
+        missions.initialize(address(arm0ry));
 
         // Validate global variables
-        assertEq(missions.royalties(), 10);
+        assertEq(missions.royalties(), 50);
         assertEq(missions.admin(), arm0ry);
 
         setupTasksAndMissions();
     }
 
     function testReceiveETH() public payable {
-        (bool sent,) = address(quests).call{value: 5 ether}("");
+        (bool sent,) = address(missions).call{value: 5 ether}("");
         assert(sent);
-        assert(address(quests).balance == 5 ether);
+        assert(address(missions).balance == 5 ether);
     }
 
     function testUpdateAdmin() public payable {
@@ -75,15 +75,6 @@ contract MissionsTest is Test {
 
         // Validate admin update
         assertEq(missions.admin(), charlie);
-    }
-
-    function testUpdateContracts() public payable {
-        vm.prank(arm0ry);
-        iQuests = IQuests(address(charlie));
-        missions.updateContracts(iQuests);
-
-        // Validate admin update
-        assertEq(address(missions.quests()), address(iQuests));
     }
 
     function testUpdateRoyalties() public payable {
@@ -109,8 +100,8 @@ contract MissionsTest is Test {
         assertEq(missions.balanceOf(alice, 1), 1);
 
         // Validate royalties distribution
-        assertEq(address(bob).balance, 0.1e18);
-        assertEq(address(arm0ry).balance, 0.9e18);
+        assertEq(address(bob).balance, 0.5e18);
+        assertEq(address(arm0ry).balance, 0.5e18);
     }
 
     function testUpdateTasks() public payable {

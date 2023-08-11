@@ -2,7 +2,6 @@
 pragma solidity >=0.8.4;
 
 import {ERC1155} from "solbase/tokens/ERC1155/ERC1155.sol";
-import {IQuests} from "./interface/IQuests.sol";
 import {Base64} from "solbase/utils/Base64.sol";
 import {LibString} from "solbase/utils/LibString.sol";
 
@@ -61,8 +60,6 @@ contract Missions is ERC1155 {
     // A list of missions ordered by missionId
     mapping(uint256 => Mission) public missions;
 
-    IQuests public quests;
-
     /// -----------------------------------------------------------------------
     /// Modifier
     /// -----------------------------------------------------------------------
@@ -106,9 +103,10 @@ contract Missions is ERC1155 {
         return Base64.encode(bytes(generateImage(_missionId)));
     }
 
+    // TODO: NEED TO GET FROM QUESTSDIRECTORY
     function generateImage(uint256 _missionId) public view returns (string memory) {
         (Mission memory mission,) = this.getMission(_missionId);
-        uint256 completions = quests.getMissionCompletionsCount(uint8(_missionId));
+        // uint256 completions = missionCompeletions[_missionId].length;
 
         return string(
             abi.encodePacked(
@@ -117,10 +115,9 @@ contract Missions is ERC1155 {
                 '<text x="15" y="100" class="medium" stroke="black">',
                 mission.title,
                 "</text>",
-                '<text x="15" y="150" class="medium" stroke="grey">COMPLETIONS: </text>',
-                '<rect x="15" y="155" width="300" height="30" style="fill:yellow;opacity:0.2"/>',
+                '<text x="15" y="150" class="medium" stroke="grey">COd:yellow;opacity:0.2"/>',
                 '<text x="20" y="173" class="small">',
-                LibString.toString(completions),
+                // LibString.toString(completions),
                 "</text>",
                 '<style>.svgBody {font-family: "Courier New" } .small {font-size: 12px;}.medium {font-size: 18px;}</style>',
                 "</svg>"
@@ -133,12 +130,11 @@ contract Missions is ERC1155 {
     /// -----------------------------------------------------------------------
 
     constructor() {
-        royalties = 10; // default royalties 10%
+        royalties = 50; // default royalties 50%
     }
 
-    function initialize(IQuests _quests, address _admin) public payable {
+    function initialize(address _admin) public payable {
         admin = _admin;
-        quests = _quests;
     }
 
     /// -----------------------------------------------------------------------
@@ -247,12 +243,6 @@ contract Missions is ERC1155 {
     function updateRoyalties(uint256 _royalties) external payable onlyAdmin {
         if (_royalties > 100) revert InvalidRoyalties();
         royalties = _royalties;
-    }
-
-    /// @dev Update contracts.
-    function updateContracts(IQuests _quests) external payable onlyAdmin {
-        if (address(_quests) == address(0)) revert InvalidContract();
-        quests = _quests;
     }
 
     /// -----------------------------------------------------------------------

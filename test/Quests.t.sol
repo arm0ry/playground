@@ -6,10 +6,12 @@ import "forge-std/console2.sol";
 
 import {IMissions} from "src/interface/IMissions.sol";
 import {IQuests} from "src/interface/IQuests.sol";
+import {IQuestsDirectory} from "src/interface/IQuestsDirectory.sol";
 
 import {KaliDAO} from "src/kali/KaliDAO.sol";
 import {Quests, QuestConfig, QuestDetail, Reward, RewardType, Review} from "src/Quests.sol";
 import {Missions, Task, Mission} from "src/Missions.sol";
+import {QuestsDirectory} from "src/QuestsDirectory.sol";
 
 /// @dev Mocks.
 import {MockERC20} from "solbase-test/utils/mocks/MockERC20.sol";
@@ -22,9 +24,11 @@ import {MockERC721} from "solbase-test/utils/mocks/MockERC721.sol";
 contract QuestsTest is Test {
     IQuests iQuests;
     IMissions iMissions;
-    Quests quests;
-    Quests quests_Erc20;
+    IQuestsDirectory iQuestsDirectory;
+    Quests quests_dao;
+    Quests quests_erc20;
     Missions missions;
+    QuestsDirectory questsDirectory;
 
     MockERC721 erc721;
     MockERC20 erc20;
@@ -45,42 +49,44 @@ contract QuestsTest is Test {
     QuestConfig qc;
 
     /// @dev Users.
+
+    // Alice goes on quests
     address payable public immutable alice = payable(makeAddr("alice"));
+    // Bob writes missions
     address public immutable bob = makeAddr("bob");
+    // Charlie writes tasks and reviews tasks
     address public immutable charlie = makeAddr("charlie");
+    // Misc address
     address public immutable dummy = makeAddr("dummy");
 
     /// @dev Helpers.
-
-    string internal constant description = "TEST";
-
-    bytes32 internal constant name1 = 0x5445535400000000000000000000000000000000000000000000000000000000;
-
-    bytes32 internal constant name2 = 0x5445535432000000000000000000000000000000000000000000000000000000;
-
-    /// -----------------------------------------------------------------------
-    /// Kali Setup Tests
-    /// -----------------------------------------------------------------------
+    // string internal constant description = "TEST";
+    // bytes32 internal constant name1 = 0x5445535400000000000000000000000000000000000000000000000000000000;
+    // bytes32 internal constant name2 = 0x5445535432000000000000000000000000000000000000000000000000000000;
 
     /// @notice Set up the testing suite.
-
     function setUp() public payable {
         // Summon KaliDAO
         deployKali();
 
         // Deploy contracts
         missions = new Missions();
-        missions.initialize(IQuests(address(quests)), address(arm0ry));
+        missions.initialize(address(arm0ry));
+
+        questsDirectory = new QuestsDirectory();
+        questsDirectory.initialize(IMissions(address(missions)), address(arm0ry));
 
         // Quest that reward DAO tokens
-        quests = new Quests();
-        quests.initialize(IMissions(address(missions)), address(arm0ry));
+        quests_dao = new Quests();
+        quests_dao.initialize(IMissions(address(missions)), IQuestsDirectory(address(questsDirectory)), address(arm0ry));
 
         // Quest that reward ERC20 tokens
-        quests_Erc20 = new Quests();
-        quests_Erc20.initialize(IMissions(address(missions)), address(arm0ry));
+        quests_erc20 = new Quests();
+        quests_erc20.initialize(
+            IMissions(address(missions)), IQuestsDirectory(address(questsDirectory)), address(arm0ry)
+        );
 
-        mintAliceNft();
+        mintNft(alice);
         setupTasksAndMissions();
         setupRewards_Dao();
         setupRewards_Erc20();
@@ -94,9 +100,9 @@ contract QuestsTest is Test {
 
     function testStart() public payable {
         vm.prank(alice);
-        quests.start(address(erc721), 1, 1);
+        quests_dao.start(address(erc721), 1, 1);
 
-        qd = quests.getQuestDetail(address(erc721), 1, 1);
+        qd = quests_dao.getQuestDetail(address(erc721), 1, 1);
         assertEq(qd.active, true);
         assertEq(qd.timestamp, 1000);
         assertEq(qd.timeLeft, 400);
@@ -109,9 +115,9 @@ contract QuestsTest is Test {
         vm.warp(1010);
 
         vm.prank(alice);
-        quests.pause(address(erc721), 1, 1);
+        quests_dao.pause(address(erc721), 1, 1);
 
-        qd = quests.getQuestDetail(address(erc721), 1, 1);
+        qd = quests_dao.getQuestDetail(address(erc721), 1, 1);
         assertEq(qd.active, false);
         assertEq(qd.timestamp, 0);
         assertEq(qd.timeLeft, 390);
@@ -124,9 +130,9 @@ contract QuestsTest is Test {
         vm.warp(1020);
 
         vm.prank(alice);
-        quests.start(address(erc721), 1, 1);
+        quests_dao.start(address(erc721), 1, 1);
 
-        qd = quests.getQuestDetail(address(erc721), 1, 1);
+        qd = quests_dao.getQuestDetail(address(erc721), 1, 1);
         assertEq(qd.active, true);
         assertEq(qd.timestamp, 1020);
         assertEq(qd.timeLeft, 390);
@@ -139,13 +145,13 @@ contract QuestsTest is Test {
         vm.warp(1010);
 
         vm.prank(alice);
-        quests.respond(address(erc721), 1, 1, 1, "FIRST RESPONSE");
-        bytes memory taskKey = quests.encode(address(erc721), 1, 1, 1);
-        string memory responses = quests.responses(taskKey, 0);
+        quests_dao.respond(address(erc721), 1, 1, 1, "FIRST RESPONSE");
+        bytes memory taskKey = quests_dao.encode(address(erc721), 1, 1, 1);
+        string memory responses = quests_dao.responses(taskKey, 0);
         // assertEq(responses.length, 1);
         emit log_string(responses);
 
-        qd = quests.getQuestDetail(address(erc721), 1, 1);
+        qd = quests_dao.getQuestDetail(address(erc721), 1, 1);
         assertEq(qd.completed, 1);
         assertEq(qd.progress, 25);
     }
@@ -153,15 +159,15 @@ contract QuestsTest is Test {
     function testRespond_Reviewable_Task() public payable {
         testStart();
         vm.prank(address(arm0ry));
-        quests.updateQuestReviewStatus(address(erc721), 1, 1, true);
-        qd = quests.getQuestDetail(address(erc721), 1, 1);
+        quests_dao.updateQuestReviewStatus(address(erc721), 1, 1, true);
+        qd = quests_dao.getQuestDetail(address(erc721), 1, 1);
         assertEq(qd.review, true);
 
         vm.warp(1010);
 
         vm.prank(alice);
-        quests.respond(address(erc721), 1, 1, 1, "FIRST RESPONSE");
-        qd = quests.getQuestDetail(address(erc721), 1, 1);
+        quests_dao.respond(address(erc721), 1, 1, 1, "FIRST RESPONSE");
+        qd = quests_dao.getQuestDetail(address(erc721), 1, 1);
         assertEq(qd.completed, 0);
         assertEq(qd.progress, 0);
     }
@@ -182,25 +188,25 @@ contract QuestsTest is Test {
 
     function testUpdateAdmin() public payable {
         vm.prank(address(arm0ry));
-        quests.updateAdmin(alice);
+        quests_dao.updateAdmin(alice);
 
         // Validate admin update
-        assertEq(quests.admin(), alice);
+        assertEq(quests_dao.admin(), alice);
     }
 
     function testUpdateContracts() public payable {
         vm.prank(address(arm0ry));
-        iMissions = IMissions(address(charlie));
-        quests.updateContracts(iMissions);
+        iMissions = IMissions(address(dummy));
+        quests_dao.updateContracts(iMissions);
 
         // Validate contract update
-        assertEq(address(quests.mission()), address(iMissions));
+        assertEq(address(quests_dao.mission()), address(iMissions));
     }
 
     function testReceiveETH() public payable {
-        (bool sent,) = address(quests).call{value: 5 ether}("");
+        (bool sent,) = address(quests_dao).call{value: 5 ether}("");
         assert(sent);
-        assert(address(quests).balance == 5 ether);
+        assert(address(quests_dao).balance == 5 ether);
     }
 
     /// -----------------------------------------------------------------------
@@ -215,11 +221,19 @@ contract QuestsTest is Test {
         arm0ry.init("Arm0ry", "ARM", "", true, extensions, extensionsData, summoners, tokenAmounts, govSettings);
     }
 
-    function mintAliceNft() internal {
+    function addReviewer(address account) internal {
+        // cast calldata "updateReviewer(address,bool)" [ADDRESS] [BOOL]
+        // bytes32 payloads = ;
+
+        // vm.prank(alice);
+        // arm0ry.propose(2, "Add reviewer", [address(quests_dao)], [0], payloads);
+    }
+
+    function mintNft(address account) internal {
         // Mint Alice an NFT to quest
         erc721 = new MockERC721("TEST", "TEST");
-        erc721.mint(alice, 1);
-        assertEq(erc721.balanceOf(alice), 1);
+        erc721.mint(account, 1);
+        assertEq(erc721.balanceOf(account), 1);
     }
 
     function setupTasks() internal {
@@ -233,13 +247,13 @@ contract QuestsTest is Test {
         Task memory task2 = Task({
             xp: 2,
             duration: 100,
-            creator: alice,
+            creator: charlie,
             detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
         });
         Task memory task3 = Task({
             xp: 3,
             duration: 100,
-            creator: bob,
+            creator: charlie,
             detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
         });
         Task memory task4 = Task({
@@ -304,7 +318,7 @@ contract QuestsTest is Test {
 
     function setupRewards_Dao() internal {
         vm.prank(address(arm0ry));
-        quests.updateQuestConfigs(
+        quests_dao.updateQuestConfigs(
             1,
             QuestConfig({
                 multiplier: 2,
@@ -316,7 +330,7 @@ contract QuestsTest is Test {
         );
 
         // Validate quest configurations
-        qc = quests.getQuestConfig(1);
+        qc = quests_dao.getQuestConfig(1);
         assertEq(qc.multiplier, 2);
         assertEq(qc.rewardToken, address(arm0ry));
     }
@@ -335,9 +349,9 @@ contract QuestsTest is Test {
             rewardToken: address(erc20)
         });
 
-        quests_Erc20.updateQuestConfigs(1, _qc);
+        quests_erc20.updateQuestConfigs(1, _qc);
 
-        qc = quests.getQuestConfig(1);
+        qc = quests_dao.getQuestConfig(1);
         assertEq(qc.multiplier, 2);
         assertEq(qc.rewardToken, address(arm0ry));
     }

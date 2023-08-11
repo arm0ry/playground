@@ -2,6 +2,7 @@
 pragma solidity >=0.8.4;
 
 import {IMissions, Mission, Task} from "./interface/IMissions.sol";
+import {IQuestsDirectory, Listing, ListType} from "./interface/IQuestsDirectory.sol";
 import {IERC721} from "forge-std/interfaces/IERC721.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {IKaliTokenManager} from "./interface/IKaliTokenManager.sol";
@@ -76,6 +77,8 @@ contract Quests {
 
     IMissions public mission;
 
+    IQuestsDirectory public questDirectory;
+
     // questKey => QuestDetail
     mapping(bytes => QuestDetail) public questDetail;
 
@@ -99,14 +102,6 @@ contract Quests {
     // Reward type per Mission Id
     // Mission Id => QuestConfig
     mapping(uint256 => QuestConfig) public questConfigs;
-
-    // Users per Mission Id
-    // Mission Id => Users
-    mapping(uint256 => address[]) public missionStarts;
-
-    // User completions by Mission Id
-    // Mission Id => Users
-    mapping(uint256 => address[]) public missionCompeletions;
 
     bytes32 public constant START_TYPEHASH = keccak256("Start(address signer, uint256 missionId)");
 
@@ -163,8 +158,9 @@ contract Quests {
     /// Constructor
     /// -----------------------------------------------------------------------
 
-    function initialize(IMissions _mission, address _admin) public payable {
+    function initialize(IMissions _mission, IQuestsDirectory _questDirectory, address _admin) public payable {
         mission = _mission;
+        questDirectory = _questDirectory;
         admin = _admin;
     }
 
@@ -368,19 +364,10 @@ contract Quests {
     }
 
     /// @notice Update reviewers
-    /// @param reviewers The addresses to update managers to
+    /// @param reviewer The addresses to update managers to
     /// @dev
-    function updateReviewers(address[] calldata reviewers, bool[] calldata status) external payable onlyAdmin {
-        uint256 length = reviewers.length;
-
-        for (uint8 i = 0; i < length;) {
-            isReviewer[reviewers[i]] = status[i];
-
-            // cannot possibly overflow
-            unchecked {
-                ++i;
-            }
-        }
+    function updateReviewer(address reviewer, bool status) external payable onlyAdmin {
+        isReviewer[reviewer] = status;
     }
 
     function updateAdmin(address _admin) external payable onlyAdmin {
@@ -440,14 +427,6 @@ contract Quests {
     function getQuestConfig(uint256 missionId) external view returns (QuestConfig memory) {
         QuestConfig memory qc = questConfigs[missionId];
         return qc;
-    }
-
-    function getMissionCompletionsCount(uint256 missionId) external view returns (uint256) {
-        return missionCompeletions[missionId].length;
-    }
-
-    function getMissionStartCount(uint256 missionId) external view returns (uint256) {
-        return missionStarts[missionId].length;
     }
 
     /// -----------------------------------------------------------------------
@@ -513,8 +492,8 @@ contract Quests {
             questDetail[questKey].active = false;
             questDetail[questKey].timeLeft = 0;
 
-            // Add User to completion array
-            missionCompeletions[missionId].push(msg.sender);
+            // Add user to completion array
+            questDirectory.listAccount(ListType.MISSION_COMPLETE, missionId, msg.sender, true);
         }
     }
 
@@ -547,7 +526,7 @@ contract Quests {
     /// @param missionId .
     /// @dev
     function _start(address tokenAddress, uint256 tokenId, uint256 missionId) internal virtual {
-        (Mission memory m, uint256 mLength) = mission.getMission(missionId);
+        (Mission memory _mission, uint256 mLength) = mission.getMission(missionId);
 
         // Confirm Mission is questable
         if (mLength == 0) revert InvalidMission();
@@ -573,23 +552,15 @@ contract Quests {
             questDetail[questKey].timestamp = uint40(block.timestamp);
         } else {
             // Calculate Task duration in aggregate
-            (uint256 totalXp, uint40 duration) = mission.aggregateTasksData(m.taskIds);
-
-            uint256 inMission = this.getMissionStartCount(missionId) - this.getMissionCompletionsCount(missionId);
-
-            // Confirm reward is supplied
-            if (rc.rewardType == RewardType.ERC20) {
-                if (IERC20(rc.rewardToken).balanceOf(address(this)) < totalXp * inMission) {
-                    revert InvalidMission();
-                } else {}
-            }
+            (, uint40 duration) = mission.aggregateTasksData(_mission.taskIds);
 
             // Initialize quest detail.
             questDetail[questKey].active = true;
             questDetail[questKey].timestamp = uint40(block.timestamp);
             questDetail[questKey].timeLeft = duration;
 
-            missionStarts[missionId].push(msg.sender);
+            // Add user to start array
+            questDirectory.listAccount(ListType.MISSION_START, missionId, msg.sender, true);
         }
     }
 
