@@ -30,13 +30,12 @@ contract MissionsFactory {
         return missionsTemplate.predictDeterministicAddress(abi.encodePacked(daoName), daoName, address(this));
     }
 
-    function deployQuests(
+    function deployMissions(
         bytes32 daoName, // create2 salt.
-        IQuests quests,
         address daoAdmin
     ) public payable virtual {
         address mission = missionsTemplate.cloneDeterministic(abi.encodePacked(daoName), daoName);
 
-        Missions(payable(mission)).initialize(quests, daoAdmin);
+        Missions(payable(mission)).initialize(daoAdmin);
     }
 }
