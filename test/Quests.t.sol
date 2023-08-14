@@ -6,12 +6,12 @@ import "forge-std/console2.sol";
 
 import {IMissions} from "src/interface/IMissions.sol";
 import {IQuests} from "src/interface/IQuests.sol";
-import {IQuestsDirectory} from "src/interface/IQuestsDirectory.sol";
+import {IDirectory} from "src/interface/IDirectory.sol";
 
 import {KaliDAO} from "src/kali/KaliDAO.sol";
 import {Quests, QuestConfig, QuestDetail, Reward, RewardType, Review} from "src/Quests.sol";
 import {Missions, Task, Mission} from "src/Missions.sol";
-import {QuestsDirectory} from "src/QuestsDirectory.sol";
+import {Directory} from "src/Directory.sol";
 
 /// @dev Mocks.
 import {MockERC20} from "solbase-test/utils/mocks/MockERC20.sol";
@@ -24,11 +24,11 @@ import {MockERC721} from "solbase-test/utils/mocks/MockERC721.sol";
 contract QuestsTest is Test {
     IQuests iQuests;
     IMissions iMissions;
-    IQuestsDirectory iQuestsDirectory;
+    IDirectory iDirectory;
     Quests quests_dao;
     Quests quests_erc20;
     Missions missions;
-    QuestsDirectory questsDirectory;
+    Directory questsDirectory;
 
     MockERC721 erc721;
     MockERC20 erc20;
@@ -73,18 +73,16 @@ contract QuestsTest is Test {
         missions = new Missions();
         missions.initialize(address(arm0ry));
 
-        questsDirectory = new QuestsDirectory();
-        questsDirectory.initialize(IMissions(address(missions)), address(arm0ry));
+        directory = new Directory();
+        directory.initialize(IMissions(address(missions)), address(arm0ry));
 
         // Quest that reward DAO tokens
         quests_dao = new Quests();
-        quests_dao.initialize(IMissions(address(missions)), IQuestsDirectory(address(questsDirectory)), address(arm0ry));
+        quests_dao.initialize(IMissions(address(missions)), IDirectory(address(directory)), address(arm0ry));
 
         // Quest that reward ERC20 tokens
         quests_erc20 = new Quests();
-        quests_erc20.initialize(
-            IMissions(address(missions)), IQuestsDirectory(address(questsDirectory)), address(arm0ry)
-        );
+        quests_erc20.initialize(IMissions(address(missions)), IDirectory(address(directory)), address(arm0ry));
 
         mintNft(alice);
         setupTasksAndMissions();

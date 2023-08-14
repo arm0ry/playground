@@ -2,7 +2,8 @@
 pragma solidity >=0.8.4;
 
 import {IMissions, Mission, Task} from "./interface/IMissions.sol";
-import {IQuestsDirectory, Listing, ListType} from "./interface/IQuestsDirectory.sol";
+import {Directory} from "./Directory.sol";
+import {IDirectory} from "./interface/IDirectory.sol";
 import {IERC721} from "forge-std/interfaces/IERC721.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {IKaliTokenManager} from "./interface/IKaliTokenManager.sol";
@@ -15,7 +16,7 @@ struct QuestDetail {
     bool active; // Indicates whether a quest is active.
     bool review; // Indicates whether quest tasks require reviews.
     uint8 progress; // 0-100%.
-    uint40 timestamp; // Timestamp to calculate.
+    uint40 timestamp; // Temporary timestamp.
     uint40 timeLeft; // Time left to complete quest.
     uint40 completed; // Number of tasks completed in quest.
 }
@@ -44,7 +45,7 @@ enum Review {
     FAIL
 }
 
-contract Quests {
+contract Quests is Directory {
     /// -----------------------------------------------------------------------
     /// Custom Errors
     /// -----------------------------------------------------------------------
@@ -75,21 +76,12 @@ contract Quests {
 
     address public admin;
 
-    IMissions public mission;
+    IMissions public missions;
 
-    IQuestsDirectory public questDirectory;
+    IDirectory public directory;
 
     // questKey => QuestDetail
     mapping(bytes => QuestDetail) public questDetail;
-
-    // msg.sender => questKey
-    mapping(address => bytes[]) public quests;
-
-    // taskKey => [string]
-    mapping(bytes => string[]) public responses;
-
-    // taskKey => [Review]
-    mapping(bytes => Review[]) public reviews;
 
     // Status indicating if an address is a Manager
     // Account -> True/False
@@ -158,9 +150,9 @@ contract Quests {
     /// Constructor
     /// -----------------------------------------------------------------------
 
-    function initialize(IMissions _mission, IQuestsDirectory _questDirectory, address _admin) public payable {
-        mission = _mission;
-        questDirectory = _questDirectory;
+    function initialize(IMissions _missions, IDirectory _directory, address _admin) public payable {
+        missions = _missions;
+        directory = _directory;
         admin = _admin;
     }
 
@@ -360,7 +352,7 @@ contract Quests {
     /// @param _mission Contract address of Missions.sol.
     /// @dev
     function updateContracts(IMissions _mission) external payable onlyAdmin {
-        mission = _mission;
+        missions = _mission;
     }
 
     /// @notice Update reviewers
@@ -384,7 +376,7 @@ contract Quests {
     }
 
     function updateQuestConfigs(uint256 missionId, QuestConfig calldata _questConfig) external payable onlyAdmin {
-        (, uint256 tasksCount) = mission.getMission(missionId);
+        (, uint256 tasksCount) = missions.getMission(missionId);
 
         // Confirm Mission is questable
         if (tasksCount == 0) revert InvalidMission();
@@ -438,20 +430,24 @@ contract Quests {
         pure
         returns (bytes memory)
     {
-        if (taskId == 0) return abi.encode(tokenAddress, tokenId, missionId);
-        else return abi.encode(tokenAddress, tokenId, missionId, taskId);
+        // Retrieve questKey
+        if (taskId == 0) return abi.encode(tokenAddress, tokenId, missions, missionId);
+        // Retrieve taskKey
+        else return abi.encode(tokenAddress, tokenId, missions, missionId, taskId);
     }
 
     function decode(bytes calldata b)
         external
         pure
-        returns (address tokenAddress, uint256 tokenId, uint256 missionId, uint256 taskId)
+        returns (address tokenAddress, uint256 tokenId, address _missions, uint256 missionId, uint256 taskId)
     {
-        if (bytes(b).length == 128) {
-            return abi.decode(b, (address, uint256, uint256, uint256));
+        if (bytes(b).length == 322) {
+            // Decode taskKey
+            return abi.decode(b, (address, uint256, address, uint256, uint256));
         } else {
-            (tokenAddress, tokenId, missionId) = abi.decode(b, (address, uint256, uint256));
-            return (tokenAddress, tokenId, missionId, 0);
+            // Decode questKey
+            (tokenAddress, tokenId, _missions, missionId) = abi.decode(b, (address, uint256, address, uint256));
+            return (tokenAddress, tokenId, _missions, missionId, 0);
         }
     }
 
@@ -473,7 +469,7 @@ contract Quests {
     /// @dev
     function updateQuestDetail(bytes memory questKey, uint256 missionId) internal {
         // Retrieve to update Mission reward
-        (, uint256 tasksCount) = mission.getMission(missionId);
+        (, uint256 tasksCount) = missions.getMission(missionId);
 
         // Retrieve quest detail
         QuestDetail memory qd = questDetail[questKey];
@@ -493,7 +489,7 @@ contract Quests {
             questDetail[questKey].timeLeft = 0;
 
             // Add user to completion array
-            questDirectory.listAccount(ListType.MISSION_COMPLETE, missionId, msg.sender, true);
+            directory.listAccount(ListType.MISSION_COMPLETE, missionId, msg.sender, true);
         }
     }
 
@@ -502,7 +498,7 @@ contract Quests {
     /// @param taskId .
     /// @dev
     function distributeTaskRewards(bytes memory questKey, uint256 taskId) internal {
-        Task memory t = mission.getTask(taskId);
+        Task memory t = missions.getTask(taskId);
         rewards[questKey].earned += t.xp;
     }
 
@@ -526,7 +522,7 @@ contract Quests {
     /// @param missionId .
     /// @dev
     function _start(address tokenAddress, uint256 tokenId, uint256 missionId) internal virtual {
-        (Mission memory _mission, uint256 mLength) = mission.getMission(missionId);
+        (Mission memory _mission, uint256 mLength) = missions.getMission(missionId);
 
         // Confirm Mission is questable
         if (mLength == 0) revert InvalidMission();
@@ -552,7 +548,7 @@ contract Quests {
             questDetail[questKey].timestamp = uint40(block.timestamp);
         } else {
             // Calculate Task duration in aggregate
-            (, uint40 duration) = mission.aggregateTasksData(_mission.taskIds);
+            (, uint40 duration) = missions.aggregateTasksData(_mission.taskIds);
 
             // Initialize quest detail.
             questDetail[questKey].active = true;
@@ -560,7 +556,7 @@ contract Quests {
             questDetail[questKey].timeLeft = duration;
 
             // Add user to start array
-            questDirectory.listAccount(ListType.MISSION_START, missionId, msg.sender, true);
+            directory.listAccount(ListType.MISSION_START, missionId, msg.sender, true);
         }
     }
 
@@ -613,7 +609,7 @@ contract Quests {
         if (!qd.active) revert QuestInactive();
 
         // Confirm Task is part of Mission
-        if (!mission.isTaskInMission(missionId, taskId)) revert InvalidMission();
+        if (!missions.isTaskInMission(missionId, taskId)) revert InvalidMission();
 
         // Add response to Task
         bytes memory taskKey = this.encode(tokenAddress, tokenId, missionId, taskId);

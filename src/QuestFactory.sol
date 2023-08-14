@@ -3,7 +3,7 @@ pragma solidity >=0.8.4;
 
 import {Quests} from "./Quests.sol";
 import {IMissions} from "./interface/IMissions.sol";
-import {IQuestsDirectory} from "./interface/IQuestsDirectory.sol";
+import {IDirectory} from "./interface/IDirectory.sol";
 import {LibClone} from "solbase/utils/LibClone.sol";
 
 contract QuestsFactory {
@@ -34,11 +34,11 @@ contract QuestsFactory {
     function deployQuests(
         bytes32 daoName, // create2 salt.
         IMissions mission,
-        IQuestsDirectory questDirectory,
+        IDirectory directory,
         address payable daoAdmin
     ) public payable virtual {
         address quest = questsTemplate.cloneDeterministic(abi.encodePacked(daoName), daoName);
 
-        Quests(payable(quest)).initialize(mission, questDirectory, daoAdmin);
+        Quests(payable(quest)).initialize(mission, directory, daoAdmin);
     }
 }
