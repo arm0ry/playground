@@ -50,7 +50,7 @@ contract Quests is Directory {
     /// Custom Errors
     /// -----------------------------------------------------------------------
 
-    error InvalidMission();
+    // error InvalidMission();
 
     error NotAuthorized();
 
@@ -428,28 +428,28 @@ contract Quests is Directory {
     function encode(address tokenAddress, uint256 tokenId, uint256 missionId, uint256 taskId)
         external
         pure
-        returns (bytes memory)
+        returns (bytes32 memory)
     {
         // Retrieve questKey
-        if (taskId == 0) return abi.encode(tokenAddress, tokenId, missions, missionId);
+        if (taskId == 0) return keccak256(abi.encodePacked(tokenAddress, tokenId, missions, missionId));
         // Retrieve taskKey
-        else return abi.encode(tokenAddress, tokenId, missions, missionId, taskId);
+        else return keccak256(abi.encodePacked(tokenAddress, tokenId, missions, missionId, taskId));
     }
 
-    function decode(bytes calldata b)
-        external
-        pure
-        returns (address tokenAddress, uint256 tokenId, address _missions, uint256 missionId, uint256 taskId)
-    {
-        if (bytes(b).length == 322) {
-            // Decode taskKey
-            return abi.decode(b, (address, uint256, address, uint256, uint256));
-        } else {
-            // Decode questKey
-            (tokenAddress, tokenId, _missions, missionId) = abi.decode(b, (address, uint256, address, uint256));
-            return (tokenAddress, tokenId, _missions, missionId, 0);
-        }
-    }
+    // function decode(bytes calldata b)
+    //     external
+    //     pure
+    //     returns (address tokenAddress, uint256 tokenId, address _missions, uint256 missionId, uint256 taskId)
+    // {
+    //     if (bytes(b).length == 322) {
+    //         // Decode taskKey
+    //         return abi.decode(b, (address, uint256, address, uint256, uint256));
+    //     } else {
+    //         // Decode questKey
+    //         (tokenAddress, tokenId, _missions, missionId) = abi.decode(b, (address, uint256, address, uint256));
+    //         return (tokenAddress, tokenId, _missions, missionId, 0);
+    //     }
+    // }
 
     /// @notice Calculate a percentage.
     /// @param numerator The numerator.
@@ -489,7 +489,7 @@ contract Quests is Directory {
             questDetail[questKey].timeLeft = 0;
 
             // Add user to completion array
-            directory.listAccount(ListType.MISSION_COMPLETE, missionId, msg.sender, true);
+            // directory.listAccount(ListType.MISSION_COMPLETE, missionId, msg.sender, true);
         }
     }
 
@@ -556,7 +556,7 @@ contract Quests is Directory {
             questDetail[questKey].timeLeft = duration;
 
             // Add user to start array
-            directory.listAccount(ListType.MISSION_START, missionId, msg.sender, true);
+            // directory.listAccount(ListType.MISSION_START, missionId, msg.sender, true);
         }
     }
 
@@ -613,6 +613,12 @@ contract Quests is Directory {
 
         // Add response to Task
         bytes memory taskKey = this.encode(tokenAddress, tokenId, missionId, taskId);
+
+        // TODO:
+        // 1. Add respond in _response only when boolStorage[missionId.review] is true
+        // 2. Set boolStorage[missionId.review] to false after respond is added
+        // 3. Set boolStorage[missionId.review] to true after review is positively added
+
         uint256 responsesLength = responses[taskKey].length;
         uint256 reviewsLength = reviews[taskKey].length;
 

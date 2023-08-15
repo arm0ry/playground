@@ -30,13 +30,6 @@ struct Task {
     string detail; // Task detail
 }
 
-enum StorageType {
-    ADDRESS,
-    BOOLEAN,
-    STRING,
-    UINT
-}
-
 contract Missions is ERC1155 {
     /// -----------------------------------------------------------------------
     /// Custom Errors
@@ -94,20 +87,12 @@ contract Missions is ERC1155 {
     }
 
     function _buildURI(uint256 _missionId) private view returns (string memory) {
-        uint256 id = uint256(_missionId);
-
-        string memory metric_one = IDirectory(directory).getString(keccak256(abi.encodePacked("mission.metric_one")));
-        uint256 impact_one = IDirectory(directory).getUint(keccak256(abi.encodePacked(metric_one)));
-
-        string memory metric_two = IDirectory(directory).getString(keccak256(abi.encodePacked("mission.metric_two")));
-        uint256 impact_two = IDirectory(directory).getUint(keccak256(abi.encodePacked(metric_two)));
-
-        string memory metric_three =
-            IDirectory(directory).getString(keccak256(abi.encodePacked("mission.metric_three")));
-        uint256 impact_three = IDirectory(directory).getUint(keccak256(abi.encodePacked(metric_three)));
+        uint256 completions = IDirectory(directory).getUint(
+            keccak256(abi.encodePacked("mission.{missionId}.completions", address(this), _missionId))
+        );
 
         return JSON._formattedMetadata(
-            string.concat("Access # ", SVG._uint2str(id)),
+            string.concat("Access # ", SVG._uint2str(_missionId)),
             "Kali Access Manager",
             string.concat(
                 '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" style="background:#191919">',
@@ -128,25 +113,7 @@ contract Missions is ERC1155 {
                         SVG._prop("font-size", "12"),
                         SVG._prop("fill", "white")
                     ),
-                    string.concat(metric_three, ": ", SVG._uint2str(impact_three))
-                ),
-                SVG._text(
-                    string.concat(
-                        SVG._prop("x", "20"),
-                        SVG._prop("y", "110"),
-                        SVG._prop("font-size", "12"),
-                        SVG._prop("fill", "white")
-                    ),
-                    string.concat(metric_two, ": ", SVG._uint2str(impact_two))
-                ),
-                SVG._text(
-                    string.concat(
-                        SVG._prop("x", "20"),
-                        SVG._prop("y", "130"),
-                        SVG._prop("font-size", "22"),
-                        SVG._prop("fill", "white")
-                    ),
-                    string.concat(metric_one, ": ", SVG._uint2str(impact_one))
+                    string.concat("Completions: ", SVG._uint2str(completions))
                 ),
                 SVG._image(
                     "https://gateway.pinata.cloud/ipfs/Qmb2AWDjE8GNUob83FnZfuXLj9kSs2uvU9xnoCbmXhH7A1",
@@ -156,66 +123,6 @@ contract Missions is ERC1155 {
             )
         );
     }
-
-    // _metric are "mission.1.start"
-    function setMissionMetric(uint256 _missionId, string[3] calldata _metric) external payable onlyAdmin {
-        if (_metric.length == 0) revert LengthMismatch();
-
-        // stringStorage[keccak256(abi.encodePacked("mission.metric_one"))] = _metric[0];
-        // stringStorage[keccak256(abi.encodePacked("mission.metric_two"))] = _metric[1];
-        // stringStorage[keccak256(abi.encodePacked("mission.metric_three"))] = _metric[2];
-    }
-
-    // function uri(uint256 _missionId) public view virtual override returns (string memory) {
-    //     string memory name = string(abi.encodePacked("Mission #", LibString.toString(_missionId)));
-    //     string memory description = "Arm0ry Missions";
-    //     string memory image = generateBase64Image(_missionId);
-
-    //     return string(
-    //         abi.encodePacked(
-    //             "data:application/json;base64,",
-    //             Base64.encode(
-    //                 bytes(
-    //                     abi.encodePacked(
-    //                         '{"name":"',
-    //                         name,
-    //                         '", "description":"',
-    //                         description,
-    //                         '", "image": "',
-    //                         "data:image/svg+xml;base64,",
-    //                         image,
-    //                         '"}'
-    //                     )
-    //                 )
-    //             )
-    //         )
-    //     );
-    // }
-
-    // function generateBase64Image(uint256 _missionId) public view returns (string memory) {
-    //     return Base64.encode(bytes(generateImage(_missionId)));
-    // }
-
-    // function generateImage(uint256 _missionId) public view returns (string memory) {
-    //     (Mission memory mission,) = this.getMission(_missionId);
-    //     // uint256 completions = missionCompeletions[_missionId].length;
-
-    //     return string(
-    //         abi.encodePacked(
-    //             '<svg class="svgBody" width="300" height="300" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">',
-    //             '<rect width="300" height="300" rx="10" style="fill:#FFFFFF" />',
-    //             '<text x="15" y="100" class="medium" stroke="black">',
-    //             mission.title,
-    //             "</text>",
-    //             '<text x="15" y="150" class="medium" stroke="grey">COd:yellow;opacity:0.2"/>',
-    //             '<text x="20" y="173" class="small">',
-    //             // LibString.toString(completions),
-    //             "</text>",
-    //             '<style>.svgBody {font-family: "Courier New" } .small {font-size: 12px;}.medium {font-size: 18px;}</style>',
-    //             "</svg>"
-    //         )
-    //     );
-    // }
 
     /// -----------------------------------------------------------------------
     /// Constructor
