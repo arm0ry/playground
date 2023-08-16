@@ -5,7 +5,7 @@ pragma solidity >=0.8.4;
 /// @author Modified from Kali (https://github.com/kalidao/kali-contracts/blob/main/contracts/access/KaliAccessManager.sol)
 /// @author Storage pattern inspired by RocketPool (https://github.com/rocket-pool/rocketpool/blob/6a9dbfd85772900bb192aabeb0c9b8d9f6e019d1/contracts/contract/RocketStorage.sol)
 
-contract Directory {
+abstract contract Directory {
     /// -----------------------------------------------------------------------
     /// Errors
     /// -----------------------------------------------------------------------
@@ -19,19 +19,14 @@ contract Directory {
     /// List Storage
     /// -----------------------------------------------------------------------
 
-    // Storage Keys
+    // Storage Keys (API into quest stats)
     //
     // Keys:
-    // - task.{taskId}.creator
-    // - task.{taskId}.detail
-    // - mission.{missionId}.fee
-    // - mission.{missionId}.{impact}
     // - quest.{key}.{questActivity}
     //
     // Example:
-    // - mission.{missionId}.start -> uintStorage
-    // - mission.{taskId}.impactReport -> stringStorage
     // - quest.{questKey}.start -> uintStorage
+    //      - missions.{missionId}.startCount -> uintStorage
     // - quest.{taskKey}.response -> stringStorage
     // - quest.{taskKey}.review -> boolStorage
 
@@ -42,25 +37,20 @@ contract Directory {
     mapping(bytes32 => bool) public booleanStorage;
 
     modifier onlyPlaygroundOperators() {
-        if (msg.sender != dao || booleanStorage[keccak256(abi.encodePacked("contract.exists", msg.sender))]) {
+        if (msg.sender != dao || booleanStorage[keccak256(abi.encodePacked("quests", msg.sender))]) {
             revert NotOperator();
         }
         _;
     }
 
     /// -----------------------------------------------------------------------
-    /// Constructor
-    /// -----------------------------------------------------------------------
-
-    constructor() {}
-
-    function initialize(address _dao) public payable {
-        dao = _dao;
-    }
-
-    /// -----------------------------------------------------------------------
     /// Setter Logic
     /// -----------------------------------------------------------------------
+
+    /// @param newDao The address of new DAO
+    function setDao(address newDao) external onlyPlaygroundOperators {
+        dao = newDao;
+    }
 
     /// @param _key The key for the record
     function setAddress(bytes32 _key, address _value) external onlyPlaygroundOperators {
