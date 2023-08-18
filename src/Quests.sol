@@ -33,10 +33,12 @@ struct RewardBalance {
     uint256 claimed; // Reward claimed to date
 }
 
-contract Quests is Directory {
+contract Quests {
     /// -----------------------------------------------------------------------
     /// Custom Errors
     /// -----------------------------------------------------------------------
+
+    error InvalidDao();
 
     error InvalidUser();
 
@@ -54,10 +56,13 @@ contract Quests is Directory {
 
     error NeedMoreXp();
 
+    error InvalidMission();
+
     /// -----------------------------------------------------------------------
     /// Sign Storage
     /// -----------------------------------------------------------------------
 
+    address public directory;
     bytes32 public constant START_TYPEHASH = keccak256("Start(address signer, uint256 missionId)");
     bytes32 public constant PAUSE_TYPEHASH = keccak256("Pause(address signer, uint256 missionId)");
     bytes32 public constant RESPOND_TYPEHASH =
@@ -91,6 +96,11 @@ contract Quests is Directory {
     /// Modifier
     /// -----------------------------------------------------------------------
 
+    modifier onlyDao() {
+        if (IDirectory(directory).getDao() != msg.sender) revert InvalidDao();
+        _;
+    }
+
     modifier onlyReviewer() {
         if (!this.isReviewer(msg.sender)) revert InvalidReviewer();
         _;
@@ -105,12 +115,17 @@ contract Quests is Directory {
     /// Constructor
     /// -----------------------------------------------------------------------
 
-    function initialize(address missions) public payable {
-        // Store address of missions contract
-        this.setAddress(keccak256(abi.encodePacked("missions")), missions);
+    function initialize(address _directory) public payable {
+        address quests = IDirectory(_directory).getAddress(keccak256(abi.encodePacked("quests")));
 
-        // Store address of quests contract
-        this.setAddress(keccak256(abi.encodePacked("quests")), address(this));
+        if (quests == address(0)) {
+            // Store address of quests contract
+            IDirectory(_directory).setAddress(keccak256(abi.encodePacked("quests")), address(this));
+
+            directory = _directory;
+        } else {
+            revert QuestInProgress();
+        }
     }
 
     /// -----------------------------------------------------------------------
@@ -287,7 +302,7 @@ contract Quests is Directory {
         Reward memory reward = this.getRewards(missionId);
 
         if (r.earned > r.claimed) {
-            if (reward.rewardToken == dao) {
+            if (reward.rewardToken == IDirectory(directory).getDao()) {
                 IKaliTokenManager(reward.rewardToken).mintShares(msg.sender, (r.earned - r.claimed) * reward.multiplier);
             } else {
                 if (
@@ -312,26 +327,26 @@ contract Quests is Directory {
     /// @notice Update contracts.
     /// @param missions Contract address of Missions.sol.
     /// @dev
-    function setMissionsContract(address missions) external payable onlyPlaygroundOperators {
-        this.setAddress(keccak256(abi.encodePacked("missions")), missions);
+    function setMissionsContract(address missions) external payable onlyDao {
+        IDirectory(directory).setAddress(keccak256(abi.encodePacked("missions")), missions);
     }
 
     /// @notice Update reviewers
     /// @param reviewer The addresses to update managers to
     /// @dev
-    function setReviewer(address reviewer, bool status) external payable onlyPlaygroundOperators {
+    function setReviewer(address reviewer, bool status) external payable onlyDao {
         // Increment and store global number of reviewers.
-        uint256 reviewerId = this.getUint(keccak256(abi.encodePacked("quests.reviewerCount")));
-        this.setUint(keccak256(abi.encodePacked("quests.reviewerCount")), ++reviewerId);
+        uint256 reviewerId = IDirectory(directory).getUint(keccak256(abi.encodePacked("quests.reviewerCount")));
+        IDirectory(directory).setUint(keccak256(abi.encodePacked("quests.reviewerCount")), ++reviewerId);
 
         if (status) {
             // Store new reviewer status and id
-            this.setBool(keccak256(abi.encodePacked(reviewer, ".exists")), status);
-            this.setUint(keccak256(abi.encodePacked(reviewer, ".reviewerId")), reviewerId);
+            IDirectory(directory).setBool(keccak256(abi.encodePacked(reviewer, ".exists")), status);
+            IDirectory(directory).setUint(keccak256(abi.encodePacked(reviewer, ".reviewerId")), reviewerId);
         } else {
             // Delete reviewer status and id.
-            this.deleteBool(keccak256(abi.encodePacked(reviewer, ".exists")));
-            this.deleteUint(keccak256(abi.encodePacked(reviewer, ".reviewerId")));
+            IDirectory(directory).deleteBool(keccak256(abi.encodePacked(reviewer, ".exists")));
+            IDirectory(directory).deleteUint(keccak256(abi.encodePacked(reviewer, ".reviewerId")));
         }
     }
 
@@ -339,18 +354,18 @@ contract Quests is Directory {
     function setReviewStatus(address tokenAddress, uint256 tokenId, uint256 missionId, bool reviewStatus)
         external
         payable
-        onlyPlaygroundOperators
+        onlyDao
     {
         bytes32 questKey = this.encode(tokenAddress, tokenId, missionId, 0);
-        this.setBool(keccak256(abi.encodePacked(questKey, ".detail.review")), reviewStatus);
+        IDirectory(directory).setBool(keccak256(abi.encodePacked(questKey, ".detail.review")), reviewStatus);
     }
 
     /// @notice Set review status for all quests
-    function setGlobalReviewStatus(bool reviewStatus) external payable onlyPlaygroundOperators {
-        this.setBool(keccak256(abi.encodePacked("quests.reviewStatus")), reviewStatus);
+    function setGlobalReviewStatus(bool reviewStatus) external payable onlyDao {
+        IDirectory(directory).setBool(keccak256(abi.encodePacked("quests.reviewStatus")), reviewStatus);
     }
 
-    function setReward(uint256 missionId, Reward calldata _reward) external payable onlyPlaygroundOperators {
+    function setReward(uint256 missionId, Reward calldata _reward) external payable onlyDao {
         // Confirm Mission is questable
         (, uint256 tasksCount) = IMissions(this.getMissionsAddress()).getMission(missionId);
         if (tasksCount == 0) revert InvalidMission();
@@ -363,17 +378,17 @@ contract Quests is Directory {
     /// -----------------------------------------------------------------------
 
     function getMissionsAddress() external view returns (address) {
-        return this.getAddress(keccak256(abi.encodePacked("missions")));
+        return IDirectory(directory).getAddress(keccak256(abi.encodePacked("missions")));
     }
 
     function getQuestDetail(bytes32 questKey) external view returns (QuestDetail memory) {
         return QuestDetail({
-            active: this.getBool(keccak256(abi.encodePacked(questKey, ".detail.active"))),
-            reviewStatus: this.getBool(keccak256(abi.encodePacked(questKey, ".detail.reviewStatus"))),
-            progress: uint8(this.getUint(keccak256(abi.encodePacked(questKey, ".detail.progress")))),
-            timestamp: uint40(this.getUint(keccak256(abi.encodePacked(questKey, ".detail.timestamp")))),
-            timeLeft: uint40(this.getUint(keccak256(abi.encodePacked(questKey, ".detail.timeLeft")))),
-            completed: uint40(this.getUint(keccak256(abi.encodePacked(questKey, ".detail.completed"))))
+            active: IDirectory(directory).getBool(keccak256(abi.encodePacked(questKey, ".detail.active"))),
+            reviewStatus: IDirectory(directory).getBool(keccak256(abi.encodePacked(questKey, ".detail.reviewStatus"))),
+            progress: uint8(IDirectory(directory).getUint(keccak256(abi.encodePacked(questKey, ".detail.progress")))),
+            timestamp: uint40(IDirectory(directory).getUint(keccak256(abi.encodePacked(questKey, ".detail.timestamp")))),
+            timeLeft: uint40(IDirectory(directory).getUint(keccak256(abi.encodePacked(questKey, ".detail.timeLeft")))),
+            completed: uint40(IDirectory(directory).getUint(keccak256(abi.encodePacked(questKey, ".detail.completed"))))
         });
     }
 
@@ -381,22 +396,30 @@ contract Quests is Directory {
         address missions = this.getMissionsAddress();
 
         return Reward({
-            multiplier: this.getUint(keccak256(abi.encodePacked(missions, missionId, ".reward.multiplier"))),
-            gateToken: this.getAddress(keccak256(abi.encodePacked(missions, missionId, ".reward.gateToken"))),
-            gateAmount: this.getUint(keccak256(abi.encodePacked(missions, missionId, ".reward.gateAmount"))),
-            rewardToken: this.getAddress(keccak256(abi.encodePacked(missions, missionId, ".reward.rewardToken")))
+            multiplier: IDirectory(directory).getUint(
+                keccak256(abi.encodePacked(missions, missionId, ".reward.multiplier"))
+                ),
+            gateToken: IDirectory(directory).getAddress(
+                keccak256(abi.encodePacked(missions, missionId, ".reward.gateToken"))
+                ),
+            gateAmount: IDirectory(directory).getUint(
+                keccak256(abi.encodePacked(missions, missionId, ".reward.gateAmount"))
+                ),
+            rewardToken: IDirectory(directory).getAddress(
+                keccak256(abi.encodePacked(missions, missionId, ".reward.rewardToken"))
+                )
         });
     }
 
     function getRewardBalance(bytes32 questKey) external view returns (RewardBalance memory) {
         return RewardBalance({
-            earned: this.getUint(keccak256(abi.encodePacked(questKey, ".reward.earned"))),
-            claimed: this.getUint(keccak256(abi.encodePacked(questKey, ".reward.claimed")))
+            earned: IDirectory(directory).getUint(keccak256(abi.encodePacked(questKey, ".reward.earned"))),
+            claimed: IDirectory(directory).getUint(keccak256(abi.encodePacked(questKey, ".reward.claimed")))
         });
     }
 
     function isReviewer(address account) external view returns (bool) {
-        return this.getBool(keccak256(abi.encodePacked(account, ".exists")));
+        return IDirectory(directory).getBool(keccak256(abi.encodePacked(account, ".exists")));
     }
 
     /// -----------------------------------------------------------------------
@@ -446,21 +469,23 @@ contract Quests is Directory {
         qd.progress = calculateProgress(qd.completed, tasksCount);
 
         // Store quest detail
-        this.setUint(keccak256(abi.encodePacked(questKey, ".detail.progress")), qd.progress);
-        this.setUint(keccak256(abi.encodePacked(questKey, ".detail.completed")), qd.completed);
+        IDirectory(directory).setUint(keccak256(abi.encodePacked(questKey, ".detail.progress")), qd.progress);
+        IDirectory(directory).setUint(keccak256(abi.encodePacked(questKey, ".detail.completed")), qd.completed);
 
         // Finalize quest
         if (qd.progress == 100) {
-            this.deleteBool(keccak256(abi.encodePacked(questKey, ".detail.active")));
-            this.deleteUint(keccak256(abi.encodePacked(questKey, ".detail.timeLeft")));
+            IDirectory(directory).deleteBool(keccak256(abi.encodePacked(questKey, ".detail.active")));
+            IDirectory(directory).deleteUint(keccak256(abi.encodePacked(questKey, ".detail.timeLeft")));
 
             // Retrieve, increment, and store number of mission completions.
-            uint256 count = this.getUint(keccak256(abi.encodePacked(missions, missionId, ".completions")));
-            this.setUint(keccak256(abi.encodePacked(missions, missionId, ".completions")), ++count);
+            uint256 count =
+                IDirectory(directory).getUint(keccak256(abi.encodePacked(missions, missionId, ".completions")));
+            IDirectory(directory).setUint(keccak256(abi.encodePacked(missions, missionId, ".completions")), ++count);
 
             // Retrieve, increment, and store number of mission starts per user.
-            uint256 userStarts = this.getUint(keccak256(abi.encodePacked(questKey, ".stats.completions")));
-            this.setUint(keccak256(abi.encodePacked(questKey, ".stats.completions")), ++userStarts);
+            uint256 userStarts =
+                IDirectory(directory).getUint(keccak256(abi.encodePacked(questKey, ".stats.completions")));
+            IDirectory(directory).setUint(keccak256(abi.encodePacked(questKey, ".stats.completions")), ++userStarts);
         }
     }
 
@@ -474,8 +499,8 @@ contract Quests is Directory {
         Task memory t = IMissions(missions).getTask(taskId);
 
         // Retrieve, increment by task xp, and store earned xp per user quest.
-        uint256 earned = this.getUint(keccak256(abi.encodePacked(questKey, ".reward.earned")));
-        this.setUint(keccak256(abi.encodePacked(questKey, ".reward.earned")), earned + t.xp);
+        uint256 earned = IDirectory(directory).getUint(keccak256(abi.encodePacked(questKey, ".reward.earned")));
+        IDirectory(directory).setUint(keccak256(abi.encodePacked(questKey, ".reward.earned")), earned + t.xp);
     }
 
     /// @notice Traveler to pause an active Quest.
@@ -520,24 +545,29 @@ contract Quests is Directory {
         // Check if quest was previously paused.
         if (qd.timeLeft > 0) {
             // Update quest detail
-            this.setBool(keccak256(abi.encodePacked(questKey, ".detail.active")), true);
-            this.setUint(keccak256(abi.encodePacked(questKey, ".detail.timestamp")), uint40(block.timestamp));
+            IDirectory(directory).setBool(keccak256(abi.encodePacked(questKey, ".detail.active")), true);
+            IDirectory(directory).setUint(
+                keccak256(abi.encodePacked(questKey, ".detail.timestamp")), uint40(block.timestamp)
+            );
         } else {
             // Calculate Task duration in aggregate
             (, uint40 duration) = IMissions(missions).aggregateTasksData(_mission.taskIds);
 
             // Initialize quest detail.
-            this.setBool(keccak256(abi.encodePacked(questKey, ".detail.active")), true);
-            this.setUint(keccak256(abi.encodePacked(questKey, ".detail.timestamp")), uint40(block.timestamp));
-            this.setUint(keccak256(abi.encodePacked(questKey, ".detail.timeLeft")), duration);
+            IDirectory(directory).setBool(keccak256(abi.encodePacked(questKey, ".detail.active")), true);
+            IDirectory(directory).setUint(
+                keccak256(abi.encodePacked(questKey, ".detail.timestamp")), uint40(block.timestamp)
+            );
+            IDirectory(directory).setUint(keccak256(abi.encodePacked(questKey, ".detail.timeLeft")), duration);
 
             // Retrieve, increment, and store number of mission starts.
-            uint256 missionStarts = this.getUint(keccak256(abi.encodePacked(missions, missionId, ".starts")));
-            this.setUint(keccak256(abi.encodePacked(missions, missionId, ".starts")), ++missionStarts);
+            uint256 missionStarts =
+                IDirectory(directory).getUint(keccak256(abi.encodePacked(missions, missionId, ".starts")));
+            IDirectory(directory).setUint(keccak256(abi.encodePacked(missions, missionId, ".starts")), ++missionStarts);
 
             // Retrieve, increment, and store number of mission starts per user.
-            uint256 userStarts = this.getUint(keccak256(abi.encodePacked(questKey, ".stats.starts")));
-            this.setUint(keccak256(abi.encodePacked(questKey, ".stats.starts")), ++userStarts);
+            uint256 userStarts = IDirectory(directory).getUint(keccak256(abi.encodePacked(questKey, ".stats.starts")));
+            IDirectory(directory).setUint(keccak256(abi.encodePacked(questKey, ".stats.starts")), ++userStarts);
         }
     }
 
@@ -557,9 +587,9 @@ contract Quests is Directory {
         uint40 timeLeft = calculateTimeLeft(qd.timestamp, qd.timeLeft);
 
         if (timeLeft > 0) {
-            this.deleteBool(keccak256(abi.encodePacked(questKey, ".detail.active")));
-            this.deleteUint(keccak256(abi.encodePacked(questKey, ".detail.timestamp")));
-            this.setUint(keccak256(abi.encodePacked(questKey, ".detail.timeLeft")), timeLeft);
+            IDirectory(directory).deleteBool(keccak256(abi.encodePacked(questKey, ".detail.active")));
+            IDirectory(directory).deleteUint(keccak256(abi.encodePacked(questKey, ".detail.timestamp")));
+            IDirectory(directory).setUint(keccak256(abi.encodePacked(questKey, ".detail.timeLeft")), timeLeft);
         }
     }
 
@@ -593,11 +623,11 @@ contract Quests is Directory {
         if (!IMissions(missions).isTaskInMission(missionId, taskId)) revert InvalidMission();
 
         // Store quest task responses.
-        this.setString(keccak256(abi.encodePacked(taskKey, ".review.response")), response);
+        IDirectory(directory).setString(keccak256(abi.encodePacked(taskKey, ".review.response")), response);
 
         // Retrieve, increment, and store number of responses for the task..
-        uint256 count = this.getUint(keccak256(abi.encodePacked(taskKey, ".review.responseCount")));
-        this.setUint(keccak256(abi.encodePacked(taskKey, ".review.responseCount")), ++count);
+        uint256 count = IDirectory(directory).getUint(keccak256(abi.encodePacked(taskKey, ".review.responseCount")));
+        IDirectory(directory).setUint(keccak256(abi.encodePacked(taskKey, ".review.responseCount")), ++count);
 
         // Check if quest completions require review.
         if (!qd.reviewStatus) {
@@ -624,10 +654,10 @@ contract Quests is Directory {
 
         if (!reviewResult) {
             // Store review result
-            this.setBool(keccak256(abi.encodePacked(taskKey, ".review.result")), reviewResult);
+            IDirectory(directory).setBool(keccak256(abi.encodePacked(taskKey, ".review.result")), reviewResult);
         } else {
             // Store review result
-            this.setBool(keccak256(abi.encodePacked(taskKey, ".review.result")), reviewResult);
+            IDirectory(directory).setBool(keccak256(abi.encodePacked(taskKey, ".review.result")), reviewResult);
 
             // Increment reward by task xp
             distributeTaskReward(questKey, taskId);
@@ -639,20 +669,34 @@ contract Quests is Directory {
 
     function _setReward(uint256 missionId, Reward calldata _reward) internal {
         address missions = this.getMissionsAddress();
-
+        address dao = IDirectory(directory).getDao();
         if (_reward.rewardToken == dao) {
-            this.setUint(keccak256(abi.encodePacked(missions, missionId, ".reward.multiplier")), _reward.multiplier);
-            this.setAddress(keccak256(abi.encodePacked(missions, missionId, ".reward.gateToken")), _reward.gateToken);
-            this.setUint(keccak256(abi.encodePacked(missions, missionId, ".reward.gateAmount")), _reward.gateAmount);
-            this.setAddress(keccak256(abi.encodePacked(missions, missionId, ".reward.rewardToken")), dao);
+            IDirectory(directory).setUint(
+                keccak256(abi.encodePacked(missions, missionId, ".reward.multiplier")), _reward.multiplier
+            );
+            IDirectory(directory).setAddress(
+                keccak256(abi.encodePacked(missions, missionId, ".reward.gateToken")), _reward.gateToken
+            );
+            IDirectory(directory).setUint(
+                keccak256(abi.encodePacked(missions, missionId, ".reward.gateAmount")), _reward.gateAmount
+            );
+            IDirectory(directory).setAddress(
+                keccak256(abi.encodePacked(missions, missionId, ".reward.rewardToken")), dao
+            );
         } else {
             // Confirm reward is supplied
             if (_reward.rewardToken == address(0)) revert InvalidReward();
 
-            this.setUint(keccak256(abi.encodePacked(missions, missionId, ".reward.multiplier")), _reward.multiplier);
-            this.setAddress(keccak256(abi.encodePacked(missions, missionId, ".reward.gateToken")), _reward.gateToken);
-            this.setUint(keccak256(abi.encodePacked(missions, missionId, ".reward.gateAmount")), _reward.gateAmount);
-            this.setAddress(
+            IDirectory(directory).setUint(
+                keccak256(abi.encodePacked(missions, missionId, ".reward.multiplier")), _reward.multiplier
+            );
+            IDirectory(directory).setAddress(
+                keccak256(abi.encodePacked(missions, missionId, ".reward.gateToken")), _reward.gateToken
+            );
+            IDirectory(directory).setUint(
+                keccak256(abi.encodePacked(missions, missionId, ".reward.gateAmount")), _reward.gateAmount
+            );
+            IDirectory(directory).setAddress(
                 keccak256(abi.encodePacked(missions, missionId, ".reward.rewardToken")), _reward.rewardToken
             );
         }
