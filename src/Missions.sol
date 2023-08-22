@@ -321,6 +321,7 @@ contract Missions is ERC1155 {
         return (totalXp, duration);
     }
 
+    /// @dev Calculate and update number of completions by mission id
     function aggregateMissionsCompletions(uint256 _missionId, address[] calldata directories) external payable {
         uint256 count;
 

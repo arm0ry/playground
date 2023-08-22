@@ -27,7 +27,10 @@ contract Directory is SafeMulticallable {
     mapping(bytes32 => bool) public booleanStorage;
 
     modifier onlyPlaygroundOperators() {
-        if (msg.sender != dao || booleanStorage[keccak256(abi.encodePacked("quests", msg.sender))]) {
+        // if (msg.sender != dao || booleanStorage[keccak256(abi.encodePacked("quest.granted", msg.sender))]) {
+        //     revert NotOperator();
+        // }
+        if (msg.sender != dao && !booleanStorage[keccak256(abi.encodePacked("quest.granted", msg.sender))]) {
             revert NotOperator();
         }
         _;
@@ -37,7 +40,7 @@ contract Directory is SafeMulticallable {
     /// Constructor
     /// -----------------------------------------------------------------------
 
-    function initialize(address _dao) public payable {
+    function initialize(address _dao) public {
         dao = _dao;
     }
 
@@ -45,32 +48,43 @@ contract Directory is SafeMulticallable {
     /// General Storage - Setter Logic
     /// -----------------------------------------------------------------------
 
-    /// @param newDao The address of new DAO
+    /// @param newDao The address of new DAO.
     function setDao(address newDao) external onlyPlaygroundOperators {
         dao = newDao;
     }
 
-    /// @param newQuestsAddress The address of new DAO
-    function setQuestsAddress(address newQuestsAddress) external onlyPlaygroundOperators {
-        addressStorage[keccak256(abi.encodePacked("quests"))] = newQuestsAddress;
+    /// @param newMissionsAddress Contract address of Missions.sol.
+    /// @dev
+    function setMissionsAddress(address newMissionsAddress) external onlyPlaygroundOperators {
+        addressStorage[keccak256(abi.encodePacked("missions"))] = newMissionsAddress;
     }
 
-    /// @param _key The key for the record
+    /// @param newQuestAddress The address of new Quests.sol to give operator access to Directory.sol.
+    function grantQuestAccess(address newQuestAddress) external onlyPlaygroundOperators {
+        booleanStorage[keccak256(abi.encodePacked("quest.granted", newQuestAddress))] = true;
+    }
+
+    /// @param questAddress The address of new Quests.sol to give operator access to Directory.sol.
+    function getQuestAccess(address questAddress) external view returns (bool) {
+        return booleanStorage[keccak256(abi.encodePacked("quest.granted", questAddress))];
+    }
+
+    /// @param _key The key for the record.
     function setAddress(bytes32 _key, address _value) external onlyPlaygroundOperators {
         addressStorage[_key] = _value;
     }
 
-    /// @param _key The key for the record
+    /// @param _key The key for the record.
     function setUint(bytes32 _key, uint256 _value) external onlyPlaygroundOperators {
         uintStorage[_key] = _value;
     }
 
-    /// @param _key The key for the record
+    /// @param _key The key for the record.
     function setString(bytes32 _key, string calldata _value) external onlyPlaygroundOperators {
         stringStorage[_key] = _value;
     }
 
-    /// @param _key The key for the record
+    /// @param _key The key for the record.
     function setBool(bytes32 _key, bool _value) external onlyPlaygroundOperators {
         booleanStorage[_key] = _value;
     }
@@ -79,26 +93,26 @@ contract Directory is SafeMulticallable {
     /// General Sotrage - Delete Logic
     /// -----------------------------------------------------------------------
 
-    function deleteQuestsAddress() external onlyPlaygroundOperators {
-        delete addressStorage[keccak256(abi.encodePacked("quests"))];
+    function deleteQuestsAddress(address questsAddress) external onlyPlaygroundOperators {
+        delete booleanStorage[keccak256(abi.encodePacked("quest.granted", questsAddress))];
     }
 
-    /// @param _key The key for the record
+    /// @param _key The key for the record.
     function deleteAddress(bytes32 _key) external onlyPlaygroundOperators {
         delete addressStorage[_key];
     }
 
-    /// @param _key The key for the record
+    /// @param _key The key for the record.
     function deleteUint(bytes32 _key) external onlyPlaygroundOperators {
         delete uintStorage[_key];
     }
 
-    /// @param _key The key for the record
+    /// @param _key The key for the record.
     function deleteString(bytes32 _key) external onlyPlaygroundOperators {
         delete stringStorage[_key];
     }
 
-    /// @param _key The key for the record
+    /// @param _key The key for the record.
     function deleteBool(bytes32 _key) external onlyPlaygroundOperators {
         delete booleanStorage[_key];
     }
@@ -107,13 +121,13 @@ contract Directory is SafeMulticallable {
     /// Add Logic
     /// -----------------------------------------------------------------------
 
-    /// @param _key The key for the record
+    /// @param _key The key for the record.
     /// @param _amount An amount to add to the record's value
     function addUint(bytes32 _key, uint256 _amount) external onlyPlaygroundOperators {
         uintStorage[_key] = uintStorage[_key] + _amount;
     }
 
-    /// @param _key The key for the record
+    /// @param _key The key for the record.
     /// @param _amount An amount to subtract from the record's value
     function subUint(bytes32 _key, uint256 _amount) external onlyPlaygroundOperators {
         uintStorage[_key] = uintStorage[_key] - _amount;
@@ -128,9 +142,9 @@ contract Directory is SafeMulticallable {
         return dao;
     }
 
-    /// @dev Get the address of quests contract.
-    function getQuestsAddress() external view returns (address) {
-        return this.getAddress(keccak256(abi.encodePacked("quests")));
+    /// @dev Get the address of missions contract.
+    function getMissionsAddress() external view returns (address) {
+        return this.getAddress(keccak256(abi.encodePacked("missions")));
     }
 
     /// @param _key The key for the record.

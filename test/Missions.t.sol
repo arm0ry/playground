@@ -6,19 +6,23 @@ import "forge-std/console2.sol";
 
 import {Missions, Task, Mission} from "src/Missions.sol";
 import {IMissions} from "src/interface/IMissions.sol";
-import {Quests} from "src/Quests.sol";
-import {IQuests} from "src/interface/IQuests.sol";
+import {Quest} from "src/Quest.sol";
+import {IQuest} from "src/interface/IQuest.sol";
+import {IDirectory} from "src/interface/IDirectory.sol";
+import {Directory} from "src/Directory.sol";
 
 /// -----------------------------------------------------------------------
 /// Test Logic
 /// -----------------------------------------------------------------------
 
 contract MissionsTest is Test {
-    Quests quests;
+    Quest quest;
     Missions missions;
+    Directory directory;
 
-    IQuests iQuests;
+    IQuest iQuest;
     IMissions iMissions;
+    IDirectory iDirectory;
 
     Task task;
     Task[] tasks;
@@ -54,11 +58,11 @@ contract MissionsTest is Test {
     function setUp() public payable {
         // Deploy contract
         missions = new Missions();
-        missions.initialize(address(arm0ry));
+        missions.initialize((address(arm0ry)));
 
         // Validate global variables
         assertEq(missions.royalties(), 50);
-        assertEq(missions.admin(), arm0ry);
+        assertEq(missions.dao(), arm0ry);
 
         setupTasksAndMissions();
     }
@@ -69,12 +73,12 @@ contract MissionsTest is Test {
         assert(address(missions).balance == 5 ether);
     }
 
-    function testUpdateAdmin() public payable {
+    function testUpdateDao() public payable {
         vm.prank(arm0ry);
-        missions.updateAdmin(charlie);
+        missions.updateDao(charlie);
 
-        // Validate admin update
-        assertEq(missions.admin(), charlie);
+        // Validate DAO update
+        assertEq(missions.dao(), charlie);
     }
 
     function testUpdateRoyalties() public payable {
