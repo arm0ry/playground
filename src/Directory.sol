@@ -34,12 +34,25 @@ contract Directory is SafeMulticallable {
     }
 
     /// -----------------------------------------------------------------------
+    /// Constructor
+    /// -----------------------------------------------------------------------
+
+    function initialize(address _dao) public payable {
+        dao = _dao;
+    }
+
+    /// -----------------------------------------------------------------------
     /// General Storage - Setter Logic
     /// -----------------------------------------------------------------------
 
     /// @param newDao The address of new DAO
     function setDao(address newDao) external onlyPlaygroundOperators {
         dao = newDao;
+    }
+
+    /// @param newQuestsAddress The address of new DAO
+    function setQuestsAddress(address newQuestsAddress) external onlyPlaygroundOperators {
+        addressStorage[keccak256(abi.encodePacked("quests"))] = newQuestsAddress;
     }
 
     /// @param _key The key for the record
@@ -65,6 +78,10 @@ contract Directory is SafeMulticallable {
     /// -----------------------------------------------------------------------
     /// General Sotrage - Delete Logic
     /// -----------------------------------------------------------------------
+
+    function deleteQuestsAddress() external onlyPlaygroundOperators {
+        delete addressStorage[keccak256(abi.encodePacked("quests"))];
+    }
 
     /// @param _key The key for the record
     function deleteAddress(bytes32 _key) external onlyPlaygroundOperators {

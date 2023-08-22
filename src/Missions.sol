@@ -21,6 +21,7 @@ struct Mission {
     string detail; // Mission detail
     uint256[] taskIds; // Tasks associated with Mission
     uint256 fee; // Amount for purchase
+    uint256 completions; // The number of mission completions
 }
 
 struct Task {
@@ -53,28 +54,29 @@ contract Missions is ERC1155 {
     /// Task Storage
     /// -----------------------------------------------------------------------
 
-    address public admin;
-
-    IDirectory public directory;
+    address public dao;
 
     uint256 public royalties;
+
+    uint256 public missionId;
 
     uint256 public taskId;
 
     // A list of tasks ordered by taskId
     mapping(uint256 => Task) public tasks;
 
-    uint256 public missionId;
-
     // A list of missions ordered by missionId
     mapping(uint256 => Mission) public missions;
+
+    // Mission Id -> number of completions
+    mapping(uint256 => uint256) public completions;
 
     /// -----------------------------------------------------------------------
     /// Modifier
     /// -----------------------------------------------------------------------
 
-    modifier onlyAdmin() {
-        if (admin != msg.sender) revert Unauthorized();
+    modifier onlyDao() {
+        if (dao != msg.sender) revert Unauthorized();
         _;
     }
 
@@ -87,10 +89,6 @@ contract Missions is ERC1155 {
     }
 
     function _buildURI(uint256 _missionId) private view returns (string memory) {
-        uint256 completions = IDirectory(directory).getUint(
-            keccak256(abi.encodePacked("mission.{missionId}.completions", address(this), _missionId))
-        );
-
         return JSON._formattedMetadata(
             string.concat("Access # ", SVG._uint2str(_missionId)),
             "Kali Access Manager",
@@ -113,7 +111,7 @@ contract Missions is ERC1155 {
                         SVG._prop("font-size", "12"),
                         SVG._prop("fill", "white")
                     ),
-                    string.concat("Completions: ", SVG._uint2str(completions))
+                    string.concat("Completions: ", SVG._uint2str(completions[_missionId]))
                 ),
                 SVG._image(
                     "https://gateway.pinata.cloud/ipfs/Qmb2AWDjE8GNUob83FnZfuXLj9kSs2uvU9xnoCbmXhH7A1",
@@ -132,9 +130,8 @@ contract Missions is ERC1155 {
         royalties = 50; // default royalties 50%
     }
 
-    function initialize(IDirectory _directory, address _admin) public payable {
-        admin = _admin;
-        directory = _directory;
+    function initialize(address _dao) public payable {
+        dao = _dao;
     }
 
     /// -----------------------------------------------------------------------
@@ -143,7 +140,7 @@ contract Missions is ERC1155 {
 
     /// @dev  Create or update tasks.
     /// Note: Recommend calling updateMission immediately after to update associated missions.
-    function setTasks(uint256[] calldata taskIds, Task[] calldata _tasks) external payable onlyAdmin {
+    function setTasks(uint256[] calldata taskIds, Task[] calldata _tasks) external payable onlyDao {
         uint256 length = taskIds.length;
 
         if (taskIds.length == 0) {
@@ -196,7 +193,7 @@ contract Missions is ERC1155 {
         string calldata _detail,
         uint256[] calldata _taskIds,
         uint256 _fee
-    ) external payable onlyAdmin {
+    ) external payable onlyDao {
         if (_taskIds.length == 0) revert InvalidMission();
 
         if (_missionId == 0) {
@@ -211,7 +208,8 @@ contract Missions is ERC1155 {
                 title: _title,
                 detail: _detail,
                 taskIds: _taskIds,
-                fee: _fee
+                fee: _fee,
+                completions: 0
             });
         } else {
             delete missions[_missionId];
@@ -223,24 +221,25 @@ contract Missions is ERC1155 {
                 title: _title,
                 detail: _detail,
                 taskIds: _taskIds,
-                fee: _fee
+                fee: _fee,
+                completions: 0
             });
         }
     }
 
     /// -----------------------------------------------------------------------
-    /// Admin Logic
+    /// dao Logic
     /// -----------------------------------------------------------------------
 
     /// @dev Update missions
-    function updateAdmin(address _admin) external payable onlyAdmin {
-        if (_admin != admin) {
-            admin = _admin;
+    function updateDao(address _dao) external payable onlyDao {
+        if (_dao != dao) {
+            dao = _dao;
         }
     }
 
     /// @dev Update royalties.
-    function updateRoyalties(uint256 _royalties) external payable onlyAdmin {
+    function updateRoyalties(uint256 _royalties) external payable onlyDao {
         if (_royalties > 100) revert InvalidRoyalties();
         royalties = _royalties;
     }
@@ -261,7 +260,7 @@ contract Missions is ERC1155 {
         (bool success,) = mission.creator.call{value: r}("");
         if (!success) revert TransferFailed();
 
-        (success,) = admin.call{value: mission.fee - r}("");
+        (success,) = dao.call{value: mission.fee - r}("");
         if (!success) revert TransferFailed();
 
         _mint(msg.sender, _missionId, 1, "0x");
@@ -320,6 +319,21 @@ contract Missions is ERC1155 {
         }
 
         return (totalXp, duration);
+    }
+
+    function aggregateMissionsCompletions(uint256 _missionId, address[] calldata directories) external payable {
+        uint256 count;
+
+        for (uint256 i; i < directories.length;) {
+            unchecked {
+                count += IDirectory(directories[i]).getUint(
+                    keccak256(abi.encodePacked(address(this), _missionId, ".completions"))
+                );
+                ++i;
+            }
+        }
+
+        completions[_missionId] = count;
     }
 
     receive() external payable {}
