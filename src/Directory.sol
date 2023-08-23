@@ -148,12 +148,12 @@ contract Directory is SafeMulticallable {
     }
 
     /// @param _key The key for the record.
-    function getAddress(bytes32 _key) external view returns (address r) {
+    function getAddress(bytes32 _key) external view returns (address) {
         return addressStorage[_key];
     }
 
     /// @param _key The key for the record.
-    function getUint(bytes32 _key) external view returns (uint256 r) {
+    function getUint(bytes32 _key) external view returns (uint256) {
         return uintStorage[_key];
     }
 
@@ -163,7 +163,7 @@ contract Directory is SafeMulticallable {
     }
 
     /// @param _key The key for the record.
-    function getBool(bytes32 _key) external view returns (bool r) {
+    function getBool(bytes32 _key) external view returns (bool) {
         return booleanStorage[_key];
     }
 

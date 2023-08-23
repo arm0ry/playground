@@ -114,7 +114,7 @@ contract QuestsTest is Test {
         assertEq(qd.timeLeft, 400);
     }
 
-    // function testStartBySig() public payable {}
+    function testStartBySig() public payable {}
 
     function testStart_Pause() public payable {
         testStart();
@@ -146,23 +146,31 @@ contract QuestsTest is Test {
         assertEq(qd.timeLeft, 390);
     }
 
-    // function testStartBySig_PauseBySig_StartBySig() public payable {}
+    function testStartBySig_PauseBySig_StartBySig() public payable {}
 
-    // function testRespond_NonReviewable_Task() public payable {
-    //     testStart();
-    //     vm.warp(1010);
+    function testRespond_NonReviewable_Task() public payable {
+        testStart();
+        vm.warp(1010);
 
-    //     vm.prank(alice);
-    //     quests_dao.respond(address(erc721), 1, 1, 1, "FIRST RESPONSE");
-    //     bytes32 taskKey = quests_dao.encode(address(erc721), 1, 1, 1);
-    //     string memory responses = quests_dao.responses(taskKey, 0);
-    //     assertEq(responses.length, 1);
-    //     emit log_string(responses);
+        vm.prank(alice);
+        quests_dao.respond(address(erc721), 1, 1, 1, "FIRST RESPONSE");
 
-    //     qd = quests_dao.getQuestDetail(address(erc721), 1, 1);
-    //     assertEq(qd.completed, 1);
-    //     assertEq(qd.progress, 25);
-    // }
+        bytes32 taskKey = quests_dao.encode(address(erc721), 1, 1, 1);
+        string memory response = directory.getString(keccak256(abi.encodePacked(taskKey, ".review.response")));
+        assertEq("FIRST RESPONSE", response);
+        emit log_string(response);
+
+        (, uint256 taskCount) = missions.getMission(1);
+        assertEq(taskCount, 4);
+
+        bytes32 questKey = quests_dao.encode(address(erc721), 1, 1, 0);
+        qd = quests_dao.getQuestDetail(questKey);
+        emit log_uint(qd.progress);
+        emit log_uint(qd.completed);
+        emit log_uint(taskCount);
+        assertEq(qd.completed, 1);
+        assertEq(qd.progress, 25);
+    }
 
     // function testRespond_Reviewable_Task() public payable {
     //     testStart();

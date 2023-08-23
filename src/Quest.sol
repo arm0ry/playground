@@ -414,8 +414,8 @@ contract Quest {
     /// @param numerator The numerator.
     /// @param denominator The denominator.
     /// @dev
-    function calculateProgress(uint256 numerator, uint256 denominator) private pure returns (uint8) {
-        return uint8(numerator * (10 ** 2) / denominator);
+    function calculateProgress(uint256 numerator, uint256 denominator) private pure returns (uint256) {
+        return numerator * 100 / denominator;
     }
 
     /// -----------------------------------------------------------------------
@@ -426,21 +426,17 @@ contract Quest {
     /// @param questKey .
     /// @param missionId .
     /// @dev
-    function updateQuestDetail(bytes32 questKey, uint256 missionId) internal {
-        address missions = directory.getMissionsAddress();
-
+    function updateQuestDetail(bytes32 questKey, address missions, uint256 missionId, QuestDetail memory qd) internal {
         // Retrieve to update Mission reward
         (, uint256 tasksCount) = IMissions(missions).getMission(missionId);
 
-        // Retrieve quest detail
-        QuestDetail memory qd = this.getQuestDetail(questKey);
-
         // Calculate and udpate quest detail
-        qd.progress = calculateProgress(qd.completed, tasksCount);
+        ++qd.completed;
+        uint256 progress = calculateProgress(qd.completed, tasksCount);
 
         // Store quest detail
-        directory.setUint(keccak256(abi.encodePacked(questKey, ".detail.progress")), qd.progress);
-        directory.addUint(keccak256(abi.encodePacked(questKey, ".detail.completed")), 1);
+        directory.setUint(keccak256(abi.encodePacked(questKey, ".detail.progress")), progress);
+        directory.setUint(keccak256(abi.encodePacked(questKey, ".detail.completed")), qd.completed);
 
         // Finalize quest
         if (qd.progress == 100) {
@@ -587,10 +583,10 @@ contract Quest {
         // Increment number of responses for the task.
         directory.addUint(keccak256(abi.encodePacked(taskKey, ".review.responseCount")), 1);
 
-        // Check if quest completions require review.
+        // If review is not necessary, proceed to distribute reward and update quest detail.
         if (!qd.reviewStatus) {
             distributeTaskReward(questKey, taskId);
-            updateQuestDetail(questKey, missionId);
+            updateQuestDetail(questKey, missions, missionId, qd);
         }
     }
 
@@ -621,7 +617,8 @@ contract Quest {
             distributeTaskReward(questKey, taskId);
 
             // Update quest detail
-            updateQuestDetail(questKey, missionId);
+            address missions = directory.getMissionsAddress();
+            updateQuestDetail(questKey, missions, missionId, qd);
         }
     }
 

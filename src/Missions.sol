@@ -89,9 +89,10 @@ contract Missions is ERC1155 {
     }
 
     function _buildURI(uint256 _missionId) private view returns (string memory) {
+        (Mission memory m,) = this.getMission(_missionId);
         return JSON._formattedMetadata(
-            string.concat("Access # ", SVG._uint2str(_missionId)),
-            "Kali Access Manager",
+            string.concat("Mission #", SVG._uint2str(_missionId)),
+            m.title,
             string.concat(
                 '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" style="background:#191919">',
                 SVG._rect(
