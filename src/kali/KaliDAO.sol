@@ -516,6 +516,46 @@ interface IKaliDAOextension {
         returns (bool mint, uint256 amountOut);
 }
 
+enum ProposalType {
+    MINT, // add membership
+    BURN, // revoke membership
+    CALL, // call contracts
+    VPERIOD, // set `votingPeriod`
+    GPERIOD, // set `gracePeriod`
+    QUORUM, // set `quorum`
+    SUPERMAJORITY, // set `supermajority`
+    TYPE, // set `VoteType` to `ProposalType`
+    PAUSE, // flip membership transferability
+    EXTENSION, // flip `extensions` whitelisting
+    ESCAPE, // delete pending proposal in case of revert
+    DOCS // amend org docs
+}
+
+enum VoteType {
+    SIMPLE_MAJORITY,
+    SIMPLE_MAJORITY_QUORUM_REQUIRED,
+    SUPERMAJORITY,
+    SUPERMAJORITY_QUORUM_REQUIRED
+}
+
+struct Proposal {
+    ProposalType proposalType;
+    string description;
+    address[] accounts; // member(s) being added/kicked; account(s) receiving payload
+    uint256[] amounts; // value(s) to be minted/burned/spent; gov setting [0]
+    bytes[] payloads; // data for CALL proposals
+    uint256 prevProposal;
+    uint96 yesVotes;
+    uint96 noVotes;
+    uint32 creationTime;
+    address proposer;
+}
+
+struct ProposalState {
+    bool passed;
+    bool processed;
+}
+
 /// @notice Simple gas-optimized Kali DAO core module.
 contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
     /*///////////////////////////////////////////////////////////////
@@ -605,46 +645,6 @@ contract KaliDAO is KaliDAOtoken, Multicall, NFThelper, ReentrancyGuard {
     mapping(uint256 => mapping(address => bool)) public voted;
 
     mapping(address => uint256) public lastYesVote;
-
-    enum ProposalType {
-        MINT, // add membership
-        BURN, // revoke membership
-        CALL, // call contracts
-        VPERIOD, // set `votingPeriod`
-        GPERIOD, // set `gracePeriod`
-        QUORUM, // set `quorum`
-        SUPERMAJORITY, // set `supermajority`
-        TYPE, // set `VoteType` to `ProposalType`
-        PAUSE, // flip membership transferability
-        EXTENSION, // flip `extensions` whitelisting
-        ESCAPE, // delete pending proposal in case of revert
-        DOCS // amend org docs
-    }
-
-    enum VoteType {
-        SIMPLE_MAJORITY,
-        SIMPLE_MAJORITY_QUORUM_REQUIRED,
-        SUPERMAJORITY,
-        SUPERMAJORITY_QUORUM_REQUIRED
-    }
-
-    struct Proposal {
-        ProposalType proposalType;
-        string description;
-        address[] accounts; // member(s) being added/kicked; account(s) receiving payload
-        uint256[] amounts; // value(s) to be minted/burned/spent; gov setting [0]
-        bytes[] payloads; // data for CALL proposals
-        uint256 prevProposal;
-        uint96 yesVotes;
-        uint96 noVotes;
-        uint32 creationTime;
-        address proposer;
-    }
-
-    struct ProposalState {
-        bool passed;
-        bool processed;
-    }
 
     /*///////////////////////////////////////////////////////////////
                             CONSTRUCTOR
