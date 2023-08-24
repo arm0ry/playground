@@ -318,14 +318,17 @@ contract Quest {
     /// @param reviewer The addresses to update managers to
     /// @dev
     function setReviewer(address reviewer, bool status) external payable onlyDao {
-        // Increment and store global number of reviewers.
-        uint256 reviewerId = directory.getUint(keccak256(abi.encodePacked("quest.reviewerCount")));
-        directory.setUint(keccak256(abi.encodePacked("quest.reviewerCount")), ++reviewerId);
-
         if (status) {
-            // Store new reviewer status and id
-            directory.setBool(keccak256(abi.encodePacked(reviewer, ".exists")), status);
-            directory.setUint(keccak256(abi.encodePacked(reviewer, ".reviewerId")), reviewerId);
+            if (!directory.getBool(keccak256(abi.encodePacked(reviewer, ".exists")))) {
+                uint256 reviewerCount = directory.getUint(keccak256(abi.encodePacked("quest.reviewerCount")));
+
+                // Store new reviewer status and id
+                directory.setBool(keccak256(abi.encodePacked(reviewer, ".exists")), status);
+                directory.setUint(keccak256(abi.encodePacked(reviewer, ".reviewerId")), ++reviewerCount);
+
+                // Increment and store global number of reviewers.
+                directory.addUint(keccak256(abi.encodePacked("quest.reviewerCount")), 1);
+            }
         } else {
             // Delete reviewer status and id.
             directory.deleteBool(keccak256(abi.encodePacked(reviewer, ".exists")));
@@ -333,15 +336,16 @@ contract Quest {
         }
     }
 
+    /// TODO: Reserved for later
     /// @notice Set review status for one specific quest based on questKey
-    function setReviewStatus(address tokenAddress, uint256 tokenId, uint256 missionId, bool reviewStatus)
-        external
-        payable
-        onlyDao
-    {
-        bytes32 questKey = this.encode(tokenAddress, tokenId, missionId, 0);
-        directory.setBool(keccak256(abi.encodePacked(questKey, ".detail.review")), reviewStatus);
-    }
+    // function setReviewStatus(address tokenAddress, uint256 tokenId, uint256 missionId, bool reviewStatus)
+    //     external
+    //     payable
+    //     onlyDao
+    // {
+    //     bytes32 questKey = this.encode(tokenAddress, tokenId, missionId, 0);
+    //     directory.setBool(keccak256(abi.encodePacked(questKey, ".detail.review")), reviewStatus);
+    // }
 
     /// @notice Set review status for all quest
     function setGlobalReviewStatus(bool reviewStatus) external payable onlyDao {
@@ -501,6 +505,8 @@ contract Quest {
 
         // Confirm Quest is not already in progress
         if (qd.active) revert QuestInProgress();
+
+        // TODO: Need to check if review is required globally or on a quest level
 
         // Check if quest was previously paused.
         if (qd.timeLeft > 0) {
