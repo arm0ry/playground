@@ -11,7 +11,7 @@ import {IDirectory} from "src/interface/IDirectory.sol";
 import {Quest, QuestDetail, Reward, RewardBalance} from "src/Quest.sol"; // Community goes on quest
 import {Missions, Task, Mission} from "src/Missions.sol"; // Put up missions
 import {Directory} from "src/Directory.sol"; // Build a community
-import {KaliDAO} from "src/kali/KaliDAO.sol"; // Start with a governance framework
+import {KaliDAO, ProposalType} from "src/kali/KaliDAO.sol"; // Start with a governance framework
 
 /// @dev Mocks.
 import {MockERC20} from "solbase-test/utils/mocks/MockERC20.sol";
@@ -37,6 +37,11 @@ contract QuestsTest is Test {
     Task[] tasks;
     uint256[] taskIds;
     Mission mission;
+
+    // Kali proposals.
+    address[] accounts;
+    uint256[] amounts;
+    bytes[] payloads;
 
     KaliDAO arm0ry;
     address[] summoners;
@@ -158,49 +163,49 @@ contract QuestsTest is Test {
         bytes32 taskKey = quests_dao.encode(address(erc721), 1, 1, 1);
         string memory response = directory.getString(keccak256(abi.encodePacked(taskKey, ".review.response")));
         assertEq("FIRST RESPONSE", response);
-        emit log_string(response);
 
         (, uint256 taskCount) = missions.getMission(1);
         assertEq(taskCount, 4);
 
         bytes32 questKey = quests_dao.encode(address(erc721), 1, 1, 0);
         qd = quests_dao.getQuestDetail(questKey);
-        emit log_uint(qd.progress);
-        emit log_uint(qd.completed);
-        emit log_uint(taskCount);
         assertEq(qd.completed, 1);
         assertEq(qd.progress, 25);
     }
 
-    // function testRespond_Reviewable_Task() public payable {
-    //     testStart();
-    //     vm.prank(address(arm0ry));
-    //     quests_dao.updateQuestReviewStatus(address(erc721), 1, 1, true);
-    //     qd = quests_dao.getQuestDetail(address(erc721), 1, 1);
-    //     assertEq(qd.review, true);
+    function testRespond_Reviewable_Task() public payable {
+        addReviewer(alice);
+        addGlobalReviewStatus(true);
+        // testStart();
+        // vm.warp(1010);
 
-    //     vm.warp(1010);
+        // vm.prank(alice);
+        // quests_dao.respond(address(erc721), 1, 1, 1, "FIRST RESPONSE");
 
-    //     vm.prank(alice);
-    //     quests_dao.respond(address(erc721), 1, 1, 1, "FIRST RESPONSE");
-    //     qd = quests_dao.getQuestDetail(address(erc721), 1, 1);
-    //     assertEq(qd.completed, 0);
-    //     assertEq(qd.progress, 0);
-    // }
+        // bytes32 taskKey = quests_dao.encode(address(erc721), 1, 1, 1);
+        // string memory response = directory.getString(keccak256(abi.encodePacked(taskKey, ".review.response")));
+        // assertEq("FIRST RESPONSE", response);
+
+        // (, uint256 taskCount) = missions.getMission(1);
+        // assertEq(taskCount, 4);
+
+        // bytes32 questKey = quests_dao.encode(address(erc721), 1, 1, 0);
+        // qd = quests_dao.getQuestDetail(questKey);
+        // assertEq(qd.completed, 1);
+        // assertEq(qd.progress, 25);
+    }
 
     // function testReview() public payable {
-    //     testRespond_Reviewable_Task();
+    // testStart();
+    // vm.prank(address(arm0ry));
+    // quests_dao.review(address(erc721), 1, 1, 1, true);
+
+    // bytes32 taskKey = quests_dao.encode(address(erc721), 1, 1, 1);
+    // bool review = directory.getBool(keccak256(abi.encodePacked(taskKey, ".review.result")));
+    // assertEq(review, true);
     // }
 
     function testClaimRewards() public payable {}
-
-    /// -----------------------------------------------------------------------
-    /// ERC20 Token as Rewards
-    /// -----------------------------------------------------------------------
-
-    /// -----------------------------------------------------------------------
-    /// Admin functions
-    /// -----------------------------------------------------------------------
 
     function testUpdateAdmin() public payable {
         // vm.prank(address(arm0ry));
@@ -237,12 +242,69 @@ contract QuestsTest is Test {
         arm0ry.init("Arm0ry", "ARM", "", true, extensions, extensionsData, summoners, tokenAmounts, govSettings);
     }
 
-    function addReviewer(address account) internal {
-        // cast calldata "updateReviewer(address,bool)" [ADDRESS] [BOOL]
-        // bytes32 payloads = ;
+    function addReviewer(address reviewer) internal {
+        bytes memory payload = abi.encodeWithSignature("setReviewer(address,bool)", address(alice), true);
+        // bytes memory payload_reviewStatus = abi.encodeWithSignature(
+        //     "setReviewStatus(address, uint256, uint256, bool)", tokenAddress, tokenId, missionId, reviewStatus
+        // );
 
-        // vm.prank(alice);
-        // arm0ry.propose(2, "Add reviewer", [address(quests_dao)], [0], payloads);
+        emit log_bytes(payload);
+
+        uint256 proposalId = arm0ry.proposalCount();
+        emit log_uint(proposalId);
+        emit log_uint(block.timestamp);
+        accounts.push(address(quests_dao));
+        amounts.push(0);
+        payloads.push(payload);
+        vm.prank(alice);
+        arm0ry.propose(ProposalType.CALL, "Add reviewer", accounts, amounts, payloads);
+        emit log_uint(block.timestamp);
+
+        proposalId = arm0ry.proposalCount();
+        vm.warp(1100);
+        vm.prank(alice);
+        emit log_uint(block.timestamp);
+        arm0ry.vote(proposalId, true);
+
+        vm.warp(1600);
+        vm.prank(alice);
+        arm0ry.processProposal(proposalId);
+
+        bool exists = directory.getBool(keccak256(abi.encodePacked(address(alice), ".exists")));
+        uint256 reviewerId = directory.getUint(keccak256(abi.encodePacked(address(alice), ".reviewerId")));
+        assertEq(exists, true);
+        assertEq(reviewerId, 1);
+        emit log_uint(reviewerId);
+    }
+
+    function addGlobalReviewStatus(bool status) internal {
+        bytes memory payload = abi.encodeWithSignature("setGlobalReviewStatus(bool)", status);
+
+        emit log_bytes(payload);
+
+        uint256 proposalId = arm0ry.proposalCount();
+        emit log_uint(proposalId);
+        emit log_uint(block.timestamp);
+        accounts.push(address(quests_dao));
+        amounts.push(0);
+        payloads.push(payload);
+        vm.prank(alice);
+        arm0ry.propose(ProposalType.CALL, "Toggle review status", accounts, amounts, payloads);
+        emit log_uint(block.timestamp);
+
+        proposalId = arm0ry.proposalCount();
+        vm.warp(1700);
+        vm.prank(alice);
+        emit log_uint(block.timestamp);
+        arm0ry.vote(proposalId, true);
+
+        vm.warp(2300);
+        vm.prank(alice);
+        arm0ry.processProposal(proposalId);
+
+        bool status = directory.getBool(keccak256(abi.encodePacked("quest.reviewStatus")));
+        assertEq(status, true);
+        // emit log_uint(reviewerId);
     }
 
     function mintNft(address account) internal {
