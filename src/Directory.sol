@@ -27,10 +27,10 @@ contract Directory is SafeMulticallable {
     mapping(bytes32 => bool) public booleanStorage;
 
     modifier onlyPlaygroundOperators() {
-        // if (msg.sender != dao || booleanStorage[keccak256(abi.encodePacked("quest.granted", msg.sender))]) {
+        // if (msg.sender != dao || booleanStorage[keccak256(abi.encodePacked("quest.exists", msg.sender))]) {
         //     revert NotOperator();
         // }
-        if (msg.sender != dao && !booleanStorage[keccak256(abi.encodePacked("quest.granted", msg.sender))]) {
+        if (msg.sender != dao && !booleanStorage[keccak256(abi.encodePacked("quest.exists", msg.sender))]) {
             revert NotOperator();
         }
         _;
@@ -60,13 +60,8 @@ contract Directory is SafeMulticallable {
     }
 
     /// @param newQuestAddress The address of new Quests.sol to give operator access to Directory.sol.
-    function grantQuestAccess(address newQuestAddress) external onlyPlaygroundOperators {
-        booleanStorage[keccak256(abi.encodePacked("quest.granted", newQuestAddress))] = true;
-    }
-
-    /// @param questAddress The address of new Quests.sol to give operator access to Directory.sol.
-    function getQuestAccess(address questAddress) external view returns (bool) {
-        return booleanStorage[keccak256(abi.encodePacked("quest.granted", questAddress))];
+    function setQuestAddress(address newQuestAddress, bool status) external onlyPlaygroundOperators {
+        booleanStorage[keccak256(abi.encodePacked("quest.exists", newQuestAddress))] = status;
     }
 
     /// @param _key The key for the record.
@@ -94,7 +89,7 @@ contract Directory is SafeMulticallable {
     /// -----------------------------------------------------------------------
 
     function deleteQuestsAddress(address questsAddress) external onlyPlaygroundOperators {
-        delete booleanStorage[keccak256(abi.encodePacked("quest.granted", questsAddress))];
+        delete booleanStorage[keccak256(abi.encodePacked("quest.exists", questsAddress))];
     }
 
     /// @param _key The key for the record.
@@ -147,6 +142,11 @@ contract Directory is SafeMulticallable {
         return this.getAddress(keccak256(abi.encodePacked("missions")));
     }
 
+    /// @param questAddress The address of new Quests.sol to give operator access to Directory.sol.
+    function getQuestAccessStatus(address questAddress) external view returns (bool) {
+        return booleanStorage[keccak256(abi.encodePacked("quest.exists", questAddress))];
+    }
+
     /// @param _key The key for the record.
     function getAddress(bytes32 _key) external view returns (address) {
         return addressStorage[_key];
@@ -165,106 +165,5 @@ contract Directory is SafeMulticallable {
     /// @param _key The key for the record.
     function getBool(bytes32 _key) external view returns (bool) {
         return booleanStorage[_key];
-    }
-
-    /// -----------------------------------------------------------------------
-    /// AccessList Storage - Setter Logic
-    /// -----------------------------------------------------------------------
-
-    function setAccessList(uint256 id, address[] calldata accounts, bool[] calldata approvals)
-        external
-        onlyPlaygroundOperators
-    {
-        uint256 length = accounts.length;
-        if (length != approvals.length) revert LengthMismatch();
-
-        // Update old list.
-        if (id != 0) {
-            // Increment and store total number of accounts on a list.
-            uint256 accountCount = this.getUint(keccak256(abi.encodePacked("access.", id, ".count")));
-
-            for (uint256 i; i < accountCount;) {
-                address _account = this.getAddress(keccak256(abi.encodePacked("access.", id, i)));
-                if (_account == accounts[i]) {
-                    // Store approval
-                    this.setBool(keccak256(abi.encodePacked("access.", id, accounts[i])), approvals[i]);
-                }
-
-                unchecked {
-                    ++i;
-                }
-            }
-        } else {
-            // Increment and store total number of access lists.
-            uint256 listCount = this.getUint(keccak256(abi.encodePacked("accessListCount")));
-            this.setUint(keccak256(abi.encodePacked("accessListCount")), ++listCount);
-
-            uint256 accountCount;
-
-            // Increment and store total number of accounts on list.
-            for (uint256 i; i < length;) {
-                // Set account
-                this.setAddress(keccak256(abi.encodePacked("access.", listCount, accountCount)), accounts[i]);
-                // Store approval
-                this.setBool(keccak256(abi.encodePacked("access.", id, accounts[i])), approvals[i]);
-
-                unchecked {
-                    ++i;
-                    ++accountCount;
-                }
-            }
-
-            this.setUint(keccak256(abi.encodePacked("access.", listCount, ".count")), accountCount);
-        }
-    }
-
-    /// -----------------------------------------------------------------------
-    /// AccessList Storage - Delete Logic
-    /// -----------------------------------------------------------------------
-
-    function deleteAccessList(uint256 id) external onlyPlaygroundOperators {
-        // Increment and store total number of accounts on a list.
-        uint256 accountCount = this.getUint(keccak256(abi.encodePacked("access.", id, ".count")));
-
-        for (uint256 i; i < accountCount;) {
-            address _account = this.getAddress(keccak256(abi.encodePacked("access.", id, i)));
-
-            // Delete account.
-            this.deleteBool(keccak256(abi.encodePacked("access.", id, i)));
-
-            // Delete approval.
-            this.deleteBool(keccak256(abi.encodePacked("access.", id, _account)));
-
-            unchecked {
-                ++i;
-            }
-        }
-    }
-
-    /// -----------------------------------------------------------------------
-    /// AccessList Storage - Getter Logic
-    /// -----------------------------------------------------------------------
-
-    function getAccessList(uint256 id) external view returns (address[] memory) {
-        // Increment and store total number of accounts on a list.
-        uint256 accountCount = this.getUint(keccak256(abi.encodePacked("access.", id, ".count")));
-        address[] memory list = new address[](accountCount);
-
-        for (uint256 i; i < accountCount;) {
-            // Retrieve addresses approval.
-            address account = this.getAddress(keccak256(abi.encodePacked("access.", id, i)));
-
-            list[i] = account;
-
-            unchecked {
-                ++i;
-            }
-        }
-
-        return list;
-    }
-
-    function getAccessListStatus(uint256 id, address account) external view returns (bool) {
-        return this.getBool(keccak256(abi.encodePacked("access.", id, account)));
     }
 }

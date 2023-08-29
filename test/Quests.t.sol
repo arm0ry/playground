@@ -87,14 +87,14 @@ contract QuestsTest is Test {
         vm.prank(address(arm0ry));
         quests_dao.initialize(directory);
         vm.prank(address(arm0ry));
-        directory.grantQuestAccess(address(quests_dao));
+        directory.setQuestAddress(address(quests_dao), true);
 
         // Initialize Quest that reward ERC20 tokens
         quests_erc20 = new Quest();
         vm.prank(address(arm0ry));
         quests_erc20.initialize(directory);
         vm.prank(address(arm0ry));
-        directory.grantQuestAccess(address(quests_erc20));
+        directory.setQuestAddress(address(quests_erc20), true);
 
         mintNft(alice);
         setupTasksAndMissions();
