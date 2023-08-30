@@ -24,5 +24,7 @@ interface IMissions {
 
     function getMission(uint256 missionId) external view returns (Mission memory, uint256);
 
+    function getMissionDeadline(uint256 missionId) external view returns (uint256);
+
     function aggregateTasksData(uint256[] calldata taskIds) external payable returns (uint256, uint40);
 }

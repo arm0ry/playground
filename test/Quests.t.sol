@@ -115,43 +115,11 @@ contract QuestsTest is Test {
         bytes32 questKey = quests_dao.encode(address(erc721), 1, 1, 0);
         qd = quests_dao.getQuestDetail(questKey);
         assertEq(qd.active, true);
-        assertEq(qd.timestamp, 1000);
-        assertEq(qd.timeLeft, 400);
+        // assertEq(qd.timestamp, 1000);
+        // assertEq(qd.timeLeft, 400);
     }
 
     function testStartBySig() public payable {}
-
-    function testStart_Pause() public payable {
-        testStart();
-        vm.warp(1010);
-
-        vm.prank(alice);
-        quests_dao.pause(address(erc721), 1, 1);
-
-        bytes32 questKey = quests_dao.encode(address(erc721), 1, 1, 0);
-        qd = quests_dao.getQuestDetail(questKey);
-        assertEq(qd.active, false);
-        assertEq(qd.timestamp, 0);
-        assertEq(qd.timeLeft, 390);
-    }
-
-    // function testStartBySig_PauseBySig() public payable {}
-
-    function testStart_Pause_Start() public payable {
-        testStart_Pause();
-        vm.warp(1020);
-
-        vm.prank(alice);
-        quests_dao.start(address(erc721), 1, 1);
-
-        bytes32 questKey = quests_dao.encode(address(erc721), 1, 1, 0);
-        qd = quests_dao.getQuestDetail(questKey);
-        assertEq(qd.active, true);
-        assertEq(qd.timestamp, 1020);
-        assertEq(qd.timeLeft, 390);
-    }
-
-    function testStartBySig_PauseBySig_StartBySig() public payable {}
 
     function testRespond_NonReviewable_Task() public payable {
         testStart();

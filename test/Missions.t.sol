@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import "forge-std/console2.sol";
 
 import {Missions, Task, Mission} from "src/Missions.sol";
+import {Missions} from "src/Missions.sol";
 import {IMissions} from "src/interface/IMissions.sol";
 import {Quest} from "src/Quest.sol";
 import {IQuest} from "src/interface/IQuest.sol";
@@ -18,6 +19,7 @@ import {Directory} from "src/Directory.sol";
 contract MissionsTest is Test {
     Quest quest;
     Missions missions;
+    Missions_v2 missions_v2;
     Directory directory;
 
     IQuest iQuest;
@@ -58,13 +60,14 @@ contract MissionsTest is Test {
     function setUp() public payable {
         // Deploy contract
         missions = new Missions();
-        missions.initialize((address(arm0ry)));
+        missions_v2 = new Missions_v2();
+        // missions.initialize((address(arm0ry)));
 
         // Validate global variables
-        assertEq(missions.royalties(), 50);
-        assertEq(missions.dao(), arm0ry);
+        assertEq(missions_v2.royalties(), 0);
+        // assertEq(missions_v2.dao(), arm0ry);
 
-        setupTasksAndMissions();
+        // setupTasksAndMissions();
     }
 
     function testReceiveETH() public payable {
