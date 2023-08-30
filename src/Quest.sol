@@ -13,10 +13,9 @@ import {IKaliTokenManager} from "./interface/IKaliTokenManager.sol";
 
 struct QuestDetail {
     bool active; // Indicates whether a quest is active.
-    bool reviewStatus; // Indicates whether quest tasks require reviews.
+    bool toReview; // Indicates whether quest tasks require reviews.
     uint8 progress; // 0-100%.
-    uint40 timestamp; // Temporary timestamp.
-    uint40 timeLeft; // Time left to complete quest.
+    uint40 deadline; // Time left to complete quest.
     uint40 completed; // Number of tasks completed in quest.
 }
 
@@ -163,38 +162,6 @@ contract Quest {
         _start(tokenAddress, tokenId, missionId);
     }
 
-    /// @notice Traveler to pause an active Quest.
-    /// @param tokenAddress .
-    /// @param tokenId .
-    /// @param missionId .
-    /// @dev
-    function pause(address tokenAddress, uint256 tokenId, uint256 missionId)
-        external
-        payable
-        onlyHodler(tokenAddress, tokenId)
-    {
-        _pause(tokenAddress, tokenId, missionId);
-    }
-
-    function pauseBySig(
-        address signer,
-        address tokenAddress,
-        uint256 tokenId,
-        uint256 missionId,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) public payable virtual onlyHodler(tokenAddress, tokenId) {
-        bytes32 digest = keccak256(
-            abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR(), keccak256(abi.encode(PAUSE_TYPEHASH, signer, missionId)))
-        );
-
-        address recoveredAddress = ecrecover(digest, v, r, s);
-        if (recoveredAddress == address(0) || recoveredAddress != signer) revert InvalidUser();
-
-        _pause(tokenAddress, tokenId, missionId);
-    }
-
     /// @notice Traveler to submit Homework for Task completion.
     /// @param tokenAddress .
     /// @param tokenId .
@@ -338,18 +305,18 @@ contract Quest {
 
     /// TODO: Reserved for later
     /// @notice Set review status for one specific quest based on questKey
-    // function setReviewStatus(address tokenAddress, uint256 tokenId, uint256 missionId, bool reviewStatus)
+    // function setToReview(address tokenAddress, uint256 tokenId, uint256 missionId, bool toReview)
     //     external
     //     payable
     //     onlyDao
     // {
     //     bytes32 questKey = this.encode(tokenAddress, tokenId, missionId, 0);
-    //     directory.setBool(keccak256(abi.encodePacked(questKey, ".detail.review")), reviewStatus);
+    //     directory.setBool(keccak256(abi.encodePacked(questKey, ".detail.review")), toReview);
     // }
 
     /// @notice Set review status for all quest
-    function setGlobalReviewStatus(bool reviewStatus) external payable onlyDao {
-        directory.setBool(keccak256(abi.encodePacked("quest.reviewStatus")), reviewStatus);
+    function setGlobalReview(bool toReview) external payable onlyDao {
+        directory.setBool(keccak256(abi.encodePacked("quest.toReview")), toReview);
     }
 
     function setReward(uint256 missionId, Reward calldata _reward) external payable onlyDao {
@@ -367,10 +334,9 @@ contract Quest {
     function getQuestDetail(bytes32 questKey) external view returns (QuestDetail memory) {
         return QuestDetail({
             active: directory.getBool(keccak256(abi.encodePacked(questKey, ".detail.active"))),
-            reviewStatus: directory.getBool(keccak256(abi.encodePacked(questKey, ".detail.reviewStatus"))),
+            toReview: directory.getBool(keccak256(abi.encodePacked(questKey, ".detail.toReview"))),
             progress: uint8(directory.getUint(keccak256(abi.encodePacked(questKey, ".detail.progress")))),
-            timestamp: uint40(directory.getUint(keccak256(abi.encodePacked(questKey, ".detail.timestamp")))),
-            timeLeft: uint40(directory.getUint(keccak256(abi.encodePacked(questKey, ".detail.timeLeft")))),
+            deadline: uint40(directory.getUint(keccak256(abi.encodePacked(questKey, ".detail.deadline")))),
             completed: uint40(directory.getUint(keccak256(abi.encodePacked(questKey, ".detail.completed"))))
         });
     }
@@ -455,6 +421,7 @@ contract Quest {
         }
     }
 
+    // TODO: Define social capital tokens
     /// @notice Distribute Task reward.
     /// @param questKey .
     /// @param taskId .
@@ -468,19 +435,6 @@ contract Quest {
         directory.addUint(keccak256(abi.encodePacked(questKey, ".reward.earned")), t.xp);
     }
 
-    /// @notice Traveler to pause an active Quest.
-    /// @param timestamp .
-    /// @param timeLeft .
-    /// @dev
-    function calculateTimeLeft(uint40 timestamp, uint40 timeLeft) internal view returns (uint40) {
-        uint40 lapse = uint40(block.timestamp) - timestamp;
-        if (timestamp < lapse) {
-            return 0;
-        }
-
-        return timeLeft - lapse;
-    }
-
     /// @notice Internal function using signature to start quest.
     /// @param tokenAddress .
     /// @param tokenId .
@@ -488,14 +442,11 @@ contract Quest {
     /// @dev
     function _start(address tokenAddress, uint256 tokenId, uint256 missionId) internal virtual {
         address missions = directory.getMissionsAddress();
-        (Mission memory _mission, uint256 mLength) = IMissions(missions).getMission(missionId);
-
-        // Confirm Mission is questable
-        if (mLength == 0) revert InvalidMission();
+        // (, uint256 mLength) = IMissions(missions).getMission(missionId);
 
         // Confirm user has sufficient xp to quest Misson
         Reward memory reward = this.getRewards(missionId);
-        if (reward.gateToken != address(0) && IERC20(reward.gateToken).balanceOf(msg.sender) <= reward.gateAmount) {
+        if (reward.gateToken != address(0) && IERC20(reward.gateToken).balanceOf(msg.sender) < reward.gateAmount) {
             revert NeedMoreTokens();
         }
 
@@ -506,52 +457,22 @@ contract Quest {
         // Confirm Quest is not already in progress
         if (qd.active) revert QuestInProgress();
 
-        // TODO: Need to check if review is required globally or on a quest level
+        // Retrieve review status
+        bool toReview = directory.getBool(keccak256(abi.encodePacked("quest.toReview")));
 
-        // Check if quest was previously paused.
-        if (qd.timeLeft > 0) {
-            // Update quest detail
-            directory.setBool(keccak256(abi.encodePacked(questKey, ".detail.active")), true);
-            directory.setUint(keccak256(abi.encodePacked(questKey, ".detail.timestamp")), uint40(block.timestamp));
-        } else {
-            // Calculate Task duration in aggregate
-            (, uint40 duration) = IMissions(missions).aggregateTasksData(_mission.taskIds);
+        // Calculate quest deadline
+        uint256 deadline = IMissions(missions).getMissionDeadline(missionId);
 
-            // Initialize quest detail.
-            directory.setBool(keccak256(abi.encodePacked(questKey, ".detail.active")), true);
-            directory.setUint(keccak256(abi.encodePacked(questKey, ".detail.timestamp")), uint40(block.timestamp));
-            directory.setUint(keccak256(abi.encodePacked(questKey, ".detail.timeLeft")), duration);
+        // Initialize quest detail.
+        directory.setBool(keccak256(abi.encodePacked(questKey, ".detail.active")), true);
+        directory.setUint(keccak256(abi.encodePacked(questKey, ".detail.deadline")), deadline);
+        directory.setBool(keccak256(abi.encodePacked(questKey, ".detail.toReview")), toReview);
 
-            // Increment number of mission starts.
-            directory.addUint(keccak256(abi.encodePacked(missions, missionId, ".starts")), 1);
+        // Increment number of mission starts.
+        directory.addUint(keccak256(abi.encodePacked(missions, missionId, ".starts")), 1);
 
-            // Increment number of mission starts per questKey.
-            directory.addUint(keccak256(abi.encodePacked(questKey, ".stats.starts")), 1);
-        }
-    }
-
-    /// @notice Internal function using signature to pause quest.
-    /// @param tokenAddress .
-    /// @param tokenId .
-    /// @param missionId .
-    /// @dev
-    function _pause(address tokenAddress, uint256 tokenId, uint256 missionId) internal virtual {
-        // Retrieve quest id and corresponding quest detail.
-        bytes32 questKey = this.encode(tokenAddress, tokenId, missionId, 0);
-        QuestDetail memory qd = this.getQuestDetail(questKey);
-
-        // Confirm Quest is active.
-        if (!qd.active) revert QuestInactive();
-
-        // Retrieve remaining time per questKey
-        uint40 timeLeft = calculateTimeLeft(qd.timestamp, qd.timeLeft);
-
-        // Pause by updating quest detail
-        if (timeLeft > 0) {
-            directory.deleteBool(keccak256(abi.encodePacked(questKey, ".detail.active")));
-            directory.deleteUint(keccak256(abi.encodePacked(questKey, ".detail.timestamp")));
-            directory.setUint(keccak256(abi.encodePacked(questKey, ".detail.timeLeft")), timeLeft);
-        }
+        // Increment number of mission starts per questKey.
+        directory.addUint(keccak256(abi.encodePacked(questKey, ".stats.starts")), 1);
     }
 
     /// @notice Internal function using signature to respond to quest tasks.
@@ -590,9 +511,11 @@ contract Quest {
         directory.addUint(keccak256(abi.encodePacked(taskKey, ".review.responseCount")), 1);
 
         // If review is not necessary, proceed to distribute reward and update quest detail.
-        if (!qd.reviewStatus) {
+        if (!qd.toReview) {
             distributeTaskReward(questKey, taskId);
             updateQuestDetail(questKey, missions, missionId, qd);
+
+            // TODO: Airdrop social capital
         }
     }
 
@@ -610,7 +533,7 @@ contract Quest {
         bytes32 questKey = this.encode(tokenAddress, tokenId, missionId, 0);
         bytes32 taskKey = this.encode(tokenAddress, tokenId, missionId, taskId);
         QuestDetail memory qd = this.getQuestDetail(questKey);
-        if (!qd.reviewStatus) revert InvalidReview();
+        if (!qd.toReview) revert InvalidReview();
 
         if (!reviewResult) {
             // Store review result
