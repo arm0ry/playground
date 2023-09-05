@@ -17,40 +17,42 @@ contract Storage is SafeMulticallable {
     error LengthMismatch();
 
     /// -----------------------------------------------------------------------
+    /// Immutable Storage
+    /// -----------------------------------------------------------------------
+
+    bytes32 immutable DAO_ADDRESS_KEY = keccak256(abi.encodePacked("dao"));
+
+    /// -----------------------------------------------------------------------
     /// List Storage
     /// -----------------------------------------------------------------------
 
-    address public dao;
     mapping(bytes32 => string) public stringStorage;
     mapping(bytes32 => address) public addressStorage;
     mapping(bytes32 => uint256) public uintStorage;
     mapping(bytes32 => bool) public booleanStorage;
 
-    modifier onlyOperator() {
-        // if (msg.sender != dao || booleanStorage[keccak256(abi.encodePacked("quest.exists", msg.sender))]) {
-        //     revert NotOperator();
-        // }
-        if (msg.sender != dao) {
-            revert NotOperator();
-        }
-        _;
-    }
-
     /// -----------------------------------------------------------------------
     /// Constructor
     /// -----------------------------------------------------------------------
 
-    function initialize(address _dao) public {
-        dao = _dao;
-    }
+    /// -----------------------------------------------------------------------
+    /// Modifier
+    /// -----------------------------------------------------------------------
 
+    modifier onlyOperator() {
+        if (msg.sender != this.getDao() && msg.sender != address(this)) {
+            revert NotOperator();
+        }
+        _;
+    }
     /// -----------------------------------------------------------------------
     /// General Storage - Setter Logic
     /// -----------------------------------------------------------------------
 
-    /// @param newDao The address of new DAO.
-    function setDao(address newDao) external onlyOperator {
-        dao = newDao;
+    function setDao(address dao) public {
+        address _dao = addressStorage[DAO_ADDRESS_KEY];
+        if (_dao != address(0) && _dao != msg.sender) revert NotOperator();
+        addressStorage[DAO_ADDRESS_KEY] = dao;
     }
 
     /// @param _key The key for the record.
@@ -119,7 +121,7 @@ contract Storage is SafeMulticallable {
 
     /// @dev Get the address of DAO.
     function getDao() external view returns (address) {
-        return dao;
+        return addressStorage[DAO_ADDRESS_KEY];
     }
 
     /// @param _key The key for the record.
