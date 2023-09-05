@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.4;
 
-import {IDirectory} from "./interface/IDirectory.sol";
+import {IStorage} from "./interface/IStorage.sol";
+import {IMissions} from "./interface/IMissions.sol";
 import {Storage} from "./Storage.sol";
 
 /// @title Missions
@@ -24,8 +25,6 @@ struct Task {
     string detail; // Task detail
 }
 
-// TODO: Separate Missions from Impact NFT minter
-// TODO: Move royalties to Impact NFT minter
 contract Missions is Storage {
     /// -----------------------------------------------------------------------
     /// Custom Errors
@@ -33,92 +32,18 @@ contract Missions is Storage {
 
     error TransferFailed();
 
-    error InvalidRoyalties();
-
-    error InvalidContract();
-
     error InvalidMission();
-
-    error InvalidMetric();
 
     error NotForSale();
 
     error AmountMismatch();
 
-    error Unauthorized();
-
     /// -----------------------------------------------------------------------
-    /// Task Storage
+    /// Immutable Storage
     /// -----------------------------------------------------------------------
 
-    // address public dao;
-
-    uint256 public royalties;
-
-    bytes32 immutable MISSION_ID_KEY = keccak256(abi.encodePacked(address(this), "missionCount"));
-
-    bytes32 immutable TASK_ID_KEY = keccak256(abi.encodePacked(address(this), "taskCount"));
-
-    // A list of tasks ordered by taskId
-    // mapping(uint256 => Task) public tasks;
-
-    // A list of missions ordered by missionId
-    // mapping(uint256 => Mission) public missions;
-
-    // Mission Id -> number of completions
-    // mapping(uint256 => uint256) public completions;
-
-    /// -----------------------------------------------------------------------
-    /// Modifier
-    /// -----------------------------------------------------------------------
-
-    // modifier onlyOperator() {
-    //     if (dao != msg.sender) revert Unauthorized();
-    //     _;
-    // }
-
-    /// -----------------------------------------------------------------------
-    /// Metadata Storage & Logic
-    /// -----------------------------------------------------------------------
-
-    // function uri(uint256 _missionId) public view override returns (string memory) {
-    //     return _buildURI(_missionId);
-    // }
-
-    // function _buildURI(uint256 _missionId) private view returns (string memory) {
-    //     (Mission memory m,) = this.getMission(_missionId);
-    //     return JSON._formattedMetadata(
-    //         string.concat("Mission #", SVG._uint2str(_missionId)),
-    //         m.title,
-    //         string.concat(
-    //             '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" style="background:#191919">',
-    //             SVG._rect(
-    //                 string.concat(
-    //                     SVG._prop("fill", "maroon"),
-    //                     SVG._prop("x", "20"),
-    //                     SVG._prop("y", "50"),
-    //                     SVG._prop("width", SVG._uint2str(160)),
-    //                     SVG._prop("height", SVG._uint2str(10))
-    //                 ),
-    //                 SVG.NULL
-    //             ),
-    //             SVG._text(
-    //                 string.concat(
-    //                     SVG._prop("x", "20"),
-    //                     SVG._prop("y", "90"),
-    //                     SVG._prop("font-size", "12"),
-    //                     SVG._prop("fill", "white")
-    //                 ),
-    //                 string.concat("Completions: ", SVG._uint2str(completions[_missionId]))
-    //             ),
-    //             SVG._image(
-    //                 "https://gateway.pinata.cloud/ipfs/Qmb2AWDjE8GNUob83FnZfuXLj9kSs2uvU9xnoCbmXhH7A1",
-    //                 string.concat(SVG._prop("x", "215"), SVG._prop("y", "220"), SVG._prop("width", "80"))
-    //             ),
-    //             "</svg>"
-    //         )
-    //     );
-    // }
+    bytes32 immutable MISSION_ID_KEY = keccak256(abi.encodePacked("missions.count"));
+    bytes32 immutable TASK_ID_KEY = keccak256(abi.encodePacked("tasks.count"));
 
     /// -----------------------------------------------------------------------
     /// Constructor
@@ -126,8 +51,15 @@ contract Missions is Storage {
 
     constructor() {}
 
-    // function initialize(address _dao) public payable {
-    //     dao = _dao;
+    /// -----------------------------------------------------------------------
+    /// Modifier
+    /// -----------------------------------------------------------------------
+
+    // modifier onlyOperator() {
+    //     if (msg.sender != this.getDao()) {
+    //         revert NotOperator();
+    //     }
+    //     _;
     // }
 
     /// -----------------------------------------------------------------------
@@ -135,11 +67,10 @@ contract Missions is Storage {
     /// -----------------------------------------------------------------------
 
     /// @dev  Create or update tasks.
-    /// Note: Recommend calling updateMission immediately after to update associated missions.
-    function setTasks(uint256 _taskId, Task calldata task) external payable onlyOperator {
+    function setTask(uint256 taskId, Task calldata task) external payable onlyOperator {
         uint256 id;
 
-        if (_taskId == 0) {
+        if (taskId == 0) {
             // Unchecked because the only math done is incrementing
             // the array index counter which cannot possibly overflow.
             unchecked {
@@ -152,15 +83,15 @@ contract Missions is Storage {
         }
 
         // Update existing Task.
-        _setTask(_taskId, task);
+        _setTask(taskId, task);
     }
 
     /// @dev Create missions.
-    function setMission(uint256 _missionId, Mission calldata mission) external payable onlyOperator {
+    function setMission(uint256 missionId, Mission calldata mission) external payable onlyOperator {
         uint256 length = mission.taskIds.length;
         if (length == 0) revert InvalidMission();
 
-        if (_missionId == 0) {
+        if (missionId == 0) {
             uint256 id;
 
             unchecked {
@@ -172,53 +103,21 @@ contract Missions is Storage {
             _setMission(id, mission);
         } else {
             // Update existing Mission.
-            _setMission(_missionId, mission);
+            _setMission(missionId, mission);
         }
     }
 
     /// -----------------------------------------------------------------------
-    /// Mint Logic
+    /// Helper Logic
     /// -----------------------------------------------------------------------
 
-    /// @dev Purchase an Impact NFT.
-    // function purchase(uint256 _missionId) external payable {
-    //     (Mission memory mission,) = this.getMission(_missionId);
-
-    //     // Confirm Mission is for purchase
-    //     if (!mission.forPurchase) revert NotForSale();
-    //     if (mission.fee != msg.value) revert AmountMismatch();
-
-    //     uint256 r = msg.value * royalties / 100;
-    //     (bool success,) = mission.creator.call{value: r}("");
-    //     if (!success) revert TransferFailed();
-
-    //     (success,) = dao.call{value: mission.fee - r}("");
-    //     if (!success) revert TransferFailed();
-
-    //     // _mint(msg.sender, _missionId, 1, "0x");
-    // }
-
-    /// -----------------------------------------------------------------------
-    /// Helper Functions
-    /// -----------------------------------------------------------------------
-
-    /// @dev Retrieve royalties by mission id.
-    // function getRoyalties(uint256 _missionId) external view returns (uint256) {
-    //     return uintStorage[ROYALTIES_KEY];
-    // }
-
-    /// @dev Retrieve a Task.
-    function getTask(uint256 taskId) external view returns (Task memory task) {
-        task.deadline = uint40(this.getUint(keccak256(abi.encodePacked(address(this), taskId, ".deadline"))));
-        task.creator = this.getAddress(keccak256(abi.encodePacked(address(this), taskId, ".creator")));
-        task.detail = this.getString(keccak256(abi.encodePacked(address(this), taskId, ".detail")));
-
-        return (task);
+    function getMissionId() external view returns (uint256) {
+        return this.getUint(keccak256(abi.encodePacked("missions.count")));
     }
 
     /// @dev Retrieve a Mission
-    function getMission(uint256 missionId) external view returns (Mission memory mission, uint256 taskCount) {
-        taskCount = this.getUint(keccak256(abi.encodePacked(address(this), missionId, ".taskCount")));
+    function getMission(uint256 missionId) external view returns (Mission memory mission) {
+        uint256 taskCount = this.getUint(keccak256(abi.encodePacked(address(this), missionId, ".taskCount")));
 
         mission.forPurchase = this.getBool(keccak256(abi.encodePacked(address(this), missionId, ".forPurchase")));
         mission.fee = this.getUint(keccak256(abi.encodePacked(address(this), missionId, ".fee")));
@@ -234,18 +133,20 @@ contract Missions is Storage {
             }
         }
 
-        return (mission, taskCount);
+        return mission;
+    }
+
+    function getMissionTaskCount(uint256 missionId) external view returns (uint256 taskCount) {
+        return this.getUint(keccak256(abi.encodePacked(address(this), missionId, ".taskCount")));
     }
 
     function getMissionDeadline(uint256 missionId) external view returns (uint256) {
         uint256 taskCount = this.getUint(keccak256(abi.encodePacked(address(this), missionId, ".taskCount")));
-
         uint256 deadline;
 
         for (uint256 i; i < taskCount;) {
             uint256 _deadline = this.getUint(keccak256(abi.encodePacked(address(this), i, ".deadline")));
             if (deadline < _deadline) deadline = _deadline;
-
             unchecked {
                 ++i;
             }
@@ -254,11 +155,13 @@ contract Missions is Storage {
         return (deadline);
     }
 
-    function isTaskInMission(uint256 _missionId, uint256 _taskId) external payable returns (bool) {
-        (Mission memory mission, uint256 length) = this.getMission(_missionId);
+    function isTaskInMission(uint256 missionId, uint256 taskId) external payable returns (bool) {
+        Mission memory mission = this.getMission(missionId);
+        uint256 length = this.getMissionTaskCount(missionId);
+
         if (length > 1) {
             for (uint256 i; i < length;) {
-                if (mission.taskIds[i] == _taskId) return true;
+                if (mission.taskIds[i] == taskId) return true;
 
                 unchecked {
                     ++i;
@@ -266,48 +169,41 @@ contract Missions is Storage {
             }
             return false;
         } else if (length == 1) {
-            if (mission.taskIds[0] == _taskId) return true;
+            if (mission.taskIds[0] == taskId) return true;
             else return false;
         } else {
             revert InvalidMission();
         }
     }
 
-    /// @dev Calculate total xp and duration of a set of Tasks
-    function aggregateTasksData(uint256[] calldata _taskIds) external payable returns (uint256, uint40) {
-        // Calculate xp and duration for Mission
-        uint8 totalXp;
-        uint40 duration;
+    function getTaskId() external view returns (uint256) {
+        return this.getUint(keccak256(abi.encodePacked("tasks.count")));
+    }
 
-        for (uint256 i; i < _taskIds.length;) {
-            // Aggregate Task duration to create Mission duration
-            // Task memory task = this.getTask(_taskIds[i]);
-            // duration += task.duration;
-            // totalXp += task.xp;
+    /// @dev Retrieve a Task.
+    function getTask(uint256 taskId) external view returns (Task memory task) {
+        task.deadline = uint40(this.getUint(keccak256(abi.encodePacked(address(this), taskId, ".deadline"))));
+        task.creator = this.getAddress(keccak256(abi.encodePacked(address(this), taskId, ".creator")));
+        task.detail = this.getString(keccak256(abi.encodePacked(address(this), taskId, ".detail")));
 
-            // cannot possibly overflow
-            unchecked {
-                ++i;
-            }
-        }
-
-        return (totalXp, duration);
+        return (task);
     }
 
     /// @dev Calculate and update number of completions by mission id
-    function aggregateMissionsCompletions(uint256 missionId, address[] calldata directories) external payable {
+    function aggregateMissionsCompletions(address missions, uint256 missionId, address[] calldata storages)
+        external
+        payable
+    {
         uint256 count;
 
-        for (uint256 i; i < directories.length;) {
+        for (uint256 i; i < storages.length;) {
             unchecked {
-                count += IDirectory(directories[i]).getUint(
-                    keccak256(abi.encodePacked(address(this), missionId, ".completions"))
-                );
+                count += IStorage(storages[i]).getUint(keccak256(abi.encodePacked(missions, missionId, ".completions")));
                 ++i;
             }
         }
 
-        this.setUint(keccak256(abi.encodePacked(address(this), missionId, ".completions")), count);
+        this.setUint(keccak256(abi.encodePacked(missions, missionId, ".completions")), count);
     }
 
     /// -----------------------------------------------------------------------
@@ -335,6 +231,4 @@ contract Missions is Storage {
             }
         }
     }
-
-    receive() external payable {}
 }

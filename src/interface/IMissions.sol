@@ -22,9 +22,13 @@ interface IMissions {
 
     function getTask(uint256 taskId) external view returns (Task memory);
 
+    function getMissionId() external view returns (uint256);
+
     function getMission(uint256 missionId) external view returns (Mission memory, uint256);
+
+    function getMissionTaskCount(uint256 missionId) external view returns (uint256 taskCount);
 
     function getMissionDeadline(uint256 missionId) external view returns (uint256);
 
-    function aggregateTasksData(uint256[] calldata taskIds) external payable returns (uint256, uint40);
+    function aggregateMissionsCompletions(uint256 missionId, address[] calldata storages) external payable;
 }
