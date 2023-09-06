@@ -5,8 +5,8 @@ import {IMissions, Mission, Task} from "./interface/IMissions.sol";
 import {Missions} from "./Missions.sol";
 import {IStorage} from "./interface/IStorage.sol";
 import {Storage} from "./Storage.sol";
-import {IERC721} from "forge-std/interfaces/IERC721.sol";
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
+import {IERC721} from "../lib/forge-std/src/interfaces/IERC721.sol";
+import {IERC20} from "../lib/forge-std/src/interfaces/IERC20.sol";
 import {IKaliTokenManager} from "./interface/IKaliTokenManager.sol";
 
 /// @title  Quest
@@ -62,9 +62,10 @@ contract Quest is Storage {
     /// Sign Storage
     /// -----------------------------------------------------------------------
 
-    bytes32 public constant START_TYPEHASH = keccak256("Start(address signer, address missions, uint256 missionId)");
-    bytes32 public constant RESPOND_TYPEHASH =
-        keccak256("Respond(address signer, address missions, uint256 missionId, uint256 taskId, string response)");
+    bytes32 public constant START_TYPEHASH = keccak256("Start(address signer, bytes32 questKey)");
+    bytes32 public constant RESPOND_TYPEHASH = keccak256(
+        "Respond(address signer, address missions, uint256 missionId, uint256 taskId, string response, uint256 metricValue)"
+    );
     bytes32 public constant REVIEW_TYPEHASH =
         keccak256("Review(address missions, uint256 missionId, uint256 taskId, string review)");
 
@@ -125,7 +126,8 @@ contract Quest is Storage {
         payable
         onlyHodler(tokenAddress, tokenId)
     {
-        _start(tokenAddress, tokenId, missions, missionId);
+        bytes32 questKey = this.encode(tokenAddress, tokenId, missions, missionId, 0);
+        _start(questKey, missions, missionId);
     }
 
     /// @notice Traveler to start a new Quest.
@@ -143,18 +145,15 @@ contract Quest is Storage {
         bytes32 r,
         bytes32 s
     ) public payable virtual onlyHodler(tokenAddress, tokenId) {
+        bytes32 questKey = this.encode(tokenAddress, tokenId, missions, missionId, 0);
         bytes32 digest = keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                DOMAIN_SEPARATOR(),
-                keccak256(abi.encode(START_TYPEHASH, signer, tokenAddress, tokenId, missions, missionId))
-            )
+            abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR(), keccak256(abi.encode(START_TYPEHASH, signer, questKey)))
         );
 
         address recoveredAddress = ecrecover(digest, v, r, s);
         if (recoveredAddress == address(0) || recoveredAddress != signer) revert InvalidUser();
 
-        _start(tokenAddress, tokenId, missions, missionId);
+        _start(questKey, missions, missionId);
     }
 
     /// @notice Traveler to respond to Task in order to progress Quest.
@@ -170,9 +169,13 @@ contract Quest is Storage {
         address missions,
         uint256 missionId,
         uint256 taskId,
-        string calldata response
+        string calldata response,
+        uint256 metricValue
     ) external payable onlyHodler(tokenAddress, tokenId) {
-        _respond(tokenAddress, tokenId, missions, missionId, taskId, response);
+        bytes32 questKey = this.encode(tokenAddress, tokenId, missions, missionId, 0);
+        bytes32 taskKey = this.encode(tokenAddress, tokenId, missions, missionId, taskId);
+
+        _respond(questKey, taskKey, missions, missionId, taskId, response, metricValue);
     }
 
     function respondBySig(
@@ -183,22 +186,26 @@ contract Quest is Storage {
         uint256 missionId,
         uint256 taskId,
         string calldata response,
+        uint256 metricValue,
         uint8 v,
         bytes32 r,
         bytes32 s
     ) public payable virtual onlyHodler(tokenAddress, tokenId) {
+        bytes32 questKey = this.encode(tokenAddress, tokenId, missions, missionId, 0);
+        bytes32 taskKey = this.encode(tokenAddress, tokenId, missions, missionId, taskId);
+
         bytes32 digest = keccak256(
             abi.encodePacked(
                 "\x19\x01",
                 DOMAIN_SEPARATOR(),
-                keccak256(abi.encode(RESPOND_TYPEHASH, signer, missionId, tokenId, response))
+                keccak256(abi.encode(RESPOND_TYPEHASH, signer, questKey, taskKey, response))
             )
         );
 
         address recoveredAddress = ecrecover(digest, v, r, s);
         if (recoveredAddress == address(0) || recoveredAddress != signer) revert InvalidUser();
 
-        _respond(tokenAddress, tokenId, missions, missionId, taskId, response);
+        _respond(questKey, taskKey, missions, missionId, taskId, response, metricValue);
     }
 
     /// -----------------------------------------------------------------------
@@ -320,9 +327,9 @@ contract Quest is Storage {
         returns (bytes32)
     {
         // Retrieve questKey
-        if (taskId == 0) return keccak256(abi.encodePacked(tokenAddress, tokenId, missions, missionId));
+        if (taskId == 0) return keccak256(abi.encode(tokenAddress, tokenId, missions, missionId));
         // Retrieve taskKey
-        else return keccak256(abi.encodePacked(tokenAddress, tokenId, missions, missionId, taskId));
+        else return keccak256(abi.encode(tokenAddress, tokenId, missions, missionId, taskId));
     }
 
     /// @notice Calculate a percentage.
@@ -368,11 +375,11 @@ contract Quest is Storage {
     }
 
     /// @notice Internal function using signature to start quest.
-    /// @param tokenAddress .
-    /// @param tokenId .
+    /// @param questKey.
+    /// @param missions.
     /// @param missionId .
     /// @dev
-    function _start(address tokenAddress, uint256 tokenId, address missions, uint256 missionId) internal virtual {
+    function _start(bytes32 questKey, address missions, uint256 missionId) internal virtual {
         // Confirm quest deadline has not passed
         uint256 deadline = IMissions(missions).getMissionDeadline(missionId);
         if (deadline < block.timestamp) revert InvalidMission();
@@ -384,7 +391,6 @@ contract Quest is Storage {
         }
 
         // Retrieve quest key and corresponding quest detail
-        bytes32 questKey = this.encode(tokenAddress, tokenId, missions, missionId, 0);
         QuestDetail memory qd = this.getQuestDetail(questKey);
 
         // Confirm Quest is not already in progress
@@ -406,22 +412,22 @@ contract Quest is Storage {
     }
 
     /// @notice Internal function using signature to respond to quest tasks.
-    /// @param tokenAddress .
-    /// @param tokenId .
+    /// @param questKey .
+    /// @param taskKey .
     /// @param missionId .
     /// @param taskId .
     /// @param response .
     /// @dev
     function _respond(
-        address tokenAddress,
-        uint256 tokenId,
+        bytes32 questKey,
+        bytes32 taskKey,
         address missions,
         uint256 missionId,
         uint256 taskId,
-        string calldata response
+        string calldata response,
+        uint256 metricValue
     ) internal virtual {
         // Retrieve questKey and QuestDetail.
-        bytes32 questKey = this.encode(tokenAddress, tokenId, missions, missionId, 0);
         QuestDetail memory qd = this.getQuestDetail(questKey);
 
         // Confirm Quest is active.
@@ -430,15 +436,15 @@ contract Quest is Storage {
         // Confirm Task is part of Mission.
         if (!IMissions(missions).isTaskInMission(missionId, taskId)) revert InvalidMission();
 
-        // Retrieve taskKey
-        bytes32 taskKey = this.encode(tokenAddress, tokenId, missions, missionId, taskId);
-
         // Confirm cooldown has expired.
         uint256 taskCd = this.getUint(keccak256(abi.encodePacked(taskKey, ".review.cd")));
         if (block.timestamp < taskCd) revert Cooldown();
 
         // Store quest task responses.
         this.setString(keccak256(abi.encodePacked(taskKey, ".review.response")), response);
+
+        // Store metric value.
+        IMissions(missions).setTaskMetric(taskId, "", metricValue);
 
         // Initiate/Reset cooldown.
         uint256 cd = this.getUint(keccak256(abi.encodePacked("quest.cd")));

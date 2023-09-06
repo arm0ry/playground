@@ -12,8 +12,7 @@ import {Missions, Task, Mission} from "src/Missions.sol"; // Put up missions
 import {KaliDAO, ProposalType} from "src/kali/KaliDAO.sol"; // Start with a governance framework
 
 /// @dev Mocks.
-import {MockERC20} from "solbase-test/utils/mocks/MockERC20.sol";
-import {MockERC721} from "solbase-test/utils/mocks/MockERC721.sol";
+import {MockERC721} from "../lib/solbase/test/utils/mocks/MockERC721.sol";
 
 /// -----------------------------------------------------------------------
 /// Test Logic
@@ -27,7 +26,6 @@ contract QuestsTest is Test {
     Missions missions;
 
     MockERC721 erc721;
-    MockERC20 erc20;
 
     Task task;
     Task[] tasks;
@@ -90,8 +88,8 @@ contract QuestsTest is Test {
 
         mintNft(alice);
         setupTasksAndMissions();
-        setupRewards_Dao();
-        setupRewards_Erc20();
+        // setupRewards_Dao();
+        // setupRewards_Erc20();
 
         vm.warp(1000);
     }
@@ -351,45 +349,5 @@ contract QuestsTest is Test {
         setupTasks();
         setupMissions();
         delete taskIds;
-    }
-
-    function setupRewards_Dao() internal {
-        // vm.prank(address(arm0ry));
-        // quests_dao.updateQuestConfigs(
-        //     1,
-        //     QuestConfig({
-        //         multiplier: 2,
-        //         gateToken: address(0),
-        //         gateAmount: 0,
-        //         rewardType: RewardType.DAO_ERC20,
-        //         rewardToken: address(arm0ry)
-        //     })
-        // );
-
-        // Validate quest configurations
-        // qc = quests_dao.getQuestConfig(1);
-        // assertEq(qc.multiplier, 2);
-        // assertEq(qc.rewardToken, address(arm0ry));
-    }
-
-    function setupRewards_Erc20() internal {
-        erc20 = new MockERC20("TEST_20", "TEST_20", 18);
-        // erc20.mint(address(arm0ry), 1);
-
-        vm.prank(address(arm0ry));
-
-        // QuestConfig memory _qc = QuestConfig({
-        //     multiplier: 2,
-        //     gateToken: address(0),
-        //     gateAmount: 0,
-        //     rewardType: RewardType.ERC20,
-        //     rewardToken: address(erc20)
-        // });
-
-        // quests_erc20.updateQuestConfigs(1, _qc);
-
-        // qc = quests_dao.getQuestConfig(1);
-        // assertEq(qc.multiplier, 2);
-        // assertEq(qc.rewardToken, address(arm0ry));
     }
 }
