@@ -47,13 +47,9 @@ contract ImpactNft is ERC1155 {
     /// -----------------------------------------------------------------------
 
     function uri(uint256 id) public view override returns (string memory) {
-        (address missions, uint256 missionId, bytes32 questKey) = decodeTokenId(id);
+        (address missions, uint256 missionId) = this.decodeTokenId(id);
 
-        if (missionId > 0) {
-            return _buildURI(missions, missionId);
-        } else {
-            return _buildURI(questKey);
-        }
+        return _buildURI(missions, missionId);
     }
 
     // credit: z0r0z.eth (https://github.com/kalidao/kali-contracts/blob/60ba3992fb8d6be6c09eeb74e8ff3086a8fdac13/contracts/access/KaliAccessManager.sol)
@@ -138,7 +134,7 @@ contract ImpactNft is ERC1155 {
     /// -----------------------------------------------------------------------
 
     /// @dev Mint NFT.
-    function mint(address missions, uint256 missionId, address quest, bytes32 questKey) external payable {
+    function mint(address missions, uint256 missionId) external payable {
         // Mint impact NFT
         if (IStorage(missions).getDao() == address(0)) revert InvalidMission();
 
@@ -151,7 +147,7 @@ contract ImpactNft is ERC1155 {
         if (mission.fee != msg.value) revert AmountMismatch();
 
         // Prepare to mint
-        uint256 id = getTokenId(missions, missionId);
+        uint256 id = this.getTokenId(missions, missionId);
         _mint(msg.sender, id, 1, "0x");
 
         // Calculate and distribute creator's royalties.
@@ -167,9 +163,9 @@ contract ImpactNft is ERC1155 {
     }
 
     /// @dev Burn NFT
-    function burn(address missions, uint256 missionId, bytes32 questKey) external payable {
+    function burn(address missions, uint256 missionId) external payable {
         // Burn impact NFT
-        uint256 id = getTokenId(missions, missionId);
+        uint256 id = this.getTokenId(missions, missionId);
         _burn(msg.sender, id, 1);
     }
 
@@ -182,11 +178,11 @@ contract ImpactNft is ERC1155 {
         return uint256(uint160(missions)) * 10e4 + missionId;
     }
 
-    function decodeTokenId(uint256 tokenId) external view returns (address missions, uint256 missionId) {
+    function decodeTokenId(uint256 tokenId) external pure returns (address missions, uint256 missionId) {
         missionId = tokenId % 10e4;
         missions = address(uint160((tokenId - missionId) / 10e4));
 
-        return (missions, missionId, 0x0);
+        return (missions, missionId);
     }
 
     receive() external payable virtual {}
