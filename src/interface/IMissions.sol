@@ -14,6 +14,8 @@ interface IMissions {
 
     function getMission(uint256 missionId) external view returns (Mission memory);
 
+    function getMissionTitle(uint256 missionId) external view returns (string memory);
+
     function getMissionTaskCount(uint256 missionId) external view returns (uint256 taskCount);
 
     function getMissionDeadline(uint256 missionId) external view returns (uint256);

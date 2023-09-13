@@ -146,6 +146,10 @@ contract Missions is Storage {
         return mission;
     }
 
+    function getMissionTitle(uint256 missionId) external view returns (string memory) {
+        return this.getString(keccak256(abi.encodePacked(address(this), missionId, ".title")));
+    }
+
     function getMissionTaskCount(uint256 missionId) external view returns (uint256 taskCount) {
         return this.getUint(keccak256(abi.encodePacked(address(this), missionId, ".taskCount")));
     }

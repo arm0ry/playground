@@ -173,16 +173,18 @@ contract ImpactNft is ERC1155 {
     /// Helper Functions
     /// -----------------------------------------------------------------------
 
-    // TODO: Come up with better way to encode token id
     function getTokenId(address missions, uint256 missionId) external pure returns (uint256) {
-        return uint256(uint160(missions)) * 10e4 + missionId;
+        return uint256(bytes32(abi.encodePacked(missions, uint96(missionId))));
     }
 
     function decodeTokenId(uint256 tokenId) external pure returns (address missions, uint256 missionId) {
-        missionId = tokenId % 10e4;
-        missions = address(uint160((tokenId - missionId) / 10e4));
-
-        return (missions, missionId);
+        uint96 _id;
+        bytes32 key = bytes32(tokenId);
+        assembly {
+            _id := key
+            missions := shr(96, key)
+        }
+        return (missions, uint256(_id));
     }
 
     receive() external payable virtual {}
