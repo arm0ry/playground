@@ -61,16 +61,18 @@ contract SupportToken is pERC1155 {
     }
 
     function generateSvg(uint256 id) public view returns (string memory) {
-        (bytes32 questKey, QuestDetail memory qd) = IQuest(quest).getQuestDetail(bytes32(id), 0x0);
+        (address user, uint256 questStarts) = this.decodeId(id);
+        (bytes32 questKey, QuestDetail memory qd) = IQuest(quest).getQuestDetail(user, questStarts);
 
-        uint256 cd = IStorage(quest).getUint(keccak256(abi.encodePacked("quest.cd")));
+        uint256 cd = IStorage(quest).getUint(keccak256(abi.encode("quest.cd")));
+        string memory url = IStorage(quest).getString(keccak256(abi.encode(msg.sender, ".profile")));
 
         return string.concat(
             '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" style="background:#FFFBF5">',
             buildSvgLogo(),
             buildSvgData(cd, questKey, qd.toReview, qd.deadline),
             buildSvgProgress(qd.progress),
-            buildSvgProfile(),
+            buildSvgProfile(url),
             "</svg>"
         );
     }
@@ -208,12 +210,9 @@ contract SupportToken is pERC1155 {
         );
     }
 
-    function buildSvgProfile() public pure returns (string memory) {
+    function buildSvgProfile(string memory url) public pure returns (string memory) {
         return string.concat(
-            SVG._image(
-                "https://arm0ry.g0v.tw/assets/dancing.cbe2e558.png",
-                string.concat(SVG._prop("x", "220"), SVG._prop("y", "230"), SVG._prop("width", "50"))
-            )
+            SVG._image(url, string.concat(SVG._prop("x", "220"), SVG._prop("y", "230"), SVG._prop("width", "50")))
         );
     }
 
@@ -224,8 +223,10 @@ contract SupportToken is pERC1155 {
     /// @dev Mint NFT.
     /// credit: simondlr (https://github.com/simondlr/neolastics/blob/master/packages/hardhat/contracts/Curve.sol)
     function mint(uint256 id) external payable {
+        (address user, uint256 questStarts) = this.decodeId(id);
+
         // Confirm quest is active
-        (, QuestDetail memory qd) = IQuest(quest).getQuestDetail(bytes32(id), 0x0);
+        (, QuestDetail memory qd) = IQuest(quest).getQuestDetail(user, questStarts);
         if (!qd.active) revert InvalidQuest();
 
         // Get current mint price
@@ -276,6 +277,21 @@ contract SupportToken is pERC1155 {
 
         uint256 burnPrice = totalSupply[id] * initBurnPrice;
         return burnPrice;
+    }
+
+    function encodeId(address user, uint96 questStarts) external pure returns (bytes32) {
+        return bytes32(abi.encodePacked(user, questStarts));
+    }
+
+    function decodeId(uint256 id) external pure returns (address user, uint256 questStart) {
+        bytes32 key = bytes32(id);
+
+        assembly {
+            questStart := key
+            user := shr(96, key)
+        }
+
+        return (user, uint256(questStart));
     }
 
     receive() external payable virtual {}

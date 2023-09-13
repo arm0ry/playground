@@ -4,7 +4,7 @@ pragma solidity ^0.8.17;
 import {QuestDetail} from "../Quest.sol";
 
 interface IQuest {
-    function getQuestDetail(bytes32 nftKey, bytes32 _questKey)
+    function getQuestDetail(address user, uint256 questStarts)
         external
         view
         returns (bytes32 questKey, QuestDetail memory);
