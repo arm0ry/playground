@@ -5,7 +5,7 @@ import {SVG} from "../utils/SVG.sol";
 import {JSON} from "../utils/JSON.sol";
 import {Base64} from "../../lib/solbase/src/utils/Base64.sol";
 import {LibString} from "../../lib/solbase/src/utils/LibString.sol";
-import {ERC1155} from "../../lib/solbase/src/tokens/ERC1155/ERC1155.sol";
+import {pERC1155} from "../utils/pERC1155.sol";
 
 import {Missions} from "../Missions.sol";
 import {IMissions, Mission, Task, Metric} from "../interface/IMissions.sol";
@@ -16,7 +16,7 @@ import {IQuest, QuestDetail} from "../interface/IQuest.sol";
 /// @title Impact NFTs
 /// @notice SVG NFTs displaying impact results and metrics.
 /// Major inspiration from Kali, Async.art
-contract ImpactNft is ERC1155 {
+contract ImpactNft is pERC1155 {
     /// -----------------------------------------------------------------------
     /// Custom Error
     /// -----------------------------------------------------------------------
@@ -33,7 +33,7 @@ contract ImpactNft is ERC1155 {
     /// -----------------------------------------------------------------------
 
     bytes32 immutable QUEST_ADDRESS_KEY = keccak256(abi.encodePacked("quest"));
-    bytes32 immutable ROYALTIES_KEY = keccak256(abi.encodePacked("royalties.default"));
+    bytes32 immutable CREATOR_FEE_KEY = keccak256(abi.encodePacked("fee.default"));
     bytes32 immutable TOKEN_ID_KEY = keccak256(abi.encodePacked("id"));
 
     /// -----------------------------------------------------------------------
@@ -144,22 +144,30 @@ contract ImpactNft is ERC1155 {
         if (!mission.forPurchase) revert NotForSale();
 
         // Confirm fee is provided, if required.
-        if (mission.fee != msg.value) revert AmountMismatch();
+        if (mission.ask != msg.value) revert AmountMismatch();
 
-        // Prepare to mint
+        // Mint ImpactNFT
         uint256 id = this.getTokenId(missions, missionId);
         _mint(msg.sender, id, 1, "0x");
 
-        // Calculate and distribute creator's royalties.
-        uint256 royalties = IStorage(missions).getUint(ROYALTIES_KEY);
-        royalties = msg.value * royalties / 100;
-        (bool success,) = mission.creator.call{value: royalties}("");
-        if (!success) revert TransferFailed();
-
-        // Calculate and distribute remaining proceeds to DAO.
         address dao = IStorage(missions).getDao();
-        (success,) = dao.call{value: mission.fee - royalties}("");
-        if (!success) revert TransferFailed();
+
+        // If dao and creator are the same, distribute proceeds in full
+        if (dao == mission.creator) {
+            // Calculate and distribute proceeds to creator.
+            (bool success,) = mission.creator.call{value: mission.ask}("");
+            if (!success) revert TransferFailed();
+        } else {
+            // Otherwise, calculate and distribute creator's fee.
+            uint256 fee = IStorage(missions).getUint(CREATOR_FEE_KEY);
+            fee = msg.value * fee / 100;
+            (bool success,) = mission.creator.call{value: fee}("");
+            if (!success) revert TransferFailed();
+
+            // Then, calculate and distribute remaining proceeds to DAO.
+            (success,) = dao.call{value: mission.ask - fee}("");
+            if (!success) revert TransferFailed();
+        }
     }
 
     /// @dev Burn NFT
