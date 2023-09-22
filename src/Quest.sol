@@ -52,7 +52,7 @@ contract Quest is Storage {
     /// Immutable Storage
     /// -----------------------------------------------------------------------
 
-    bytes32 immutable MISSIONS_ADDRESS_KEY = keccak256(abi.encodePacked("missions"));
+    bytes32 immutable MISSIONS_ADDRESS_KEY = keccak256(abi.encode("missions"));
 
     /// -----------------------------------------------------------------------
     /// Sign Storage
@@ -228,7 +228,7 @@ contract Quest is Storage {
         uint256 questId = this.getUint(keccak256(abi.encode(msg.sender, ".questId")));
 
         if (questId > 0) {
-            this.setString(keccak256(abi.encodePacked(msg.sender, ".profile")), url);
+            this.setString(keccak256(abi.encode(msg.sender, ".profile")), url);
         } else {
             revert MustBeginOneQuest();
         }
@@ -247,30 +247,30 @@ contract Quest is Storage {
     /// @dev
     function setReviewer(address reviewer, bool status) external payable onlyOperator {
         if (status) {
-            if (!this.getBool(keccak256(abi.encodePacked(reviewer, ".exists")))) {
-                uint256 reviewerCount = this.getUint(keccak256(abi.encodePacked("quest.reviewerCount")));
+            if (!this.getBool(keccak256(abi.encode(reviewer, ".exists")))) {
+                uint256 reviewerCount = this.getUint(keccak256(abi.encode("quest.reviewerCount")));
 
                 // Store new reviewer status and id
-                this.setBool(keccak256(abi.encodePacked(reviewer, ".exists")), status);
-                this.setUint(keccak256(abi.encodePacked(reviewer, ".reviewerId")), ++reviewerCount);
+                this.setBool(keccak256(abi.encode(reviewer, ".exists")), status);
+                this.setUint(keccak256(abi.encode(reviewer, ".reviewerId")), ++reviewerCount);
 
                 // Increment and store global number of reviewers.
-                this.addUint(keccak256(abi.encodePacked("quest.reviewerCount")), 1);
+                this.addUint(keccak256(abi.encode("quest.reviewerCount")), 1);
             }
         } else {
             // Delete reviewer status and id.
-            this.deleteBool(keccak256(abi.encodePacked(reviewer, ".exists")));
-            this.deleteUint(keccak256(abi.encodePacked(reviewer, ".reviewerId")));
+            this.deleteBool(keccak256(abi.encode(reviewer, ".exists")));
+            this.deleteUint(keccak256(abi.encode(reviewer, ".reviewerId")));
         }
     }
 
     /// @notice Set review status for all quest
     function setGlobalReview(bool toReview) external payable onlyOperator {
-        this.setBool(keccak256(abi.encodePacked("quest.toReview")), toReview);
+        this.setBool(keccak256(abi.encode("quest.toReview")), toReview);
     }
 
     function setResponseCoolDown(uint40 cd) external payable onlyOperator {
-        this.setUint(keccak256(abi.encodePacked("quest.cd")), cd);
+        this.setUint(keccak256(abi.encode("quest.cd")), cd);
     }
     /// -----------------------------------------------------------------------
     /// Getter Logic
@@ -300,13 +300,13 @@ contract Quest is Storage {
 
     function getQuestConfig(address missions, uint256 missionId) external view returns (QuestConfig memory) {
         return QuestConfig({
-            gateToken: this.getAddress(keccak256(abi.encodePacked(missions, missionId, ".reward.gateToken"))),
-            gateTokenAmount: this.getUint(keccak256(abi.encodePacked(missions, missionId, ".reward.gateTokenAmount")))
+            gateToken: this.getAddress(keccak256(abi.encode(missions, missionId, ".reward.gateToken"))),
+            gateTokenAmount: this.getUint(keccak256(abi.encode(missions, missionId, ".reward.gateTokenAmount")))
         });
     }
 
     function isReviewer(address account) external view returns (bool) {
-        return this.getBool(keccak256(abi.encodePacked(account, ".exists")));
+        return this.getBool(keccak256(abi.encode(account, ".exists")));
     }
 
     /// -----------------------------------------------------------------------
