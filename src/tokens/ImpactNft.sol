@@ -5,7 +5,7 @@ import {SVG} from "../utils/SVG.sol";
 import {JSON} from "../utils/JSON.sol";
 import {Base64} from "../../lib/solbase/src/utils/Base64.sol";
 import {LibString} from "../../lib/solbase/src/utils/LibString.sol";
-import {pERC1155} from "../utils/pERC1155.sol";
+import {ERC721} from "../../lib/solbase/src/tokens/ERC721/ERC721.sol";
 
 import {Missions} from "../Missions.sol";
 import {IMissions, Mission, Task, Metric} from "../interface/IMissions.sol";
@@ -16,7 +16,7 @@ import {IQuest, QuestDetail} from "../interface/IQuest.sol";
 /// @title Impact NFTs
 /// @notice SVG NFTs displaying impact results and metrics.
 /// Major inspiration from Kali, Async.art
-contract ImpactNft is pERC1155 {
+contract ImpactNft is ERC721 {
     /// -----------------------------------------------------------------------
     /// Custom Error
     /// -----------------------------------------------------------------------
@@ -29,15 +29,30 @@ contract ImpactNft is pERC1155 {
     error InvalidQuest();
 
     /// -----------------------------------------------------------------------
+    /// Harberger Tax Storage
+    /// -----------------------------------------------------------------------
+
+    mapping(uint256 => uint256) public prices;
+    mapping(uint256 => uint256) public timeAcquired;
+    mapping(uint256 => uint256) public timeCollected; // timestamp when last collection occurred
+    mapping(uint256 => uint256) public deposits; // funds for paying patronage
+    mapping(uint256 => uint256) public totalCollected; // timestamp when last collection occurred
+
+    /// -----------------------------------------------------------------------
     /// Immutable Storage
     /// -----------------------------------------------------------------------
 
     bytes32 immutable QUEST_ADDRESS_KEY = keccak256(abi.encodePacked("quest"));
-    bytes32 immutable CREATOR_FEE_KEY = keccak256(abi.encodePacked("fee.default"));
+    // bytes32 immutable CREATOR_FEE_KEY = keccak256(abi.encodePacked("fee.default"));
     bytes32 immutable TOKEN_ID_KEY = keccak256(abi.encodePacked("id"));
 
+    modifier collectPatronage() {
+        _collectPatronage();
+        _;
+    }
+
     /// -----------------------------------------------------------------------
-    /// Traveler Storage
+    /// Constructor
     /// -----------------------------------------------------------------------
 
     constructor() {}
@@ -133,41 +148,37 @@ contract ImpactNft is pERC1155 {
     // Mint Logic
     /// -----------------------------------------------------------------------
 
+    /// TODO: Add Harberger Tax
     /// @dev Mint NFT.
-    function mint(address missions, uint256 missionId) external payable {
-        // Mint impact NFT
-        if (IStorage(missions).getDao() == address(0)) revert InvalidMission();
+    function buy(address missions, uint256 missionId, uint256 _newPrice, uint256 _currentPrice) external payable {
+        address dao = IStorage(missions).getDao();
+        if (dao == address(0)) revert InvalidMission();
 
         Mission memory mission = IMissions(missions).getMission(missionId);
 
         // Confirm Mission is for purchase.
         if (!mission.forPurchase) revert NotForSale();
 
-        // Confirm fee is provided, if required.
-        if (mission.ask != msg.value) revert AmountMismatch();
-
         // Mint ImpactNFT
         uint256 id = this.getTokenId(missions, missionId);
         _mint(msg.sender, id, 1, "0x");
 
-        address dao = IStorage(missions).getDao();
-
         // If dao and creator are the same, distribute proceeds in full
-        if (dao == mission.creator) {
-            // Calculate and distribute proceeds to creator.
-            (bool success,) = mission.creator.call{value: mission.ask}("");
-            if (!success) revert TransferFailed();
-        } else {
-            // Otherwise, calculate and distribute creator's fee.
-            uint256 fee = IStorage(missions).getUint(CREATOR_FEE_KEY);
-            fee = msg.value * fee / 100;
-            (bool success,) = mission.creator.call{value: fee}("");
-            if (!success) revert TransferFailed();
+        // if (dao == mission.creator) {
+        //     // Calculate and distribute proceeds to creator.
+        //     (bool success,) = mission.creator.call{value: mission.ask}("");
+        //     if (!success) revert TransferFailed();
+        // } else {
+        //     // Otherwise, calculate and distribute creator's fee.
+        //     uint256 fee = IStorage(missions).getUint(CREATOR_FEE_KEY);
+        //     fee = msg.value * fee / 100;
+        //     (bool success,) = mission.creator.call{value: fee}("");
+        //     if (!success) revert TransferFailed();
 
-            // Then, calculate and distribute remaining proceeds to DAO.
-            (success,) = dao.call{value: mission.ask - fee}("");
-            if (!success) revert TransferFailed();
-        }
+        //     // Then, calculate and distribute remaining proceeds to DAO.
+        //     (success,) = dao.call{value: mission.ask - fee}("");
+        //     if (!success) revert TransferFailed();
+        // }
     }
 
     /// @dev Burn NFT
@@ -177,6 +188,17 @@ contract ImpactNft is pERC1155 {
         _burn(msg.sender, id, 1);
     }
 
+    function foreclosed(uint256 tokenId) public view returns (bool) {
+        // returns whether it is in foreclosed state or not
+        // depending on whether deposit covers patronage due
+        // useful helper function when price should be zero, but contract doesn't reflect it yet.
+        uint256 collection = patronageOwed(tokenId);
+        if (collection >= deposits[tokenId]) {
+            return true;
+        } else {
+            return false;
+        }
+    }
     /// -----------------------------------------------------------------------
     /// Helper Functions
     /// -----------------------------------------------------------------------
@@ -193,6 +215,50 @@ contract ImpactNft is pERC1155 {
             missions := shr(96, key)
         }
         return (missions, uint256(_id));
+    }
+
+    // TODO: DO 50% HT Rate
+    function patronageOwed(uint256 tokenId) public view returns (uint256 patronageDue) {
+        //return price.mul(block.timestamp.sub(timeLastCollected)).mul(patronageNumerator).div(patronageDenominator).div(365 days);
+        return prices[tokenId].mul(block.timestamp.sub(timeCollected[tokenId])).div(365 days);
+    }
+
+    /// -----------------------------------------------------------------------
+    /// Internal Functions
+    /// -----------------------------------------------------------------------
+
+    function _forecloseIfNecessary(uint256 tokenId) internal {
+        if (deposits[tokenId] == 0) {
+            // TODO: Get current owner
+            // address currentOwner = art.ownerOf(42);
+            address currentOwner;
+            transferFrom(currentOwner, address(this), tokenId);
+        }
+    }
+
+    // https://github.com/simondlr/thisartworkisalwaysonsale/blob/master/packages/hardhat/contracts/v1/ArtStewardV2.sol
+    function _collectPatronage(uint256 tokenId) internal {
+        if (prices[tokenId] != 0) {
+            // price > 0 == active owned state
+            uint256 collection = patronageOwed();
+
+            if (collection >= deposits[tokenId]) {
+                // foreclosure happened in the past
+                // up to when was it actually paid for?
+                // TLC + (time_elapsed)*deposit/collection
+                timeCollected[tokenId] = timeCollected[tokenId].add(
+                    (block.timestamp.sub(timeCollected[tokenId])).mul(deposits[tokenId]).div(collection)
+                );
+                collection = deposits[tokenId]; // take what's left.
+            } else {
+                timeCollected[tokenId] = block.timestamp;
+            } // normal collection
+
+            deposits[tokenId] = deposits[tokenId].sub(collection);
+            totalCollected[tokenId] = totalCollected[tokenId].add(collection);
+
+            _forecloseIfNecessary(tokenId);
+        }
     }
 
     receive() external payable virtual {}
