@@ -15,7 +15,6 @@ struct Mission {
     string title; // Title of Mission
     string detail; // Mission detail
     uint256[] taskIds; // Tasks associated with Mission
-    uint256 fee; // Amount for purchase
     uint256 completions; // The number of mission completions
 }
 
@@ -47,7 +46,7 @@ contract Missions is Storage {
     /// Immutable Storage
     /// -----------------------------------------------------------------------
 
-    bytes32 immutable ROYALTIES_KEY = keccak256(abi.encodePacked("royalties.default"));
+    bytes32 immutable CREATOR_FEE_KEY = keccak256(abi.encodePacked("fee.default"));
     bytes32 immutable MISSION_ID_KEY = keccak256(abi.encodePacked("missions.count"));
     bytes32 immutable TASK_ID_KEY = keccak256(abi.encodePacked("tasks.count"));
 
@@ -57,6 +56,9 @@ contract Missions is Storage {
 
     constructor() {}
 
+    function initialize() internal virtual {
+        this.addUint(CREATOR_FEE_KEY, 50);
+    }
     /// -----------------------------------------------------------------------
     /// Modifier
     /// ----------------------------------------------------------------------
@@ -130,7 +132,6 @@ contract Missions is Storage {
         uint256 taskCount = this.getMissionTaskCount(missionId);
 
         mission.forPurchase = this.getBool(keccak256(abi.encodePacked(address(this), missionId, ".forPurchase")));
-        mission.fee = this.getUint(keccak256(abi.encodePacked(address(this), missionId, ".fee")));
         mission.creator = this.getAddress(keccak256(abi.encodePacked(address(this), missionId, ".creator")));
         mission.detail = this.getString(keccak256(abi.encodePacked(address(this), missionId, ".detail")));
         mission.title = this.getString(keccak256(abi.encodePacked(address(this), missionId, ".title")));
@@ -253,7 +254,6 @@ contract Missions is Storage {
 
     function _setMission(uint256 missionId, Mission calldata mission) internal {
         this.setBool(keccak256(abi.encodePacked(address(this), missionId, ".forPurchase")), mission.forPurchase);
-        this.setUint(keccak256(abi.encodePacked(address(this), missionId, ".fee")), mission.fee);
         this.setUint(keccak256(abi.encodePacked(address(this), missionId, ".taskCount")), mission.taskIds.length);
         this.setAddress(keccak256(abi.encodePacked(address(this), missionId, ".creator")), mission.creator);
         this.setString(keccak256(abi.encodePacked(address(this), missionId, ".detail")), mission.detail);
