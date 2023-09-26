@@ -8,7 +8,7 @@ interface IMissions {
 
     function getTask(uint256 taskId) external view returns (Task memory);
 
-    function setTaskMetric(uint256 taskId, string calldata title, uint256 value) external payable;
+    function setMissionMetric(uint256 missionId, string calldata title, uint256 value) external payable;
 
     function getMissionId() external view returns (uint256);
 
@@ -20,7 +20,7 @@ interface IMissions {
 
     function getMissionDeadline(uint256 missionId) external view returns (uint256);
 
-    function getMetrics(uint256[] calldata taskIds) external view returns (Metric[] memory metrics);
+    function getMetrics(uint256 missionId) external view returns (Metric memory metrics);
 
     function aggregateMissionsCompletions(uint256 missionId, address[] calldata storages) external payable;
 }

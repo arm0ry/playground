@@ -88,7 +88,11 @@ contract Missions is Storage {
     }
 
     /// @dev Create missions.
-    function setMission(uint256 missionId, Mission calldata mission) external payable onlyOperator {
+    function setMission(uint256 missionId, Mission calldata mission, Metric calldata metric)
+        external
+        payable
+        onlyOperator
+    {
         uint256 length = mission.taskIds.length;
         if (length == 0) revert InvalidMission();
 
@@ -106,17 +110,11 @@ contract Missions is Storage {
             // Update existing Mission.
             _setMission(missionId, mission);
         }
-    }
 
-    function setTaskMetric(uint256 taskId, string calldata title, uint256 value) external payable onlyOperator {
-        if (bytes(title).length > 0) {
-            this.setString(keccak256(abi.encodePacked(address(this), taskId, ".metric.title")), title);
+        if (bytes(metric.title).length > 0) {
+            this.setString(keccak256(abi.encodePacked(address(this), missionId, ".metric.title")), metric.title);
+            this.setUint(keccak256(abi.encodePacked(address(this), missionId, ".metric.value.")), metric.value);
         }
-
-        uint256 count = this.getUint(keccak256(abi.encodePacked(address(this), taskId, ".metric.valueCount")));
-
-        this.setUint(keccak256(abi.encodePacked(address(this), taskId, ".metric.value.", count)), value);
-        this.addUint(keccak256(abi.encodePacked(address(this), taskId, ".metric.valueCount")), 1);
     }
 
     /// -----------------------------------------------------------------------

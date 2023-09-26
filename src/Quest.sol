@@ -450,7 +450,8 @@ contract Quest is Storage {
         this.setString(keccak256(abi.encode(taskKey, ".review.response")), response);
 
         // Store metric value.
-        IMissions(missions).setTaskMetric(taskId, "", metricValue);
+        // TODO: THIS NEEDS REWORK
+        IMissions(missions).setMissionMetric(missionId, "", metricValue);
 
         // Initiate/Reset cooldown.
         uint256 cd = this.getUint(keccak256(abi.encode("quest.cd")));
