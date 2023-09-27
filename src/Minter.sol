@@ -2,7 +2,7 @@
 pragma solidity >=0.8.4;
 
 import {ImpactNft} from "./tokens/ImpactNft.sol";
-import {SupportToken} from "./tokens/SupportToken.sol";
+import {SupportCurve} from "./tokens/SupportCurve.sol";
 
 /// @title Minter of Playground NFTs
 contract Minter {

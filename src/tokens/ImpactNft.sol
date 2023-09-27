@@ -177,7 +177,23 @@ contract ImpactNft is ERC721 {
     }
 
     function buildSvgMetrics(address missions, uint256 missionId) public view returns (string memory) {
+        string memory title = IMissions(missions).getMetricTitle(missionId);
         Metric memory metric = IMissions(missions).getMetrics(missionId);
+
+        uint256 mostRecent = IMissions(missions).getSingleMetricValue(missionId, metric.numberOfEntries);
+        uint256 secondMostRecent;
+        uint256 thirdMostRecent;
+        uint256 fourthMostRecent;
+        uint256 fifthMostRecent;
+        if (metric.numberOfEntries > 1) {
+            secondMostRecent = IMissions(missions).getSingleMetricValue(missionId, metric.numberOfEntries - 1);
+        } else if (metric.numberOfEntries > 2) {
+            thirdMostRecent = IMissions(missions).getSingleMetricValue(missionId, metric.numberOfEntries);
+        } else if (metric.numberOfEntries > 3) {
+            fourthMostRecent = IMissions(missions).getSingleMetricValue(missionId, metric.numberOfEntries);
+        } else if (metric.numberOfEntries > 4) {
+            fifthMostRecent = IMissions(missions).getSingleMetricValue(missionId, metric.numberOfEntries);
+        }
 
         return string.concat(
             SVG._text(
@@ -187,7 +203,7 @@ contract ImpactNft is ERC721 {
                     SVG._prop("font-size", "10"),
                     SVG._prop("fill", "8FADFF")
                 ),
-                string.concat(metric.title)
+                string.concat(title)
             ),
             SVG._text(
                 string.concat(
@@ -196,7 +212,17 @@ contract ImpactNft is ERC721 {
                     SVG._prop("font-size", "60"),
                     SVG._prop("fill", "FFBE0B")
                 ),
-                string.concat(useEmojis[missionId] ? emojis[metric.value] : SVG._uint2str(metric.value))
+                string.concat(
+                    SVG._uint2str(fifthMostRecent),
+                    " ",
+                    SVG._uint2str(fourthMostRecent),
+                    " ",
+                    SVG._uint2str(thirdMostRecent),
+                    " ",
+                    SVG._uint2str(secondMostRecent),
+                    " ",
+                    SVG._uint2str(mostRecent)
+                )
             )
         );
     }
