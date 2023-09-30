@@ -1,19 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.4;
 
-import {SafeMulticallable} from "solbase/utils/SafeMulticallable.sol";
+// import {SafeMulticallable} from "solbase/utils/SafeMulticallable.sol";
+import {IStorage} from "./interface/IStorage.sol";
 
 /// @notice Directory for Quests
 /// @author Modified from Kali (https://github.com/kalidao/kali-contracts/blob/main/contracts/access/KaliAccessManager.sol)
 /// @author Storage pattern inspired by RocketPool (https://github.com/rocket-pool/rocketpool/blob/6a9dbfd85772900bb192aabeb0c9b8d9f6e019d1/contracts/contract/RocketStorage.sol)
 
-contract Storage is SafeMulticallable {
+contract Storage {
     /// -----------------------------------------------------------------------
     /// Errors
     /// -----------------------------------------------------------------------
 
     error NotOperator();
-
+    error NotPlayground();
     error LengthMismatch();
 
     /// -----------------------------------------------------------------------
@@ -43,6 +44,11 @@ contract Storage is SafeMulticallable {
         if (msg.sender != this.getDao() && msg.sender != address(this)) {
             revert NotOperator();
         }
+        _;
+    }
+
+    modifier onlyPlayground(address target) {
+        assert(IStorage(target).getDao() != address(0));
         _;
     }
     /// -----------------------------------------------------------------------

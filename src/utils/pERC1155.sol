@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-/// @notice Modern, minimalist, and gas-optimized ERC1155 implementation.
-/// @author Modified ERC1155 with totalSuppy per token ID and without batch operations
+/// @notice Modern, minimalist, and gas-optimized ERC1155 implementation for Playground.
+/// @author Modified ERC1155 with totalSuppy per id, without batch operations, and encoded tokenId.
 /// @author Modified from SolDAO (https://github.com/Sol-DAO/solbase/blob/main/src/tokens/ERC1155/ERC1155.sol)
 abstract contract pERC1155 {
     /// -----------------------------------------------------------------------
@@ -185,6 +185,25 @@ abstract contract pERC1155 {
 
     function idExists(uint256 id) public view virtual returns (bool) {
         return totalSupply[id] > 0;
+    }
+
+    /// -----------------------------------------------------------------------
+    /// TokenId Logic
+    /// -----------------------------------------------------------------------
+
+    function encodeId(address _address, uint96 value) external pure returns (bytes32) {
+        return bytes32(abi.encodePacked(_address, value));
+    }
+
+    function decodeId(uint256 id) external pure returns (address _address, uint256 value) {
+        bytes32 key = bytes32(id);
+
+        assembly {
+            value := key
+            _address := shr(96, key)
+        }
+
+        return (_address, uint256(value));
     }
 }
 
