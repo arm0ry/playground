@@ -7,6 +7,7 @@ import {IStorage} from "../interface/IStorage.sol";
 import {Storage} from "../Storage.sol";
 import {IQuest, QuestDetail} from "../interface/IQuest.sol";
 
+import {ImpactToken} from "../tokens/ImpactToken.sol";
 import {KaliDAOfactory, KaliDAO} from "../kali/KaliDAOfactory.sol";
 import {IKaliTokenManager} from "../interface/IKaliTokenManager.sol";
 
@@ -21,12 +22,8 @@ contract KaliBerger is Storage {
     /// -----------------------------------------------------------------------
 
     error NotAuthorized();
-    error NotForSale();
-    error AmountMismatch();
     error TransferFailed();
     error InvalidMission();
-    error InvalidQuest();
-    error InvalidMint();
     error InvalidPrice();
     error InvalidExit();
     error InvalidRoyalties();
@@ -53,6 +50,7 @@ contract KaliBerger is Storage {
 
     bytes32 immutable ROYALTIES_KEY = keccak256(abi.encodePacked("royalties.default"));
     bytes32 immutable KALIDAO_FACTORY_KEY = keccak256(abi.encodePacked("kalidao.factory"));
+    bytes32 immutable IMPACT_TOKEN_KEY = keccak256(abi.encodePacked("impactToken"));
 
     /// -----------------------------------------------------------------------
     /// Constructor
@@ -70,6 +68,11 @@ contract KaliBerger is Storage {
         _;
     }
 
+    modifier isFactorySet() {
+        if (this.getKaliDaoFactory() == address(0)) revert FactoryNotSet();
+        _;
+    }
+
     /// -----------------------------------------------------------------------
     // Mint Logic
     /// -----------------------------------------------------------------------
@@ -83,9 +86,8 @@ contract KaliBerger is Storage {
     }
 
     /// @notice Enable Playground NFT for sale.
-    function enable(address missions, uint256 missionId, uint256 price) external payable {
+    function enablePlayground(address missions, uint256 missionId, uint256 price) external payable {
         if (price == 0) revert InvalidPrice();
-        IERC721(missions).safeTransferFrom(msg.sender, address(this), missionId);
         this.setPrice(missions, missionId, price);
     }
 
@@ -142,6 +144,7 @@ contract KaliBerger is Storage {
         external
         payable
         collectPatronage(token, tokenId)
+        isFactorySet
     {
         uint256 price = this.getPrice(token, tokenId);
         if (price != _currentPrice || _newPrice == 0 || msg.value != _currentPrice) revert InvalidMint();
@@ -177,20 +180,15 @@ contract KaliBerger is Storage {
         external
         payable
         collectPatronage(missions, missionId)
+        isFactorySet
     {
         // Check if Playground contracts
         address dao = IStorage(missions).getDao();
-        if (dao != address(0)) revert InvalidMission();
+        if (dao != address(0)) revert NotAuthorized();
 
         Mission memory mission = IMissions(missions).getMission(missionId);
-        // Confirm Mission is for purchase.
 
-        if (!mission.forPurchase) revert NotForSale();
-
-        uint256 price = this.getPrice(missions, missionId);
-        if (price != _currentPrice || _newPrice == 0 || msg.missionId != _currentPrice) revert InvalidMint();
-
-        address currentOwner = IERC721(missions).ownerOf(missionId);
+        address currentOwner = IERC721(missions).ownerOf(ImpactToken(missions).encode(missions, missionId));
         uint256 _deposit = this.getDeposit(missions, missionId);
         uint256 totalToPayBack = price + _deposit;
         if (totalToPayBack > 0) {
@@ -244,35 +242,24 @@ contract KaliBerger is Storage {
         if (!success) revert TransferFailed();
     }
 
-    /* internal */
-    function _withdrawDeposit(address target, uint256 value, uint256 _wei) internal {
-        // note: can withdraw whole deposit, which puts it in immediate to be foreclosed state.
-    }
-
     /// -----------------------------------------------------------------------
     /// Helper Functions
     /// -----------------------------------------------------------------------
 
-    // function encode(address missions, uint256 missionId) external pure returns (uint256) {
-    //     return uint256(bytes32(abi.encodePacked(missions, uint96(missionId))));
-    // }
-
-    // function decode(uint256 tokenId) external pure returns (address missions, uint256 missionId) {
-    //     uint96 _id;
-    //     bytes32 key = bytes32(tokenId);
-    //     assembly {
-    //         _id := key
-    //         missions := shr(96, key)
-    //     }
-    //     return (missions, uint256(_id));
-    // }
-
-    function setKaliDaoFactory(address target, uint256 value, address factory) external payable onlyOperator {
-        this.setAddress(keccak256(abi.encode("kalidaofactory")), factory);
+    function setKaliDaoFactory(address factory) external payable onlyOperator {
+        this.setAddress(KALIDAO_FACTORY_KEY, factory);
     }
 
-    function getKaliDaoFactory(address target, uint256 value) external view returns (address) {
-        return this.getAddress(keccak256(abi.encode("kalidaofactory")));
+    function getKaliDaoFactory() external view returns (address) {
+        return this.getAddress(KALIDAO_FACTORY_KEY);
+    }
+
+    function setImpactToken(address token) external payable onlyOperator {
+        this.setAddress(IMPACT_TOKEN_KEY, token);
+    }
+
+    function getImpactToken() external view returns (address) {
+        return this.getAddress(IMPACT_TOKEN_KEY);
     }
 
     function setTax(address target, uint256 value, uint256 _tax) external payable onlyPlayground(target, value) {
@@ -470,7 +457,7 @@ contract KaliBerger is Storage {
         setTimeAcquired(target, value, block.timestamp);
         this.setOwner(target, value, newOwner);
 
-        // TODO: Handle patrons (aka past owners)
+        // TODO: Handle patons (aka past owners)
     }
 
     receive() external payable virtual {}
