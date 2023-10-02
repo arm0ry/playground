@@ -7,14 +7,10 @@ import {Base64} from "../../lib/solbase/src/utils/Base64.sol";
 import {LibString} from "../../lib/solbase/src/utils/LibString.sol";
 import {ERC721} from "../../lib/solbase/src/tokens/ERC721/ERC721.sol";
 
-import {Missions} from "../Missions.sol";
 import {IMissions, Mission, Task, Metric} from "../interface/IMissions.sol";
 import {IStorage} from "../interface/IStorage.sol";
-import {Storage} from "../Storage.sol";
 import {IQuest, QuestDetail} from "../interface/IQuest.sol";
-
-import {KaliDAOfactory, KaliDAO} from "../kali/KaliDAOfactory.sol";
-import {IKaliTokenManager} from "../interface/IKaliTokenManager.sol";
+import {IKaliBerger} from "../interface/IKaliBerger.sol";
 
 /// @title Impact NFTs
 /// @notice SVG NFTs displaying impact results and metrics.
