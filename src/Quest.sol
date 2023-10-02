@@ -149,11 +149,8 @@ contract Quest is Storage {
     /// @param taskId .
     /// @param response .
     /// @dev
-    function respond(address missions, uint256 missionId, uint256 taskId, string calldata response, uint256 metricValue)
-        external
-        payable
-    {
-        _respond(msg.sender, missions, missionId, taskId, response, metricValue);
+    function respond(address missions, uint256 missionId, uint256 taskId, string calldata response) external payable {
+        _respond(msg.sender, missions, missionId, taskId, response);
     }
 
     function respondBySig(
@@ -366,7 +363,7 @@ contract Quest is Storage {
             this.deleteUint(keccak256(abi.encode(user, questKey, ".detail.timeLeft")));
 
             // Increment number of mission completions.
-            this.addUint(keccak256(abi.encode(missions, missionId, ".completions")), 1);
+            IMissions(missions).incrementMissionCompletions(missionId);
 
             // Increment number of mission completions per questKey.
             this.addUint(keccak256(abi.encode(user, questKey, ".stats.completions")), 1);
@@ -412,8 +409,12 @@ contract Quest is Storage {
 
         // Increment number of mission starts by questKey by user.
         this.addUint(keccak256(abi.encode(user, questKey, ".stats.starts")), 1);
+
+        // Increment number of mission starts
+        IMissions(missions).incrementMissionStarts(missionId);
     }
 
+    // TODO: CONSIDER ADDING SELF-ASSESSMENT METRICS TO QUEST CONTRACT
     /// @notice Internal function using signature to respond to quest tasks.
     /// @param user .
     /// @param missions .
@@ -421,14 +422,10 @@ contract Quest is Storage {
     /// @param taskId .
     /// @param response .
     /// @dev
-    function _respond(
-        address user,
-        address missions,
-        uint256 missionId,
-        uint256 taskId,
-        string calldata response,
-        uint256 metricValue
-    ) internal virtual {
+    function _respond(address user, address missions, uint256 missionId, uint256 taskId, string calldata response)
+        internal
+        virtual
+    {
         // Retrieve user questId.
         uint256 questId = this.getUint(keccak256(abi.encode(user, ".questId")));
 
@@ -449,10 +446,6 @@ contract Quest is Storage {
         // Store quest task responses.
         this.setString(keccak256(abi.encode(taskKey, ".review.response")), response);
 
-        // Store metric value.
-        // TODO: THIS NEEDS REWORK
-        IMissions(missions).setMetric(missionId, "", metricValue);
-
         // Initiate/Reset cooldown.
         uint256 cd = this.getUint(keccak256(abi.encode("quest.cd")));
         this.setUint(keccak256(abi.encode(taskKey, ".review.cd")), cd + block.timestamp);
@@ -464,6 +457,9 @@ contract Quest is Storage {
         // If review is not necessary, proceed to distribute reward and update quest detail.
         if (!qd.toReview) {
             updateQuestDetail(user, questKey, missionId, qd.completed);
+
+            // Increment task completion
+            IMissions(missions).incrementTaskCompletions(taskId);
         }
     }
 
@@ -492,6 +488,9 @@ contract Quest is Storage {
 
             // Update quest detail
             updateQuestDetail(user, questKey, missionId, qd.completed);
+
+            // Increment task completion
+            IMissions(missions).incrementTaskCompletions(taskId);
         }
     }
 }

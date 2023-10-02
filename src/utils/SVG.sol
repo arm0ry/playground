@@ -28,6 +28,10 @@ library SVG {
         return _el("image", string.concat(_prop("href", href), " ", props), NULL);
     }
 
+    function _circle(string memory _props, string memory _children) internal pure returns (string memory) {
+        return _el("circle", _props, _children);
+    }
+
     function _cdata(string memory content) internal pure returns (string memory) {
         return string.concat("<![CDATA[", content, "]]>");
     }

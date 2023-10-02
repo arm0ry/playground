@@ -66,11 +66,16 @@ contract ImpactToken is ERC721 {
     }
 
     function generateSvg(address missions, uint256 missionId) public view returns (string memory) {
+        string memory title = IMissions(missions).getMissionTitle(missionId);
+        uint256 deadline = IMissions(missions).getMissionDeadline(missionId);
+        uint256 completions =
+            IStorage(missions).getUint(keccak256(abi.encodePacked(missions, missionId, ".completions")));
+
         return string.concat(
-            '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" style="background:#191919">',
+            '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" style="background:#FFFBF5">',
             buildSvgLogo(),
-            buildSvgData(missions, missionId),
-            buildSvgMetrics(missions, missionId),
+            buildSvgData(missions, missionId, title, deadline, completions),
+            buildTreeRing(missions, missionId),
             "</svg>"
         );
     }
@@ -87,12 +92,13 @@ contract ImpactToken is ERC721 {
         );
     }
 
-    function buildSvgData(address missions, uint256 missionId) public view returns (string memory) {
-        uint256 deadline = IMissions(missions).getMissionDeadline(missionId);
-        uint256 completions =
-            IStorage(missions).getUint(keccak256(abi.encodePacked(missions, missionId, ".completions")));
-        string memory title = IMissions(missions).getMissionTitle(missionId);
-
+    function buildSvgData(
+        address missions,
+        uint256 missionId,
+        string memory title,
+        uint256 deadline,
+        uint256 completions
+    ) public view returns (string memory) {
         return string.concat(
             SVG._text(
                 string.concat(
@@ -134,7 +140,7 @@ contract ImpactToken is ERC721 {
             SVG._text(
                 string.concat(
                     SVG._prop("x", "20"),
-                    SVG._prop("y", "240"),
+                    SVG._prop("y", "170"),
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
@@ -143,7 +149,7 @@ contract ImpactToken is ERC721 {
             SVG._text(
                 string.concat(
                     SVG._prop("x", "20"),
-                    SVG._prop("y", "260"),
+                    SVG._prop("y", "210"),
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
@@ -152,76 +158,47 @@ contract ImpactToken is ERC721 {
             SVG._text(
                 string.concat(
                     SVG._prop("x", "20"),
-                    SVG._prop("y", "280"),
+                    SVG._prop("y", "190"),
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat("Deadline: ", SVG._uint2str(deadline))
+                string.concat("Complete by: ", SVG._uint2str(deadline))
             )
         );
     }
 
-    function buildSvgMetrics(address missions, uint256 missionId) public view returns (string memory) {
-        string memory title = IMissions(missions).getMetricTitle(missionId);
-        Metric memory metric = IMissions(missions).getMetrics(missionId);
+    function buildTreeRing(address missions, uint256 missionId) public view returns (string memory str) {
+        uint256 baseRadius = 500;
+        uint256[] memory taskIds = IMissions(missions).getMissionTaskIds(missionId);
+        string[] memory strArray;
 
-        uint256 mostRecent = IMissions(missions).getSingleMetricValue(missionId, metric.numberOfEntries);
-        uint256 secondMostRecent;
-        uint256 thirdMostRecent;
-        uint256 fourthMostRecent;
-        uint256 fifthMostRecent;
-        if (metric.numberOfEntries > 1) {
-            secondMostRecent = IMissions(missions).getSingleMetricValue(missionId, metric.numberOfEntries - 1);
-        } else if (metric.numberOfEntries > 2) {
-            thirdMostRecent = IMissions(missions).getSingleMetricValue(missionId, metric.numberOfEntries);
-        } else if (metric.numberOfEntries > 3) {
-            fourthMostRecent = IMissions(missions).getSingleMetricValue(missionId, metric.numberOfEntries);
-        } else if (metric.numberOfEntries > 4) {
-            fifthMostRecent = IMissions(missions).getSingleMetricValue(missionId, metric.numberOfEntries);
-        } else {}
+        for (uint256 i = 0; i < taskIds.length;) {
+            uint256 completions = IMissions(missions).getTaskCompletions(taskIds[i]);
 
-        return string.concat(
-            SVG._text(
+            // radius = completions * max radius / max completions at max radius + base radius
+            uint256 radius = completions * 500 / 100;
+            baseRadius += radius / 10;
+
+            strArray[i] = SVG._circle(
                 string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "190"),
-                    SVG._prop("font-size", "10"),
-                    SVG._prop("fill", "8FADFF")
+                    SVG._prop("cx", "265"),
+                    SVG._prop("cy", "265"),
+                    SVG._prop("r", SVG._uint2str(baseRadius / 10)),
+                    SVG._prop("stroke", "#A1662F"),
+                    SVG._prop("stroke-opacity", "0.1"),
+                    SVG._prop("stroke-width", "3"),
+                    SVG._prop("fill", "#FFBE0B"),
+                    SVG._prop("fill-opacity", "0.1")
                 ),
-                string.concat(title)
-            ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "70"),
-                    SVG._prop("y", "195"),
-                    SVG._prop("font-size", "60"),
-                    SVG._prop("fill", "FFBE0B")
-                ),
-                useEmoji
-                    ? string.concat(
-                        SVG._uint2str(fifthMostRecent),
-                        " ",
-                        SVG._uint2str(fourthMostRecent),
-                        " ",
-                        SVG._uint2str(thirdMostRecent),
-                        " ",
-                        SVG._uint2str(secondMostRecent),
-                        " ",
-                        SVG._uint2str(mostRecent)
-                    )
-                    : string.concat(
-                        this.getEmoji(fifthMostRecent),
-                        " ",
-                        this.getEmoji(fourthMostRecent),
-                        " ",
-                        this.getEmoji(thirdMostRecent),
-                        " ",
-                        this.getEmoji(secondMostRecent),
-                        " ",
-                        this.getEmoji(mostRecent)
-                    )
-            )
-        );
+                ""
+            );
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        return str;
     }
 
     /// -----------------------------------------------------------------------
@@ -248,23 +225,5 @@ contract ImpactToken is ERC721 {
             missions := shr(96, key)
         }
         return (missions, uint256(_id));
-    }
-
-    function getEmoji(uint256 value) external pure returns (string memory) {
-        string memory temp;
-        if (value == 0) {
-            temp = unicode"😁";
-        } else if (value == 1) {
-            temp = unicode"👌";
-        } else if (value == 2) {
-            temp = unicode"😃";
-        } else if (value == 3) {
-            temp = unicode"🙌";
-        } else if (value == 3) {
-            temp = unicode"🙌";
-        } else {
-            temp = unicode"👍";
-        }
-        return temp;
     }
 }
