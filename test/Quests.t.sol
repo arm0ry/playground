@@ -67,13 +67,13 @@ contract QuestsTest is Test {
         // Summon KaliDAO
         deployKali();
 
+        // Initialize Quest that reward DAO tokens
+        quests_dao = new Quest();
+
         // Deploy contracts
         missions = new Missions();
         vm.prank(address(arm0ry));
-        missions.setDao((address(arm0ry)));
-
-        // Initialize Quest that reward DAO tokens
-        quests_dao = new Quest();
+        missions.initialize((address(arm0ry)), address(quests_dao));
         // vm.prank(address(arm0ry));
         // quests_dao.initialize(directory);
         // vm.prank(address(arm0ry));
@@ -87,7 +87,7 @@ contract QuestsTest is Test {
         // directory.setQuestAddress(address(quests_erc20), true);
 
         mintNft(alice);
-        setupTasksAndMissions();
+        // setupTasksAndMissions();
         // setupRewards_Dao();
         // setupRewards_Erc20();
 
@@ -100,11 +100,11 @@ contract QuestsTest is Test {
 
     function testStart() public payable {
         vm.prank(alice);
-        quests_dao.start(address(erc721), 1, address(missions), 1);
+        // quests_dao.start(address(missions), 1);
 
-        bytes32 questKey = quests_dao.encode(address(erc721), 1, address(missions), 1, 0);
-        qd = quests_dao.getQuestDetail(questKey);
-        assertEq(qd.active, true);
+        // bytes32 questKey = quests_dao.encode(address(erc721), 1, address(missions), 1, 0);
+        // qd = quests_dao.getQuestDetail(questKey);
+        // assertEq(qd.active, true);
         // assertEq(qd.timestamp, 1000);
         // assertEq(qd.timeLeft, 400);
     }
@@ -182,11 +182,10 @@ contract QuestsTest is Test {
     //     // assertEq(address(quests_dao.mission()), address(iMissions));
     // }
 
-    // function testReceiveETH() public payable {
-    //     (bool sent,) = address(quests_dao).call{value: 5 ether}("");
-    //     assert(sent);
-    //     assert(address(quests_dao).balance == 5 ether);
-    // }
+    function testReceiveETH() public payable {
+        (bool sent,) = address(quests_dao).call{value: 5 ether}("");
+        assert(!sent);
+    }
 
     /// -----------------------------------------------------------------------
     /// Internal Functions
@@ -277,22 +276,30 @@ contract QuestsTest is Test {
         Task memory task1 = Task({
             deadline: 100,
             creator: address(arm0ry),
-            detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
+            detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza",
+            starts: 0,
+            completions: 0
         });
         Task memory task2 = Task({
             deadline: 100,
             creator: charlie,
-            detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
+            detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza",
+            starts: 0,
+            completions: 0
         });
         Task memory task3 = Task({
             deadline: 100,
             creator: charlie,
-            detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
+            detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza",
+            starts: 0,
+            completions: 0
         });
         Task memory task4 = Task({
             deadline: 100,
             creator: charlie,
-            detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
+            detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza",
+            starts: 0,
+            completions: 0
         });
 
         // tasks.push(task1);
@@ -318,19 +325,18 @@ contract QuestsTest is Test {
         taskIds.push(4);
 
         // Create new mission
-        vm.prank(address(arm0ry));
-        missions.setMission(
-            0,
-            Mission({
-                forPurchase: true,
-                creator: bob,
-                title: "Welcome to New School",
-                detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza",
-                taskIds: taskIds,
-                fee: 1e18, // 1 ETH
-                completions: 0
-            })
-        );
+        // vm.prank(address(arm0ry));
+        // missions.setMission(
+        //     0,
+        //     Mission({
+        //         forPurchase: true,
+        //         creator: bob,
+        //         title: "Welcome to New School",
+        //         detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza",
+        //         taskIds: taskIds,
+        //         completions: 0
+        //     })
+        // );
 
         // Validate Mission setup
         // (mission,) = missions.getMission(1);

@@ -1,17 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.4;
 
+import {LibString} from "../../lib/solbase/src/utils/LibString.sol";
+
 import {Missions} from "../Missions.sol";
 import {IMissions, Mission, Task, Metric} from "../interface/IMissions.sol";
 import {IStorage} from "../interface/IStorage.sol";
 import {Storage} from "../Storage.sol";
 import {IQuest, QuestDetail} from "../interface/IQuest.sol";
 
-import {ImpactToken} from "../tokens/ImpactToken.sol";
+import {IImpactToken} from "../interface/IImpactToken.sol";
 import {KaliDAOfactory, KaliDAO} from "../kali/KaliDAOfactory.sol";
 import {IKaliTokenManager} from "../interface/IKaliTokenManager.sol";
 
 import {IERC721} from "../../lib/forge-std/src/interfaces/IERC721.sol";
+import {IERC20} from "../../lib/forge-std/src/interfaces/IERC20.sol";
 
 /// @title Impact NFTs
 /// @notice SVG NFTs displaying impact results and metrics.
@@ -23,37 +26,27 @@ contract KaliBerger is Storage {
 
     error NotAuthorized();
     error TransferFailed();
-    error InvalidMission();
     error InvalidPrice();
     error InvalidExit();
-    error InvalidRoyalties();
     error NotPatron();
     error FactoryNotSet();
     error InvalidMint();
 
     /// -----------------------------------------------------------------------
-    /// Emoji Storage
-    /// -----------------------------------------------------------------------
-
-    bool useEmoji;
-
-    /// -----------------------------------------------------------------------
-    /// Harberger Tax Storage
-    /// -----------------------------------------------------------------------
-
-    /// -----------------------------------------------------------------------
-    /// Immutable Storage
-    /// -----------------------------------------------------------------------
-
-    bytes32 immutable ROYALTIES_KEY = keccak256(abi.encodePacked("royalties.default"));
-    bytes32 immutable KALIDAO_FACTORY_KEY = keccak256(abi.encodePacked("kalidao.factory"));
-    bytes32 immutable IMPACT_TOKEN_KEY = keccak256(abi.encodePacked("impactToken"));
-
-    /// -----------------------------------------------------------------------
     /// Constructor
     /// -----------------------------------------------------------------------
 
-    constructor() {}
+    function init(address dao, address factory, address impactToken) external payable {
+        if (factory != address(0) && impactToken != address(0)) {
+            init(dao, address(0));
+            setKaliDaoFactory(factory);
+            setImpactToken(impactToken);
+        }
+    }
+
+    /// -----------------------------------------------------------------------
+    /// Modifiers
+    /// -----------------------------------------------------------------------
 
     modifier onlyPatron(address target, uint256 value) {
         if (msg.sender != this.getOwner(target, value)) revert NotPatron();
@@ -71,7 +64,7 @@ contract KaliBerger is Storage {
     }
 
     /// -----------------------------------------------------------------------
-    // Mint Logic
+    /// KaliBerger Functions - Preparation
     /// -----------------------------------------------------------------------
 
     /// @notice Escrow ERC721 NFT before making available for purchase.
@@ -83,193 +76,157 @@ contract KaliBerger is Storage {
     }
 
     /// @notice Enable Playground NFT for sale.
-    function enablePlayground(address missions, uint256 missionId, uint256 price) external payable {
+    function enable(address missions, uint256 missionId, uint256 price) external payable playground(missions) {
+        address creator = IMissions(missions).getMissionCreator(missionId);
+        address dao = IStorage(missions).getDao();
+        if (msg.sender != creator && msg.sender != dao) revert NotAuthorized();
+
         if (price == 0) revert InvalidPrice();
         this.setPrice(missions, missionId, price);
     }
 
-    function balanceDao(address target, uint256 value, address newOwner) external payable {
+    /// -----------------------------------------------------------------------
+    /// KaliBerger Functions - DAO memberships
+    /// -----------------------------------------------------------------------
+
+    /// @notice Public function to rebalance an Impact DAO.
+    function balanceDao(address target, uint256 value) external payable {
         // Get address to DAO to manage revenue from Harberger Tax
-        address sustainableDAO = this.getAddress(keccak256(abi.encode(target, value, ".dao")));
-        // TODO: Need to define KaliDAO params
-        if (sustainableDAO == address(0)) {
-            // Summon DAO if not already summoned
-            // TODO: Add newOwner here
-            sustainableDAO = KaliDAOfactory(this.getKaliDaoFactory()).deployKaliDAO();
+        address payable dao = payable(this.getImpactDao(target, value));
+        if (dao == address(0)) revert NotAuthorized();
+
+        _balance(target, value, dao, address(0));
+    }
+
+    /// @notice Summon an Impact DAO
+    function summonDao(address target, uint256 value, address creator, address patron) private returns (address) {
+        address[] memory extensions;
+        bytes[] memory extensionsData;
+
+        address[] memory voters;
+        voters[0] = creator;
+        voters[1] = patron;
+
+        uint256[] memory tokens;
+        tokens[1] = this.getPatronContribution(target, value, patron);
+        tokens[0] = tokens[1];
+
+        uint32[16] memory govSettings;
+        govSettings = [uint32(300), 0, 60, 20, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+
+        uint256 count = this.getBergerCount();
+        address payable dao = payable(
+            KaliDAOfactory(this.getKaliDaoFactory()).deployKaliDAO(
+                string.concat("BergerTime #", LibString.toString(count)),
+                string.concat("BT #", LibString.toString(count)),
+                " ",
+                true,
+                extensions,
+                extensionsData,
+                voters,
+                tokens,
+                govSettings
+            )
+        );
+
+        setImpactDao(target, value, dao);
+        return dao;
+    }
+
+    /// @notice Update DAO balance when ImpactToken is purchased.
+    function updateBalances(address target, uint256 value, address patron) internal {
+        // Get DAO address to manage revenue from Harberger Tax
+        address dao = this.getImpactDao(target, value);
+
+        // Retrieve creator.
+        address creator = this.getCreator(target, value);
+        if (creator == address(0)) creator = IMissions(target).getMissionCreator(value);
+
+        if (dao == address(0)) {
+            // Summon DAO with 50/50 ownership between creator and patron(s).
+            summonDao(target, value, creator, patron);
+        } else {
+            // Update DAO balance.
+            _balance(target, value, dao, creator);
         }
+    }
 
-        // Retrieve total amount collected to date.
-        uint256 totalCollected = this.getTotalCollected(target, value);
+    /// @notice Rebalance Impact DAO.
+    function _balance(address target, uint256 value, address dao, address creator) private {
+        for (uint256 i = 0; i < this.getPatronCount(target, value);) {
+            // Retrieve patron and patron contribution.
+            address _patron = this.getPatron(target, value, i);
+            uint256 contribution = this.getPatronContribution(target, value, _patron);
 
-        // Ensure ratio is same as that of member DAO token amount to total DAO token amount
-        uint256 patronCount = this.getPatronCount(target, value);
-        for (uint256 i = 0; i < patronCount;) {
-            // Retrieve patron contribution.
-            address patron = this.getPatron(target, value, patronId);
-            uint256 contribution = this.getPatronContribution(target, value, patron);
+            // Retrieve KaliDAO balance data.
+            uint256 _contribution = IERC20(dao).balanceOf(msg.sender);
 
-            // Retrieve KaliDAO data.
-            uint256 _contribution = KaliDAO(sustainableDAO).balanceOf(msg.sender);
+            // Retrieve creator.
+            if (creator == address(0)) {
+                if (this.getCreator(target, value) == address(0)) {
+                    creator = IMissions(target).getMissionCreator(value);
+                }
+            }
 
-            if (contribution > _contribution) {
-                amount = contribution - _contribution;
-                IKaliTokenManager(sustainableDAO).mintShares(creator, amount);
-                IKaliTokenManager(sustainableDAO).mintShares(msg.sender, amount);
-            } else if (contribution < _contribution) {
-                amount = _contribution - contribution;
-                IKaliTokenManager(sustainableDAO).burnShares(creator, amount);
-                IKaliTokenManager(sustainableDAO).burnShares(msg.sender, amount);
-            } else {
-                continue;
+            if (contribution != _contribution) {
+                // Determine to mint or burn.
+                if (contribution > _contribution) {
+                    IKaliTokenManager(dao).mintTokens(creator, contribution - _contribution);
+                    IKaliTokenManager(dao).mintTokens(_patron, contribution - _contribution);
+                } else if (contribution < _contribution) {
+                    IKaliTokenManager(dao).burnTokens(creator, _contribution - contribution);
+                    IKaliTokenManager(dao).burnTokens(_patron, _contribution - contribution);
+                }
             }
 
             unchecked {
                 ++i;
             }
         }
-
-        uint256 amount;
     }
 
-    function handleRoyalties(address token, uint256 tokenId, uint256 price) internal returns (uint256) {
-        address creator = this.getAddress(keccak256(abi.encode(token, tokenId, ".creator")));
-        if (creator == address(0)) {
-            return price;
-        } else {
-            uint256 royalties = this.getRoyalties();
-            uint256 payout;
-
-            unchecked {
-                payout = price * royalties / 100;
-            }
-
-            (bool success,) = creator.call{value: payout}("");
-            if (!success) addUnclaimed(creator, payout);
-
-            return price - payout;
-        }
-    }
+    /// -----------------------------------------------------------------------
+    /// Patron Logic
+    /// -----------------------------------------------------------------------
 
     /// @notice Buy ERC721 NFT.
-    // credit: simondlr  https://github.com/simondlr/thisartworkisalwaysonsale/blob/master/packages/hardhat/contracts/v1/ArtStewardV2.sol
-    function buy(address token, uint256 tokenId, uint256 _newPrice, uint256 _currentPrice)
+    function buyErc(address token, uint256 tokenId, uint256 newPrice, uint256 currentPrice)
         external
         payable
         collectPatronage(token, tokenId)
         isFactorySet
     {
-        uint256 price = this.getPrice(token, tokenId);
-        if (price != _currentPrice || _newPrice == 0 || msg.value != _currentPrice) revert InvalidMint();
+        // Pay currentPrice + deposit to current owner.
+        address owner = IERC721(token).ownerOf(tokenId);
+        if (owner != address(0)) processPayment(token, tokenId, owner, newPrice, currentPrice);
 
-        // Add purchase price to patron contribution.
-        addPatronContribution(target, value, msg.sender, price);
-
-        address currentOwner = IERC721(token).ownerOf(tokenId);
-        uint256 _deposit = this.getDeposit(token, tokenId);
-
-        // Pay royalties, if any
-        price = handleRoyalties(token, tokenId, price);
-
-        uint256 totalToPayBack = price + _deposit;
-        if (totalToPayBack > 0) {
-            // this won't execute if steward owns it. price = 0. deposit = 0.
-            // pay previous owner their price + deposit back.
-            (bool success,) = currentOwner.call{value: totalToPayBack}("");
-            if (!success) this.addUint(keccak256(abi.encode(currentOwner, ".unclaimed")), totalToPayBack);
-        }
-
-        // Update time of collection
-        // Update deposit, if any.
-        _deposit = msg.value - price;
-        this.addDeposit(token, tokenId, _deposit);
-
-        transferArtworkTo(token, tokenId, currentOwner, msg.sender, _newPrice);
+        // Transfer NFT and update price and other data.
+        transferImpactToken(token, tokenId, owner, msg.sender, newPrice);
 
         // Balance DAO according to updated contribution.
-        this.balanceDao(token, tokenId, address(0), price);
+        updateBalances(token, tokenId, msg.sender);
     }
 
-    // todo: fix below
     /// @notice Buy Playground NFT.
-    function buy(address missions, uint256 missionId, uint256 _newPrice, uint256 _currentPrice)
+    function buyPlayground(address missions, uint256 missionId, uint256 newPrice, uint256 currentPrice)
         external
         payable
         collectPatronage(missions, missionId)
         isFactorySet
+        playground(missions)
     {
-        // Check if Playground contracts
-        address dao = IStorage(missions).getDao();
-        if (dao != address(0)) revert NotAuthorized();
+        // Pay currentPrice + deposit to current owner.
+        address owner = IERC721(missions).ownerOf(IImpactToken(missions).getTokenId(missions, missionId));
+        if (owner != address(0)) processPayment(missions, missionId, owner, newPrice, currentPrice);
 
-        Mission memory mission = IMissions(missions).getMission(missionId);
+        // Transfer NFT and update price and other data.
+        transferImpactToken(missions, missionId, owner, msg.sender, newPrice);
 
-        address currentOwner = IERC721(missions).ownerOf(ImpactToken(missions).encode(missions, missionId));
-        uint256 _deposit = this.getDeposit(missions, missionId);
-        uint256 totalToPayBack = price + _deposit;
-        if (totalToPayBack > 0) {
-            // this won't execute if steward owns it. price = 0. deposit = 0.
-            // pay previous owner their price + deposit back.
-            // address payable payableCurrentOwner = address(uint160(currentOwner));
-            (bool success,) = currentOwner.call{value: totalToPayBack}("");
-            if (!success) this.addUnclaimed(currentOwner, totalToPayBack);
-        }
-
-        // new purchase
-        _deposit = msg.value - price;
-        this.addDeposit(missions, missionId, _deposit);
-
-        transferArtworkTo(tokenId, currentOwner, msg.sender, _newPrice);
-
-        this.balanceDao(missions, missionId, mission.creator, price);
+        // Balance DAO according to updated contribution.
+        updateBalances(missions, missionId, msg.sender);
     }
 
-    /// -----------------------------------------------------------------------
-    /// Patron Only Logic
-    /// -----------------------------------------------------------------------
-
-    function exit(address target, uint256 value, uint256 amount)
-        public
-        collectPatronage(target, value)
-        onlyPatron(target, value)
-    {
-        uint256 _deposit = this.getDeposit(target, value);
-        if (_deposit >= amount) revert InvalidExit();
-
-        (bool success,) = msg.sender.call{value: _deposit - amount}("");
-        if (!success) revert TransferFailed();
-
-        _forecloseIfNecessary(target, value, _deposit);
-    }
-
-    /// -----------------------------------------------------------------------
-    /// Helper Functions
-    /// -----------------------------------------------------------------------
-
-    function setKaliDaoFactory(address factory) external payable onlyOperator {
-        this.setAddress(KALIDAO_FACTORY_KEY, factory);
-    }
-
-    function getKaliDaoFactory() external view returns (address) {
-        return this.getAddress(KALIDAO_FACTORY_KEY);
-    }
-
-    function setImpactToken(address token) external payable onlyOperator {
-        this.setAddress(IMPACT_TOKEN_KEY, token);
-    }
-
-    function getImpactToken() external view returns (address) {
-        return this.getAddress(IMPACT_TOKEN_KEY);
-    }
-
-    function setTax(address target, uint256 value, uint256 _tax) external payable onlyPlayground(target) {
-        this.setUint(keccak256(abi.encode(target, value, ".tax")), _tax);
-    }
-
-    function getTax(address target, uint256 value) external view returns (uint256 _tax) {
-        _tax = this.getUint(keccak256(abi.encode(target, value, ".tax")));
-        return (_tax == 0) ? _tax = 50 : _tax; // default tax rate is hardcoded at 50%
-    }
-
+    /// @notice Set new price for purchase.
     function setPrice(address target, uint256 value, uint256 price)
         external
         payable
@@ -280,91 +237,138 @@ contract KaliBerger is Storage {
         this.setUint(keccak256(abi.encode(target, value, ".price")), price);
     }
 
-    function getPrice(address target, uint256 value) external view returns (uint256) {
-        return this.getUint(keccak256(abi.encode(target, value, ".price")));
-    }
-
-    function setRoyalties(address token, uint256 royalties) external payable onlyPlayground(token) {
-        this.setUint(ROYALTIES_KEY, royalties);
-    }
-
-    function getRoyalties() external view returns (uint256) {
-        return this.getUint(ROYALTIES_KEY);
-    }
-
+    /// @notice To make deposit.
     function addDeposit(address target, uint256 value, uint256 _deposit) external payable onlyPatron(target, value) {
         this.addUint(keccak256(abi.encode(target, value, ".deposit")), _deposit);
     }
 
-    function getDeposit(address target, uint256 value) external view returns (uint256) {
-        return this.getUint(keccak256(abi.encode(target, value, ".deposit")));
+    /// @notice Withdraw from deposit.
+    function exit(address target, uint256 value, uint256 amount)
+        public
+        collectPatronage(target, value)
+        onlyPatron(target, value)
+    {
+        uint256 deposit = this.getDeposit(target, value);
+        if (deposit >= amount) revert InvalidExit();
+
+        (bool success,) = msg.sender.call{value: deposit - amount}("");
+        if (!success) revert TransferFailed();
+
+        _forecloseIfNecessary(target, value, deposit);
+    }
+
+    /// -----------------------------------------------------------------------
+    /// KaliBerger Functions - Setter Logic
+    /// -----------------------------------------------------------------------
+
+    /// @param factory The address of dao factory.
+    function setKaliDaoFactory(address factory) public onlyOperator {
+        this.setAddress(keccak256(abi.encodePacked("dao.factory")), factory);
+    }
+
+    function setImpactDao(address target, uint256 value, address dao) public onlyOperator {
+        this.setAddress(keccak256(abi.encode(target, value, ".dao")), dao);
+    }
+
+    function setImpactToken(address token) public onlyOperator {
+        this.setAddress(keccak256(abi.encodePacked("impactToken")), token);
+    }
+
+    function setTax(address target, uint256 value, uint256 _tax) external payable onlyOperator {
+        this.setUint(keccak256(abi.encode(target, value, ".tax")), _tax);
+    }
+
+    function setCreator(address target, uint256 value, address creator) external payable onlyOperator {
+        this.setAddress(keccak256(abi.encode(target, value, ".creator")), creator);
     }
 
     function setTimeCollected(address target, uint256 value, uint256 timestamp) internal {
         this.setUint(keccak256(abi.encode(target, value, ".timeCollected")), timestamp);
     }
 
-    function getTimeCollected(address target, uint256 value) external view returns (uint256) {
-        return this.getUint(keccak256(abi.encode(target, value, ".timeCollected")));
-    }
-
     function setTimeAcquired(address target, uint256 value, uint256 timestamp) internal {
         this.setUint(keccak256(abi.encode(target, value, ".timeAcquired")), timestamp);
-    }
-
-    function getTimeAcquired(address target, uint256 value) external view returns (uint256) {
-        return this.getUint(keccak256(abi.encode(target, value, ".timeAcquired")));
-    }
-
-    function addUnclaimed(address user, uint256 amount) internal {
-        this.addUint(keccak256(abi.encode(user, ".unclaimed")), amount);
-    }
-
-    function deleteUnclaimed(address user) internal {
-        this.deleteUint(keccak256(abi.encode(user, ".unclaimed")));
-    }
-
-    function getUnclaimed(address user) external view returns (uint256) {
-        return this.getUint(keccak256(abi.encode(user, ".unclaimed")));
-    }
-
-    function addTimeHeld(address user, uint256 time) external {
-        this.addUint(keccak256(abi.encode(user, ".timeHeld")), time);
-    }
-
-    function getTimeHeld(address user) external view returns (uint256) {
-        return this.getUint(keccak256(abi.encode(user, ".timeHeld")));
-    }
-
-    function addTotalCollected(address target, uint256 value, uint256 collected) internal {
-        this.addUint(keccak256(abi.encode(target, value, ".totalCollected")), collected);
-    }
-
-    function getTotalCollected(address target, uint256 value) external view returns (uint256) {
-        return this.getUint(keccak256(abi.encode(target, value, ".totalCollected")));
     }
 
     function setOwner(address target, uint256 value, address owner) internal {
         this.setAddress(keccak256(abi.encode(target, value, ".owner")), owner);
     }
 
+    function setPatron(address target, uint256 value, address patron) internal {
+        incrementPatronId(target, value);
+        this.setAddress(keccak256(abi.encode(target, value, this.getPatronCount(target, value))), patron);
+    }
+
+    /// -----------------------------------------------------------------------
+    /// KaliBerger Functions - Getter Logic
+    /// -----------------------------------------------------------------------
+
+    function getKaliDaoFactory() external view returns (address) {
+        return this.getAddress(keccak256(abi.encodePacked("dao.factory")));
+    }
+
+    function getBergerCount() external view returns (uint256) {
+        return this.getUint(keccak256(abi.encodePacked("bergerTimes.count")));
+    }
+
+    function getImpactDao(address target, uint256 value) external view returns (address) {
+        return this.getAddress(keccak256(abi.encode(target, value, ".dao")));
+    }
+
+    function getImpactToken() external view returns (address) {
+        return this.getAddress(keccak256(abi.encodePacked("impactToken")));
+    }
+
+    function getTax(address target, uint256 value) external view returns (uint256 _tax) {
+        _tax = this.getUint(keccak256(abi.encode(target, value, ".tax")));
+        return (_tax == 0) ? _tax = 50 : _tax; // default tax rate is hardcoded at 50%
+    }
+
+    function getPrice(address target, uint256 value) external view returns (uint256) {
+        return this.getUint(keccak256(abi.encode(target, value, ".price")));
+    }
+
+    function getCreator(address target, uint256 value) external view returns (address) {
+        return this.getAddress(keccak256(abi.encode(target, value, ".creator")));
+    }
+
+    function getDeposit(address target, uint256 value) external view returns (uint256) {
+        return this.getUint(keccak256(abi.encode(target, value, ".deposit")));
+    }
+
+    function getTimeCollected(address target, uint256 value) external view returns (uint256) {
+        return this.getUint(keccak256(abi.encode(target, value, ".timeCollected")));
+    }
+
+    function getTimeAcquired(address target, uint256 value) external view returns (uint256) {
+        return this.getUint(keccak256(abi.encode(target, value, ".timeAcquired")));
+    }
+
+    function getUnclaimed(address user) external view returns (uint256) {
+        return this.getUint(keccak256(abi.encode(user, ".unclaimed")));
+    }
+
+    function getTimeHeld(address user) external view returns (uint256) {
+        return this.getUint(keccak256(abi.encode(user, ".timeHeld")));
+    }
+
+    function getTotalCollected(address target, uint256 value) external view returns (uint256) {
+        return this.getUint(keccak256(abi.encode(target, value, ".totalCollected")));
+    }
+
     function getOwner(address target, uint256 value) external view returns (address) {
         return this.getAddress(keccak256(abi.encode(target, value, ".owner")));
     }
 
-    function incrementPatronId(address target, uint256 value) internal {
-        this.addUint(keccak256(abi.encode(target, value, ".patronCount")), 1);
-    }
-
-    function getPatronCount(address target, uint256 value) external view returns (address) {
-        return this.getAddress(keccak256(abi.encode(target, value, ".patronCount")));
+    function getPatronCount(address target, uint256 value) external view returns (uint256) {
+        return this.getUint(keccak256(abi.encode(target, value, ".patronCount")));
     }
 
     function getPatronId(address target, uint256 value, address patron) external view returns (uint256) {
         uint256 count = this.getPatronCount(target, value);
 
         for (uint256 i = 0; i < count;) {
-            if (patron == this.getPatron(i)) return i;
+            if (patron == this.getPatron(target, value, i)) return i;
 
             unchecked {
                 ++i;
@@ -374,35 +378,74 @@ contract KaliBerger is Storage {
         return 0;
     }
 
-    function setPatron(address target, uint256 value, address patron) internal {
-        incrementPatronId(target, value);
-        this.setAddress(keccak256(abi.encode(target, value, this.getPatronCount())), owner);
-    }
-
     function getPatron(address target, uint256 value, uint256 patronId) external view returns (address) {
         return this.getAddress(keccak256(abi.encode(target, value, patronId)));
-    }
-
-    function addPatronContribution(address target, uint256 value, address patron, uint256 amount) internal {
-        return this.addUint(keccak256(abi.encode(target, value, patron), amount));
     }
 
     function getPatronContribution(address target, uint256 value, address patron) external view returns (uint256) {
         return this.getUint(keccak256(abi.encode(target, value, patron)));
     }
 
+    /// -----------------------------------------------------------------------
+    /// KaliBerger Functions - Add Logic
+    /// -----------------------------------------------------------------------
+
+    function addBergerCount() external payable onlyOperator {
+        this.addUint(keccak256(abi.encodePacked("bergerTimes.count")), 1);
+    }
+
+    function addUnclaimed(address user, uint256 amount) internal {
+        this.addUint(keccak256(abi.encode(user, ".unclaimed")), amount);
+    }
+
+    function addTimeHeld(address user, uint256 time) external {
+        this.addUint(keccak256(abi.encode(user, ".timeHeld")), time);
+    }
+
+    function addTotalCollected(address target, uint256 value, uint256 collected) internal {
+        this.addUint(keccak256(abi.encode(target, value, ".totalCollected")), collected);
+    }
+
+    function incrementPatronId(address target, uint256 value) internal {
+        this.addUint(keccak256(abi.encode(target, value, ".patronCount")), 1);
+    }
+
+    function addPatronContribution(address target, uint256 value, address patron, uint256 amount) internal {
+        this.addUint(keccak256(abi.encode(target, value, patron)), amount);
+    }
+
+    /// -----------------------------------------------------------------------
+    /// KaliBerger Storage - Delete Logic
+    /// -----------------------------------------------------------------------
+
+    function deleteDeposit(address target, uint256 value) internal {
+        return this.deleteUint(keccak256(abi.encode(target, value, ".deposit")));
+    }
+
+    function deleteUnclaimed(address user) internal {
+        this.deleteUint(keccak256(abi.encode(user, ".unclaimed")));
+    }
+
+    /// -----------------------------------------------------------------------
+    /// KaliBerger Functions - Collection Logic
+    /// -----------------------------------------------------------------------
+
     // credit: simondlr  https://github.com/simondlr/thisartworkisalwaysonsale/blob/master/packages/hardhat/contracts/v1/ArtStewardV2.sol
-    function patronageToCollect(address target, uint256 value) public view returns (uint256 amount) {
+    function patronageToCollect(address target, uint256 value) external view returns (uint256 amount) {
         return this.getPrice(target, value) * ((block.timestamp - this.getTimeCollected(target, value)) / 365 days)
             * (this.getTax(target, value) / 100);
     }
 
+    /// -----------------------------------------------------------------------
+    /// KaliBerger Functions - Foreclosure Logic
+    /// -----------------------------------------------------------------------
+
     // credit: simondlr  https://github.com/simondlr/thisartworkisalwaysonsale/blob/master/packages/hardhat/contracts/v1/ArtStewardV2.sol
-    function isForeclosed(address target, uint256 value) public view returns (bool, uint256) {
+    function isForeclosed(address target, uint256 value) external view returns (bool, uint256) {
         // returns whether it is in foreclosed state or not
         // depending on whether deposit covers patronage due
         // useful helper function when price should be zero, but contract doesn't reflect it yet.
-        uint256 toCollect = patronageToCollect(target, value);
+        uint256 toCollect = this.patronageToCollect(target, value);
         uint256 _deposit = this.getDeposit(target, value);
         if (toCollect >= _deposit) {
             return (true, 0);
@@ -414,7 +457,7 @@ contract KaliBerger is Storage {
     // credit: simondlr  https://github.com/simondlr/thisartworkisalwaysonsale/blob/master/packages/hardhat/contracts/v1/ArtStewardV2.sol
     function foreclosureTime(address target, uint256 value) external view returns (uint256) {
         uint256 pps = this.getPrice(target, value) / 365 days * (this.getTax(target, value) / 100);
-        (, uint256 daw) = isForeclosed(target, value);
+        (, uint256 daw) = this.isForeclosed(target, value);
         if (daw > 0) {
             return block.timestamp + daw / pps;
         } else if (pps > 0) {
@@ -423,16 +466,13 @@ contract KaliBerger is Storage {
             // not active and actively foreclosed (price is zero)
             uint256 timeCollected = this.getTimeCollected(target, value);
             return timeCollected
-                + (block.timestamp - timeCollected) * this.getDeposit(target, value) / patronageToCollect(target, value);
+                + (block.timestamp - timeCollected) * this.getDeposit(target, value)
+                    / this.patronageToCollect(target, value);
         } else {
             // not active and actively foreclosed (price is zero)
             return this.getTimeCollected(target, value); // it has been foreclosed or in foreclosure.
         }
     }
-
-    /// -----------------------------------------------------------------------
-    /// Internal Functions
-    /// -----------------------------------------------------------------------
 
     function _forecloseIfNecessary(address target, uint256 value, uint256 _deposit) internal {
         if (_deposit == 0) {
@@ -443,7 +483,7 @@ contract KaliBerger is Storage {
     // credit: simondlr  https://github.com/simondlr/thisartworkisalwaysonsale/blob/master/packages/hardhat/contracts/v1/ArtStewardV2.sol
     function _collectPatronage(address target, uint256 value) internal {
         uint256 price = this.getPrice(target, value);
-        uint256 toCollect = patronageToCollect(target, value);
+        uint256 toCollect = this.patronageToCollect(target, value);
         uint256 deposit = this.getDeposit(target, value);
 
         uint256 timeCollected = this.getTimeCollected(target, value);
@@ -472,8 +512,13 @@ contract KaliBerger is Storage {
         }
     }
 
+    /// -----------------------------------------------------------------------
+    /// KaliBerger Functions - NFT Transfer & Payments Logic
+    /// -----------------------------------------------------------------------
+
+    /// @notice Internal function to transfer ImpactToken.
     // credit: simondlr  https://github.com/simondlr/thisartworkisalwaysonsale/blob/master/packages/hardhat/contracts/v1/ArtStewardV2.sol
-    function transferArtworkTo(address target, uint256 value, address currentOwner, address newOwner, uint256 price)
+    function transferImpactToken(address target, uint256 value, address currentOwner, address newOwner, uint256 price)
         internal
     {
         // note: it would also tabulate time held in stewardship by smart contract
@@ -482,7 +527,7 @@ contract KaliBerger is Storage {
         // Mint Playground NFT / ImpactToken.
         if (currentOwner == address(0)) {
             address token = this.getImpactToken();
-            ImpactToken(token).mint(newOwner, uint256(bytes32(abi.encodePacked(target, uint96(value)))));
+            IImpactToken(token).mint(newOwner, uint256(bytes32(abi.encodePacked(target, uint96(value)))));
         }
 
         // Otherwise transfer ownership.
@@ -492,6 +537,33 @@ contract KaliBerger is Storage {
         setTimeAcquired(target, value, block.timestamp);
         setOwner(target, value, newOwner);
         setPatron(target, value, newOwner);
+    }
+
+    /// @notice Internal function to process purchase payment.
+    /// credit: simondlr  https://github.com/simondlr/thisartworkisalwaysonsale/blob/master/packages/hardhat/contracts/v1/ArtStewardV2.sol
+    function processPayment(address target, uint256 value, address currentOwner, uint256 newPrice, uint256 currentPrice)
+        internal
+    {
+        // Confirm price.
+        uint256 price = this.getPrice(target, value);
+        if (price != currentPrice || newPrice == 0 || msg.value != currentPrice) revert InvalidMint();
+
+        // Add purchase price to patron contribution.
+        addPatronContribution(target, value, msg.sender, price);
+
+        // Retrieve deposit, if any.
+        uint256 deposit = this.getDeposit(target, value);
+
+        if (price + deposit > 0) {
+            // this won't execute if KaliBerger owns it. price = 0. deposit = 0.
+            // pay previous owner their price + deposit back.
+            (bool success,) = currentOwner.call{value: price + deposit}("");
+            if (!success) addUnclaimed(currentOwner, price + deposit);
+            deleteDeposit(target, value);
+        }
+
+        // Make deposit, if any.
+        this.addDeposit(target, value, msg.value - price);
     }
 
     receive() external payable virtual {}

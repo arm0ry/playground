@@ -12,13 +12,14 @@ import {IQuest} from "src/interface/IQuest.sol";
 import {Storage} from "src/Storage.sol";
 import {IStorage} from "src/interface/IStorage.sol";
 import {Minter} from "src/Minter.sol";
+import {KaliBerger} from "src/kali/KaliBerger.sol";
 // import {IStorage} from "src/interface/IStorage.sol";
 
-contract MinterTest is Test {
+contract KaliBergerTest is Test {
     Quest quest;
     Missions missions;
     Storage stor;
-    Minter minter;
+    KaliBerger kaliBerger;
 
     IQuest iQuest;
     IMissions iMissions;
@@ -57,7 +58,7 @@ contract MinterTest is Test {
 
     function setUp() public payable {
         // Deploy contract
-        minter = new Minter(charlie, dummy);
+        kaliBerger = new KaliBerger();
         // missions = new Missions();
         // missions.initialize((address(arm0ry)));
 
@@ -69,8 +70,8 @@ contract MinterTest is Test {
     }
 
     function testReceiveETH() public payable {
-        (bool sent,) = address(minter).call{value: 5 ether}("");
+        (bool sent,) = address(kaliBerger).call{value: 5 ether}("");
         assert(sent);
-        assert(address(minter).balance == 5 ether);
+        assert(address(kaliBerger).balance == 5 ether);
     }
 }

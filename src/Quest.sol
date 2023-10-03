@@ -49,12 +49,6 @@ contract Quest is Storage {
     error MustBeginOneQuest();
 
     /// -----------------------------------------------------------------------
-    /// Immutable Storage
-    /// -----------------------------------------------------------------------
-
-    bytes32 immutable MISSIONS_ADDRESS_KEY = keccak256(abi.encode("missions"));
-
-    /// -----------------------------------------------------------------------
     /// Sign Storage
     /// -----------------------------------------------------------------------
 
@@ -236,7 +230,7 @@ contract Quest is Storage {
     /// -----------------------------------------------------------------------
 
     function setMissions(address missions) external payable onlyOperator {
-        this.setAddress(MISSIONS_ADDRESS_KEY, missions);
+        this.setAddress(keccak256(abi.encode("missions")), missions);
     }
 
     /// @notice Update reviewers
@@ -346,7 +340,7 @@ contract Quest is Storage {
     /// @dev
     function updateQuestDetail(address user, bytes32 questKey, uint256 missionId, uint256 completed) internal {
         // Retrieve number of Tasks to update Quest progress
-        address missions = this.getAddress(MISSIONS_ADDRESS_KEY);
+        address missions = this.getAddress(keccak256(abi.encode("missions")));
         uint256 tasksCount = IMissions(missions).getMissionTaskCount(missionId);
 
         // Calculate and udpate quest detail

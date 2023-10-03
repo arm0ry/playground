@@ -18,12 +18,6 @@ contract Storage {
     error LengthMismatch();
 
     /// -----------------------------------------------------------------------
-    /// Immutable Storage
-    /// -----------------------------------------------------------------------
-
-    bytes32 immutable DAO_ADDRESS_KEY = keccak256(abi.encodePacked("dao"));
-
-    /// -----------------------------------------------------------------------
     /// List Storage
     /// -----------------------------------------------------------------------
 
@@ -36,6 +30,11 @@ contract Storage {
     /// Constructor
     /// -----------------------------------------------------------------------
 
+    function init(address dao, address target) internal {
+        addressStorage[keccak256(abi.encodePacked("dao"))] = dao;
+        if (target != address(0)) booleanStorage[keccak256(abi.encodePacked("playground.", target))] = true;
+    }
+
     /// -----------------------------------------------------------------------
     /// Modifier
     /// -----------------------------------------------------------------------
@@ -47,18 +46,22 @@ contract Storage {
         _;
     }
 
-    modifier onlyPlayground(address target) {
-        assert(IStorage(target).getDao() != address(0));
+    modifier playground(address target) {
+        assert(IStorage(target).getBool(keccak256(abi.encodePacked("playground.", target))));
         _;
     }
     /// -----------------------------------------------------------------------
     /// General Storage - Setter Logic
     /// -----------------------------------------------------------------------
 
-    function setDao(address dao) public {
-        address _dao = addressStorage[DAO_ADDRESS_KEY];
-        if (_dao != address(0) && _dao != msg.sender) revert NotOperator();
-        addressStorage[DAO_ADDRESS_KEY] = dao;
+    /// @param dao The DAO address.
+    function setDao(address dao) external onlyOperator {
+        addressStorage[keccak256(abi.encodePacked("dao"))] = dao;
+    }
+
+    /// @dev Determine if target contract is a Playground contract.
+    function setPlaygroundContract(address target) external onlyOperator playground(target) {
+        if (target != address(0)) booleanStorage[keccak256(abi.encodePacked("playground.", target))] = true;
     }
 
     /// @param _key The key for the record.
@@ -127,7 +130,7 @@ contract Storage {
 
     /// @dev Get the address of DAO.
     function getDao() external view returns (address) {
-        return addressStorage[DAO_ADDRESS_KEY];
+        return addressStorage[keccak256(abi.encodePacked("dao"))];
     }
 
     /// @param _key The key for the record.

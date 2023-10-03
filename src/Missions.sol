@@ -48,19 +48,14 @@ contract Missions is Storage {
     error AmountMismatch();
 
     /// -----------------------------------------------------------------------
-    /// Immutable Storage
-    /// -----------------------------------------------------------------------
-
-    bytes32 immutable MISSION_ID_KEY = keccak256(abi.encode("missions.count"));
-    bytes32 immutable TASK_ID_KEY = keccak256(abi.encode("tasks.count"));
-
-    /// -----------------------------------------------------------------------
     /// Constructor
     /// -----------------------------------------------------------------------
 
     constructor() {}
 
-    function initialize() internal virtual {}
+    function initialize(address dao, address target) external payable {
+        init(dao, target);
+    }
 
     /// -----------------------------------------------------------------------
     /// Modifier
@@ -79,7 +74,7 @@ contract Missions is Storage {
             // the array index counter which cannot possibly overflow.
             unchecked {
                 // Increment task id.
-                id = this.incrementTaskId();
+                id = incrementTaskId();
             }
 
             // Instantiate a new Task.
@@ -102,7 +97,7 @@ contract Missions is Storage {
             uint256 id;
             unchecked {
                 // Increment mission id.
-                id = this.addUint(MISSION_ID_KEY, 1);
+                id = incrementMissionId();
             }
 
             // Instantiate a new Mission.
@@ -118,7 +113,7 @@ contract Missions is Storage {
     /// -----------------------------------------------------------------------
     /// Helper Logic
     /// -----------------------------------------------------------------------
-    function incrementMissionId() external returns (uint256) {
+    function incrementMissionId() internal returns (uint256) {
         return this.addUint(keccak256(abi.encode("missions.count")), 1);
     }
 
@@ -210,7 +205,7 @@ contract Missions is Storage {
         return (deadline, taskIds);
     }
 
-    function incrementTaskStarts(uint256 taskId) external onlyOperator {
+    function incrementTaskStarts(uint256 taskId) external playground(msg.sender) {
         this.addUint(keccak256(abi.encode(address(this), taskId, ".starts")), 1);
     }
 
@@ -218,7 +213,7 @@ contract Missions is Storage {
         return this.getUint(keccak256(abi.encode(address(this), taskId, ".starts")));
     }
 
-    function incrementTaskCompletions(uint256 taskId) external onlyOperator {
+    function incrementTaskCompletions(uint256 taskId) external playground(msg.sender) {
         this.addUint(keccak256(abi.encode(address(this), taskId, ".completions")), 1);
     }
 
@@ -259,7 +254,7 @@ contract Missions is Storage {
         }
     }
 
-    function incrementTaskId() external returns (uint256) {
+    function incrementTaskId() internal returns (uint256) {
         return this.addUint(keccak256(abi.encode("tasks.count")), 1);
     }
 
@@ -278,7 +273,7 @@ contract Missions is Storage {
         return task;
     }
 
-    function incrementMissionStarts(uint256 missionId) external onlyOperator {
+    function incrementMissionStarts(uint256 missionId) external playground(msg.sender) {
         this.addUint(keccak256(abi.encode(address(this), missionId, ".starts")), 1);
     }
 
@@ -286,7 +281,7 @@ contract Missions is Storage {
         return this.getUint(keccak256(abi.encode(address(this), missionId, ".starts")));
     }
 
-    function incrementMissionCompletions(uint256 missionId) external onlyOperator {
+    function incrementMissionCompletions(uint256 missionId) external playground(msg.sender) {
         this.addUint(keccak256(abi.encode(address(this), missionId, ".completions")), 1);
     }
 

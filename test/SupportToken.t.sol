@@ -12,13 +12,14 @@ import {IQuest} from "src/interface/IQuest.sol";
 import {Storage} from "src/Storage.sol";
 import {IStorage} from "src/interface/IStorage.sol";
 import {Minter} from "src/Minter.sol";
+import {SupportToken} from "src/tokens/SupportToken.sol";
 // import {IStorage} from "src/interface/IStorage.sol";
 
-contract MinterTest is Test {
+contract SupportTokenTest is Test {
     Quest quest;
     Missions missions;
     Storage stor;
-    Minter minter;
+    SupportToken support;
 
     IQuest iQuest;
     IMissions iMissions;
@@ -57,7 +58,7 @@ contract MinterTest is Test {
 
     function setUp() public payable {
         // Deploy contract
-        minter = new Minter(charlie, dummy);
+        support = new SupportToken(alice);
         // missions = new Missions();
         // missions.initialize((address(arm0ry)));
 
@@ -69,8 +70,7 @@ contract MinterTest is Test {
     }
 
     function testReceiveETH() public payable {
-        (bool sent,) = address(minter).call{value: 5 ether}("");
-        assert(sent);
-        assert(address(minter).balance == 5 ether);
+        (bool sent,) = address(support).call{value: 5 ether}("");
+        assert(!sent);
     }
 }
