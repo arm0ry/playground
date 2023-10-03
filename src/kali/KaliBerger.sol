@@ -88,37 +88,47 @@ contract KaliBerger is Storage {
         this.setPrice(missions, missionId, price);
     }
 
-    function balanceDao(address target, uint256 value) external payable {
+    function balanceDao(address target, uint256 value, address newOwner) external payable {
         // Get address to DAO to manage revenue from Harberger Tax
         address sustainableDAO = this.getAddress(keccak256(abi.encode(target, value, ".dao")));
         // TODO: Need to define KaliDAO params
         if (sustainableDAO == address(0)) {
             // Summon DAO if not already summoned
+            // TODO: Add newOwner here
             sustainableDAO = KaliDAOfactory(this.getKaliDaoFactory()).deployKaliDAO();
         }
 
         // Retrieve total amount collected to date.
         uint256 totalCollected = this.getTotalCollected(target, value);
 
-        // TODO: Retrieve amount collected by patron
-        uint256 contribution = this.getPatronContribution(target, value);
-        uint256 ratio = contribution * 100 / totalCollected;
+        // Ensure ratio is same as that of member DAO token amount to total DAO token amount
+        uint256 patronCount = this.getPatronCount(target, value);
+        for (uint256 i = 0; i < patronCount;) {
+            // Retrieve patron contribution.
+            address patron = this.getPatron(target, value, patronId);
+            uint256 contribution = this.getPatronContribution(target, value, patron);
 
-        // TODO: Ensure ratio is same as that of member DAO token amount to total DAO token amount
-        uint256 totalSupply = KaliDAO(sustainableDAO).totalSupply();
-        uint256 buyerBalance = KaliDAO(sustainableDAO).balanceOf(msg.sender);
-        uint256 _ratio = buyBalance * 100 / totalSupply;
+            // Retrieve KaliDAO data.
+            uint256 _contribution = KaliDAO(sustainableDAO).balanceOf(msg.sender);
+
+            if (contribution > _contribution) {
+                amount = contribution - _contribution;
+                IKaliTokenManager(sustainableDAO).mintShares(creator, amount);
+                IKaliTokenManager(sustainableDAO).mintShares(msg.sender, amount);
+            } else if (contribution < _contribution) {
+                amount = _contribution - contribution;
+                IKaliTokenManager(sustainableDAO).burnShares(creator, amount);
+                IKaliTokenManager(sustainableDAO).burnShares(msg.sender, amount);
+            } else {
+                continue;
+            }
+
+            unchecked {
+                ++i;
+            }
+        }
 
         uint256 amount;
-        if (ratio >= _ratio) {
-            amount = (ratio - _ratio) * totalSupply;
-            IKaliTokenManager(sustainableDAO).mintShares(creator, amount);
-            IKaliTokenManager(sustainableDAO).mintShares(msg.sender, amount);
-        } else {
-            amount = (_ratio - ratio) * totalSupply;
-            IKaliTokenManager(sustainableDAO).burnShares(creator, amount);
-            IKaliTokenManager(sustainableDAO).burnShares(msg.sender, amount);
-        }
     }
 
     function handleRoyalties(address token, uint256 tokenId, uint256 price) internal returns (uint256) {
@@ -181,37 +191,37 @@ contract KaliBerger is Storage {
 
     // todo: fix below
     /// @notice Buy Playground NFT.
-    // function buy(address missions, uint256 missionId, uint256 _newPrice, uint256 _currentPrice)
-    //     external
-    //     payable
-    //     collectPatronage(missions, missionId)
-    //     isFactorySet
-    // {
-    //     // Check if Playground contracts
-    //     address dao = IStorage(missions).getDao();
-    //     if (dao != address(0)) revert NotAuthorized();
+    function buy(address missions, uint256 missionId, uint256 _newPrice, uint256 _currentPrice)
+        external
+        payable
+        collectPatronage(missions, missionId)
+        isFactorySet
+    {
+        // Check if Playground contracts
+        address dao = IStorage(missions).getDao();
+        if (dao != address(0)) revert NotAuthorized();
 
-    //     Mission memory mission = IMissions(missions).getMission(missionId);
+        Mission memory mission = IMissions(missions).getMission(missionId);
 
-    //     address currentOwner = IERC721(missions).ownerOf(ImpactToken(missions).encode(missions, missionId));
-    //     uint256 _deposit = this.getDeposit(missions, missionId);
-    //     uint256 totalToPayBack = price + _deposit;
-    //     if (totalToPayBack > 0) {
-    //         // this won't execute if steward owns it. price = 0. deposit = 0.
-    //         // pay previous owner their price + deposit back.
-    //         // address payable payableCurrentOwner = address(uint160(currentOwner));
-    //         (bool success,) = currentOwner.call{value: totalToPayBack}("");
-    //         if (!success) this.addUnclaimed(currentOwner, totalToPayBack);
-    //     }
+        address currentOwner = IERC721(missions).ownerOf(ImpactToken(missions).encode(missions, missionId));
+        uint256 _deposit = this.getDeposit(missions, missionId);
+        uint256 totalToPayBack = price + _deposit;
+        if (totalToPayBack > 0) {
+            // this won't execute if steward owns it. price = 0. deposit = 0.
+            // pay previous owner their price + deposit back.
+            // address payable payableCurrentOwner = address(uint160(currentOwner));
+            (bool success,) = currentOwner.call{value: totalToPayBack}("");
+            if (!success) this.addUnclaimed(currentOwner, totalToPayBack);
+        }
 
-    //     // new purchase
-    //     _deposit = msg.value - price;
-    //     this.addDeposit(missions, missionId, _deposit);
+        // new purchase
+        _deposit = msg.value - price;
+        this.addDeposit(missions, missionId, _deposit);
 
-    //     transferArtworkTo(tokenId, currentOwner, msg.sender, _newPrice);
+        transferArtworkTo(tokenId, currentOwner, msg.sender, _newPrice);
 
-    //     this.balanceDao(missions, missionId, mission.creator, price);
-    // }
+        this.balanceDao(missions, missionId, mission.creator, price);
+    }
 
     /// -----------------------------------------------------------------------
     /// Patron Only Logic
@@ -346,17 +356,39 @@ contract KaliBerger is Storage {
         this.addUint(keccak256(abi.encode(target, value, ".patronCount")), 1);
     }
 
-    function getPatronId(address target, uint256 value) external view returns (address) {
+    function getPatronCount(address target, uint256 value) external view returns (address) {
         return this.getAddress(keccak256(abi.encode(target, value, ".patronCount")));
+    }
+
+    function getPatronId(address target, uint256 value, address patron) external view returns (uint256) {
+        uint256 count = this.getPatronCount(target, value);
+
+        for (uint256 i = 0; i < count;) {
+            if (patron == this.getPatron(i)) return i;
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        return 0;
     }
 
     function setPatron(address target, uint256 value, address patron) internal {
         incrementPatronId(target, value);
-        this.setAddress(keccak256(abi.encode(target, value, this.getPatronId())), owner);
+        this.setAddress(keccak256(abi.encode(target, value, this.getPatronCount())), owner);
     }
 
     function getPatron(address target, uint256 value, uint256 patronId) external view returns (address) {
         return this.getAddress(keccak256(abi.encode(target, value, patronId)));
+    }
+
+    function addPatronContribution(address target, uint256 value, address patron, uint256 amount) internal {
+        return this.addUint(keccak256(abi.encode(target, value, patron), amount));
+    }
+
+    function getPatronContribution(address target, uint256 value, address patron) external view returns (uint256) {
+        return this.getUint(keccak256(abi.encode(target, value, patron)));
     }
 
     // credit: simondlr  https://github.com/simondlr/thisartworkisalwaysonsale/blob/master/packages/hardhat/contracts/v1/ArtStewardV2.sol
