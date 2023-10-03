@@ -16,9 +16,7 @@ import {IKaliTokenManager} from "../interface/IKaliTokenManager.sol";
 import {IERC721} from "../../lib/forge-std/src/interfaces/IERC721.sol";
 import {IERC20} from "../../lib/forge-std/src/interfaces/IERC20.sol";
 
-/// @title Impact NFTs
-/// @notice SVG NFTs displaying impact results and metrics.
-/// Major inspiration from Kali, Async.art
+/// @notice When DAOs use Harberger Tax to form treasury subDAOs, good things happen!
 contract KaliBerger is Storage {
     /// -----------------------------------------------------------------------
     /// Custom Error
@@ -64,11 +62,11 @@ contract KaliBerger is Storage {
     }
 
     /// -----------------------------------------------------------------------
-    /// KaliBerger Functions - Preparation
+    /// KaliBerger Functions - Confirm Use of Harberger Tax
     /// -----------------------------------------------------------------------
 
     /// @notice Escrow ERC721 NFT before making available for purchase.
-    function escrow(address token, uint256 tokenId, uint256 price) external payable {
+    function escrow(address token, uint256 tokenId, uint256 price) external payable onlyOperator {
         if (price == 0) revert InvalidPrice();
         if (IERC721(token).ownerOf(tokenId) != msg.sender) revert NotAuthorized();
         IERC721(token).safeTransferFrom(msg.sender, address(this), tokenId);
@@ -369,7 +367,6 @@ contract KaliBerger is Storage {
 
         for (uint256 i = 0; i < count;) {
             if (patron == this.getPatron(target, value, i)) return i;
-
             unchecked {
                 ++i;
             }
