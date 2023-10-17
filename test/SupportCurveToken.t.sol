@@ -12,7 +12,7 @@ import {IQuest} from "src/interface/IQuest.sol";
 import {Storage} from "src/Storage.sol";
 import {IStorage} from "src/interface/IStorage.sol";
 import {Minter} from "src/Minter.sol";
-import {SupportToken} from "src/tokens/SupportToken.sol";
+import {SupportCurveToken} from "src/tokens/SupportCurveToken.sol";
 // import {IStorage} from "src/interface/IStorage.sol";
 
 contract SupportTokenTest is Test {

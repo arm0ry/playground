@@ -12,14 +12,14 @@ import {IQuest} from "src/interface/IQuest.sol";
 import {Storage} from "src/Storage.sol";
 import {IStorage} from "src/interface/IStorage.sol";
 import {Minter} from "src/Minter.sol";
-import {ImpactToken} from "src/tokens/ImpactToken.sol";
+import {MissionBergerToken} from "src/tokens/MissionBergerToken.sol";
 // import {IStorage} from "src/interface/IStorage.sol";
 
-contract ImpactTokenTest is Test {
+contract MissionBergerTokenTest is Test {
     Quest quest;
     Missions missions;
     Storage stor;
-    ImpactToken impact;
+    MissionBergerToken mbt;
 
     IQuest iQuest;
     IMissions iMissions;
@@ -58,7 +58,7 @@ contract ImpactTokenTest is Test {
 
     function setUp() public payable {
         // Deploy contract
-        impact = new ImpactToken(alice);
+        mbt = new MissionBergerToken(alice);
         // missions = new Missions();
         // missions.initialize((address(arm0ry)));
 
@@ -70,7 +70,7 @@ contract ImpactTokenTest is Test {
     }
 
     function testReceiveETH() public payable {
-        (bool sent,) = address(impact).call{value: 5 ether}("");
+        (bool sent,) = address(mbt).call{value: 5 ether}("");
         assert(!sent);
     }
 }
