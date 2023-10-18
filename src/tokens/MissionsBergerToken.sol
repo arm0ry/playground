@@ -15,13 +15,17 @@ import {IKaliBerger} from "../interface/IKaliBerger.sol";
 /// @title Impact NFTs
 /// @notice SVG NFTs displaying impact results and metrics.
 /// Majory inspired by Kali, Async.art
-contract MissionToken is ERC721 {
+contract MissionsBergerToken is ERC721 {
+    /// -----------------------------------------------------------------------
+    /// Custom Errors
+    /// -----------------------------------------------------------------------
+
     /// -----------------------------------------------------------------------
     /// DAO Storage
     /// -----------------------------------------------------------------------
 
     address public dao;
-
+    address public missions;
     address public kaliBerger;
 
     /// -----------------------------------------------------------------------
@@ -32,9 +36,10 @@ contract MissionToken is ERC721 {
     /// Constructor
     /// -----------------------------------------------------------------------
 
-    constructor(address _dao, address _kaliBerger) ERC721("Mission Berger Token", "MBT") {
+    constructor(address _dao, address _kaliBerger, address _missions) ERC721("Mission Berger Token", "MBT") {
         dao = _dao;
         kaliBerger = _kaliBerger;
+        missions = _missions;
     }
 
     /// -----------------------------------------------------------------------
@@ -47,21 +52,27 @@ contract MissionToken is ERC721 {
 
     // credit: z0r0z.eth (https://github.com/kalidao/kali-contracts/blob/60ba3992fb8d6be6c09eeb74e8ff3086a8fdac13/contracts/access/KaliAccessManager.sol)
     function _buildURI(uint256 tokenId) private view returns (string memory) {
-        (address missions, uint256 missionId) = this.decodeTokenId(tokenId);
-        return JSON._formattedMetadata("Patron Impage", "", generateSvg(missions, missionId));
+        (address _missions, uint256 missionId) = this.decodeTokenId(tokenId);
+        return JSON._formattedMetadata(
+            "Mission Berger Token",
+            "",
+            generateSvg(
+                (_missions == address(0) ? missions : _missions), (_missions == address(0) ? tokenId : missionId)
+            )
+        );
     }
 
-    function generateSvg(address missions, uint256 missionId) public view returns (string memory) {
-        string memory title = IMissions(missions).getMissionTitle(missionId);
-        uint256 deadline = IMissions(missions).getMissionDeadline(missionId);
+    function generateSvg(address _missions, uint256 missionId) public view returns (string memory) {
+        string memory title = IMissions(_missions).getMissionTitle(missionId);
+        uint256 deadline = IMissions(_missions).getMissionDeadline(missionId);
         uint256 completions =
-            IStorage(missions).getUint(keccak256(abi.encodePacked(missions, missionId, ".completions")));
+            IStorage(_missions).getUint(keccak256(abi.encodePacked(_missions, missionId, ".completions")));
 
         return string.concat(
             '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" style="background:#FFFBF5">',
             buildSvgLogo(),
-            buildSvgData(missions, missionId, title, deadline, completions),
-            buildTreeRing(missions, missionId),
+            buildSvgData(_missions, missionId, title, deadline, completions),
+            buildTreeRing(_missions, missionId),
             "</svg>"
         );
     }
@@ -79,7 +90,7 @@ contract MissionToken is ERC721 {
     }
 
     function buildSvgData(
-        address missions,
+        address _missions,
         uint256 missionId,
         string memory title,
         uint256 deadline,
@@ -132,7 +143,7 @@ contract MissionToken is ERC721 {
                 ),
                 string.concat(
                     "Harberger Tax: ",
-                    SVG._uint2str((kaliBerger == address(0)) ? IKaliBerger(kaliBerger).getTax(missions, missionId) : 0),
+                    SVG._uint2str((kaliBerger == address(0)) ? IKaliBerger(kaliBerger).getTax(_missions, missionId) : 0),
                     "%"
                 )
             ),
@@ -157,13 +168,13 @@ contract MissionToken is ERC721 {
         );
     }
 
-    function buildTreeRing(address missions, uint256 missionId) public view returns (string memory str) {
+    function buildTreeRing(address _missions, uint256 missionId) public view returns (string memory str) {
         uint256 baseRadius = 500;
-        uint256[] memory taskIds = IMissions(missions).getMissionTaskIds(missionId);
+        uint256[] memory taskIds = IMissions(_missions).getMissionTaskIds(missionId);
         string[] memory strArray;
 
         for (uint256 i = 0; i < taskIds.length;) {
-            uint256 completions = IMissions(missions).getTaskCompletions(taskIds[i]);
+            uint256 completions = IMissions(_missions).getTaskCompletions(taskIds[i]);
 
             // radius = completions * max radius / max completions at max radius + base radius
             uint256 radius = completions * 500 / 100;
@@ -203,17 +214,17 @@ contract MissionToken is ERC721 {
     /// Helper Functions
     /// -----------------------------------------------------------------------
 
-    function getTokenId(address missions, uint256 missionId) external pure returns (uint256) {
-        return uint256(bytes32(abi.encodePacked(missions, uint96(missionId))));
+    function getTokenId(address _missions, uint256 missionId) external pure returns (uint256) {
+        return uint256(bytes32(abi.encodePacked(_missions, uint96(missionId))));
     }
 
-    function decodeTokenId(uint256 tokenId) external pure returns (address missions, uint256 missionId) {
+    function decodeTokenId(uint256 tokenId) external pure returns (address _missions, uint256 missionId) {
         uint96 _id;
         bytes32 key = bytes32(tokenId);
         assembly {
             _id := key
-            missions := shr(96, key)
+            _missions := shr(96, key)
         }
-        return (missions, uint256(_id));
+        return (_missions, uint256(_id));
     }
 }

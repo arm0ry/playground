@@ -4,6 +4,8 @@ pragma solidity ^0.8.17;
 import {Mission, Metric, Task} from "../Missions.sol";
 
 interface IMissions {
+    error InvalidMission();
+
     /// @dev Mission get methods
     function getTasId() external view returns (uint256);
     function getTask(uint256 taskId) external view returns (Task memory);

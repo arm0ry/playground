@@ -12,14 +12,14 @@ import {IQuest} from "src/interface/IQuest.sol";
 import {Storage} from "src/Storage.sol";
 import {IStorage} from "src/interface/IStorage.sol";
 import {Minter} from "src/Minter.sol";
-import {MissionBergerToken} from "src/tokens/MissionBergerToken.sol";
+import {MissionsBergerToken} from "src/tokens/MissionsBergerToken.sol";
 // import {IStorage} from "src/interface/IStorage.sol";
 
-contract MissionBergerTokenTest is Test {
+contract MissionsBergerTokenTest is Test {
     Quest quest;
     Missions missions;
     Storage stor;
-    MissionBergerToken mbt;
+    MissionsBergerToken mbt;
 
     IQuest iQuest;
     IMissions iMissions;
@@ -58,7 +58,7 @@ contract MissionBergerTokenTest is Test {
 
     function setUp() public payable {
         // Deploy contract
-        mbt = new MissionBergerToken(alice);
+        mbt = new MissionsBergerToken(alice, alice, alice);
         // missions = new Missions();
         // missions.initialize((address(arm0ry)));
 

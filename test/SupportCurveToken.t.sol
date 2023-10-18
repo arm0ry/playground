@@ -15,11 +15,11 @@ import {Minter} from "src/Minter.sol";
 import {SupportCurveToken} from "src/tokens/SupportCurveToken.sol";
 // import {IStorage} from "src/interface/IStorage.sol";
 
-contract SupportTokenTest is Test {
+contract SupportCurveTokenTest is Test {
     Quest quest;
     Missions missions;
     Storage stor;
-    SupportToken support;
+    SupportCurveToken support;
 
     IQuest iQuest;
     IMissions iMissions;
@@ -58,7 +58,7 @@ contract SupportTokenTest is Test {
 
     function setUp() public payable {
         // Deploy contract
-        support = new SupportToken(alice);
+        support = new SupportCurveToken(alice);
         // missions = new Missions();
         // missions.initialize((address(arm0ry)));
 
