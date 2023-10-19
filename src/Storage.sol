@@ -2,12 +2,11 @@
 pragma solidity >=0.8.4;
 
 // import {SafeMulticallable} from "solbase/utils/SafeMulticallable.sol";
-import {IStorage} from "./interface/IStorage.sol";
+import {IStorage} from "src/interface/IStorage.sol";
 
-/// @notice Directory for Quests
-/// @author Modified from Kali (https://github.com/kalidao/kali-contracts/blob/main/contracts/access/KaliAccessManager.sol)
-/// @author Storage pattern inspired by RocketPool (https://github.com/rocket-pool/rocketpool/blob/6a9dbfd85772900bb192aabeb0c9b8d9f6e019d1/contracts/contract/RocketStorage.sol)
-
+/// @notice An extensible DAO-managed storage
+/// @author audsssy.eth
+/// credit: inspired by RocketPool (https://github.com/rocket-pool/rocketpool/blob/6a9dbfd85772900bb192aabeb0c9b8d9f6e019d1/contracts/contract/RocketStorage.sol)
 contract Storage {
     /// -----------------------------------------------------------------------
     /// Errors
@@ -40,16 +39,13 @@ contract Storage {
     /// -----------------------------------------------------------------------
 
     modifier onlyOperator() {
+        // TODO: Double check if need to remove second condition
         if (msg.sender != this.getDao() && msg.sender != address(this)) {
             revert NotOperator();
         }
         _;
     }
 
-    modifier playground(address target) {
-        assert(IStorage(target).getBool(keccak256(abi.encodePacked("playground.", target))));
-        _;
-    }
     /// -----------------------------------------------------------------------
     /// General Storage - Setter Logic
     /// -----------------------------------------------------------------------
@@ -57,11 +53,6 @@ contract Storage {
     /// @param dao The DAO address.
     function setDao(address dao) external onlyOperator {
         addressStorage[keccak256(abi.encodePacked("dao"))] = dao;
-    }
-
-    /// @dev Determine if target contract is a Playground contract.
-    function setPlaygroundContract(address target) external onlyOperator playground(target) {
-        if (target != address(0)) booleanStorage[keccak256(abi.encodePacked("playground.", target))] = true;
     }
 
     /// @param _key The key for the record.
@@ -84,27 +75,51 @@ contract Storage {
         booleanStorage[_key] = _value;
     }
 
+    /// @param dao The DAO address.
+    function _setDao(address dao) internal {
+        addressStorage[keccak256(abi.encodePacked("dao"))] = dao;
+    }
+
+    /// @param _key The key for the record.
+    function _setAddress(bytes32 _key, address _value) internal {
+        addressStorage[_key] = _value;
+    }
+
+    /// @param _key The key for the record.
+    function _setUint(bytes32 _key, uint256 _value) internal {
+        uintStorage[_key] = _value;
+    }
+
+    /// @param _key The key for the record.
+    function _setString(bytes32 _key, string calldata _value) internal {
+        stringStorage[_key] = _value;
+    }
+
+    /// @param _key The key for the record.
+    function _setBool(bytes32 _key, bool _value) internal {
+        booleanStorage[_key] = _value;
+    }
     /// -----------------------------------------------------------------------
     /// General Sotrage - Delete Logic
     /// -----------------------------------------------------------------------
 
     /// @param _key The key for the record.
-    function deleteAddress(bytes32 _key) external onlyOperator {
+    function deleteAddress(bytes32 _key) internal {
         delete addressStorage[_key];
     }
 
     /// @param _key The key for the record.
-    function deleteUint(bytes32 _key) external onlyOperator {
+    function deleteUint(bytes32 _key) internal {
         delete uintStorage[_key];
     }
 
     /// @param _key The key for the record.
-    function deleteString(bytes32 _key) external onlyOperator {
+    function deleteString(bytes32 _key) internal {
         delete stringStorage[_key];
     }
 
     /// @param _key The key for the record.
-    function deleteBool(bytes32 _key) external onlyOperator {
+    function deleteBool(bytes32 _key) internal {
         delete booleanStorage[_key];
     }
 
@@ -114,13 +129,13 @@ contract Storage {
 
     /// @param _key The key for the record.
     /// @param _amount An amount to add to the record's value
-    function addUint(bytes32 _key, uint256 _amount) external onlyOperator returns (uint256) {
+    function addUint(bytes32 _key, uint256 _amount) internal returns (uint256) {
         return uintStorage[_key] = uintStorage[_key] + _amount;
     }
 
     /// @param _key The key for the record.
     /// @param _amount An amount to subtract from the record's value
-    function subUint(bytes32 _key, uint256 _amount) external onlyOperator returns (uint256) {
+    function subUint(bytes32 _key, uint256 _amount) internal returns (uint256) {
         return uintStorage[_key] = uintStorage[_key] - _amount;
     }
 

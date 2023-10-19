@@ -20,11 +20,6 @@ struct QuestDetail {
     uint40 completed; // Number of tasks completed in quest.
 }
 
-struct QuestConfig {
-    address gateToken;
-    uint256 gateTokenAmount;
-}
-
 contract Quest is Storage {
     /// -----------------------------------------------------------------------
     /// Custom Errors
@@ -96,15 +91,6 @@ contract Quest is Storage {
         _;
     }
 
-    modifier checkQuestConfig(address missions, uint256 missionId) {
-        // Confirm user has sufficient xp to quest Misson
-        QuestConfig memory qc = this.getQuestConfig(missions, missionId);
-        if (qc.gateToken != address(0) && IERC20(qc.gateToken).balanceOf(msg.sender) < qc.gateTokenAmount) {
-            revert NeedMoreTokens();
-        }
-        _;
-    }
-
     /// -----------------------------------------------------------------------
     /// Quest Logic
     /// -----------------------------------------------------------------------
@@ -113,7 +99,7 @@ contract Quest is Storage {
     /// @param missions .
     /// @param missionId .
     /// @dev
-    function start(address missions, uint256 missionId) external payable checkQuestConfig(missions, missionId) {
+    function start(address missions, uint256 missionId) external payable {
         _start(msg.sender, missions, missionId);
     }
 
@@ -126,7 +112,6 @@ contract Quest is Storage {
         public
         payable
         virtual
-        checkQuestConfig(missions, missionId)
     {
         bytes32 digest = keccak256(
             abi.encodePacked(
@@ -230,74 +215,49 @@ contract Quest is Storage {
     /// -----------------------------------------------------------------------
 
     function setMissions(address missions) external payable onlyOperator {
-        this.setAddress(keccak256(abi.encode("missions")), missions);
+        setAddress(keccak256(abi.encode("missions")), missions);
     }
 
     /// @notice Update reviewers
     /// @param reviewer The addresses to update managers to
-    /// @dev
-    function setReviewer(address reviewer, bool status) external payable onlyOperator {
-        if (status) {
-            if (!this.getBool(keccak256(abi.encode(reviewer, ".exists")))) {
-                uint256 reviewerCount = this.getUint(keccak256(abi.encode("quest.reviewerCount")));
-
-                // Store new reviewer status and id
-                this.setBool(keccak256(abi.encode(reviewer, ".exists")), status);
-                this.setUint(keccak256(abi.encode(reviewer, ".reviewerId")), ++reviewerCount);
-
-                // Increment and store global number of reviewers.
-                this.addUint(keccak256(abi.encode("quest.reviewerCount")), 1);
-            }
-        } else {
-            // Delete reviewer status and id.
-            this.deleteBool(keccak256(abi.encode(reviewer, ".exists")));
-            this.deleteUint(keccak256(abi.encode(reviewer, ".reviewerId")));
-        }
+    function setReviewerStatus(uint256 questId, address reviewer, bool status) external payable onlyOperator {
+        // Store new reviewer status
+        if (status) setBool(keccak256(abi.encode(questId, reviewer, ".exists")), status);
     }
 
     /// @notice Set review status for all quest
-    function setGlobalReview(bool toReview) external payable onlyOperator {
-        this.setBool(keccak256(abi.encode("quest.toReview")), toReview);
+    function setGlobalReview(bool status) external payable onlyOperator {
+        if (status) setBool(keccak256(abi.encode("quest.review")), status);
     }
 
     function setResponseCoolDown(uint40 cd) external payable onlyOperator {
-        this.setUint(keccak256(abi.encode("quest.cd")), cd);
+        if (cd > 0) setUint(keccak256(abi.encode("quest.cd")), cd);
     }
     /// -----------------------------------------------------------------------
     /// Getter Logic
     /// -----------------------------------------------------------------------
 
-    function getQuestDetail(address user, uint96 questId) external view returns (bytes32, QuestDetail memory) {
-        bytes32 questKey = bytes32(this.getUint(keccak256(abi.encode(user, questId, ".questKey"))));
+    function getQuestStatus(address user, uint256 questId) external view returns (bool) {
+        return this.getBool(keccak256(abi.encode(user, questKey, ".active")));
+    }
 
-        return (
-            questKey,
-            QuestDetail({
-                active: this.getBool(keccak256(abi.encode(user, questKey, ".detail.active"))),
-                toReview: this.getBool(keccak256(abi.encode(user, questKey, ".detail.toReview"))),
-                progress: uint8(this.getUint(keccak256(abi.encode(user, questKey, ".detail.progress")))),
-                deadline: uint40(this.getUint(keccak256(abi.encode(user, questKey, ".detail.deadline")))),
-                completed: uint40(this.getUint(keccak256(abi.encode(user, questKey, ".detail.completed"))))
-            })
-        );
+    function getQuestReviewStatus(address user, uint256 questId) external view returns (bool) {
+        return this.getBool(keccak256(abi.encode(user, questKey, ".review")));
+    }
+
+    function getQuestProgress(address user, uint256 questId) external view returns (uint256) {
+        return this.getBool(keccak256(abi.encode(user, questKey, ".progress")));
+    }
+
+    function getQuestTasksCompletionCount(address user, uint256 questId) external view returns (uint256) {
+        return this.getBool(keccak256(abi.encode(user, questKey, ".completed")));
     }
 
     function getQuestDeadline(address missions, uint256 missionId) external payable returns (uint256) {
         // Confirm quest deadline has not passed
         uint256 deadline = IMissions(missions).getMissionDeadline(missionId);
-        if (deadline < block.timestamp) return 0;
+        if (block.timestamp > deadline) return 0;
         return deadline;
-    }
-
-    function getQuestConfig(address missions, uint256 missionId) external view returns (QuestConfig memory) {
-        return QuestConfig({
-            gateToken: this.getAddress(keccak256(abi.encode(missions, missionId, ".reward.gateToken"))),
-            gateTokenAmount: this.getUint(keccak256(abi.encode(missions, missionId, ".reward.gateTokenAmount")))
-        });
-    }
-
-    function isReviewer(address account) external view returns (bool) {
-        return this.getBool(keccak256(abi.encode(account, ".exists")));
     }
 
     /// -----------------------------------------------------------------------
