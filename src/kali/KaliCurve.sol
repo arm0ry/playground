@@ -22,9 +22,10 @@ contract KaliCurve is Storage {
 
     error NotAuthorized();
     error TransferFailed();
-    error InvalidExit();
     error NotInitialized();
     error InvalidAmount();
+    error InvalidMint();
+    error InvalidBurn();
 
     /// -----------------------------------------------------------------------
     /// Constructor
@@ -52,7 +53,7 @@ contract KaliCurve is Storage {
     }
 
     modifier forSale(uint256 curveId) {
-        if (!this.getTokenPurchaseStatus(curveId)) revert NotInitialized();
+        if (!this.getCurveMintStatus(curveId)) revert NotInitialized();
         _;
     }
 
@@ -64,8 +65,8 @@ contract KaliCurve is Storage {
     /// DAO Logic
     /// -----------------------------------------------------------------------
 
-    /// @notice Seed a curve.
-    function configureCurve(
+    /// @notice Configure a curve.
+    function curve(
         uint256 curveId,
         CurveType curveType,
         uint256 constant_a,
@@ -76,12 +77,28 @@ contract KaliCurve is Storage {
         bool sale,
         string calldata detail
     ) external payable {
+        // Setup new curve.
         if (curveId == 0) {
             // Start number of curves at 1.
-            curveId = incrementCurveCount();
+            incrementCurveCount();
+
+            // Get curveId.
+            curveId = this.getCurveCount();
 
             // Initialize curve owner.
             setOwner(curveId, msg.sender);
+
+            // Initialize curve type.
+            setCurveType(curveId, curveType);
+
+            // Initialize curve type.
+            _setMintConstantA(curveId, constant_a);
+
+            // Initialize curve type.
+            _setMintConstantB(curveId, constant_b);
+
+            // Initialize curve type.
+            _setMintConstantC(curveId, constant_c);
 
             // TODO: Make sure burn() only starts at total supply of 2
             // Increment total supply for curve.
@@ -95,7 +112,7 @@ contract KaliCurve is Storage {
         if (maxPrice > 0) _setCurveMaxPrice(curveId, maxPrice);
 
         // Set sale status.
-        if (sale) _setCurvePurchaseStatus(curveId, sale);
+        if (sale != this.getCurveMintStatus(curveId)) _setCurveMintStatus(curveId, sale);
 
         // Set any detail.
         if (bytes(detail).length > 0) _setCurveDetail(curveId, detail);
@@ -105,26 +122,16 @@ contract KaliCurve is Storage {
     /// ImpactDAO memberships
     /// -----------------------------------------------------------------------
 
-    /// @notice Public function to rebalance any Impact DAO.
-    /// @param token ERC721 token address.
-    /// @param tokenId ERC721 tokenId.
-    function balanceDao(address token, uint256 tokenId) external payable {
-        _balance(token, tokenId, this.getImpactDao(token, tokenId));
-    }
-
-    /// @notice Update Impact DAO balance when ERC721 is purchased.
-    /// @param token ERC721 token address.
-    /// @param tokenId ERC721 tokenId.
-    /// @param patron Patron of ERC721.
-    function updateBalances(address token, uint256 tokenId, address impactDao, address patron) internal {
-        if (impactDao == address(0)) {
-            // Summon DAO with 50/50 ownership between creator and patron(s).
-            this.setImpactDao(token, tokenId, summonDao(token, tokenId, this.getCreator(token, tokenId), patron));
-        } else {
-            // Update DAO balance.
-            _balance(token, tokenId, impactDao);
-        }
-    }
+    // /// @notice Update Impact DAO balance when ERC721 is purchased.
+    // function updateBalances(uint256 curveId, address impactDao, address patron) internal {
+    //     if (impactDao == address(0)) {
+    //         // Summon DAO with 50/50 ownership between creator and patron(s).
+    //         this.setImpactDao(curveId, summonDao(curveId, this.getOwner(curveId), patron));
+    //     } else {
+    //         // Update DAO balance.
+    //         _balance(curveId, impactDao);
+    //     }
+    // }
 
     /// @notice Summon an Impact DAO.
     function summonDao(uint256 curveId, address owner) private returns (address) {
@@ -150,8 +157,8 @@ contract KaliCurve is Storage {
         uint256 count = this.getCurveCount();
         address payable impactDao = payable(
             KaliDAOfactory(this.getKaliDaoFactory()).deployKaliDAO(
-                string.concat("BergerTime #", LibString.toString(count)),
-                string.concat("BT #", LibString.toString(count)),
+                string.concat("ImpactDAO #", LibString.toString(count)),
+                string.concat("ID #", LibString.toString(count)),
                 " ",
                 true,
                 extensions,
@@ -167,37 +174,34 @@ contract KaliCurve is Storage {
         return impactDao;
     }
 
-    /// @notice Rebalance Impact DAO.
-    /// @param token ERC721 token address.
-    /// @param tokenId ERC721 tokenId.
-    /// @param dao ImpactDAO summoned for ERC721.
-    function _balance(address token, uint256 tokenId, address dao) private {
-        uint256 count = this.getPatronCount(token, tokenId);
-        for (uint256 i = 1; i <= count;) {
-            // Retrieve patron and patron contribution.
-            address _patron = this.getPatron(token, tokenId, i);
-            uint256 contribution = this.getPatronContribution(token, tokenId, _patron);
+    // /// @notice Rebalance Impact DAO.
+    // function _balance(uint256 curveId, address dao) private {
+    //     uint256 count = this.getPatronCount(curveId);
+    //     for (uint256 i = 1; i <= count;) {
+    //         // Retrieve patron and patron contribution.
+    //         address _patron = this.getPatron(curveId, i);
+    //         uint256 contribution = this.getPatronContribution(curveId, _patron);
 
-            // Retrieve KaliDAO balance data.
-            uint256 _contribution = IERC20(dao).balanceOf(_patron);
+    //         // Retrieve KaliDAO balance data.
+    //         uint256 _contribution = IERC20(dao).balanceOf(_patron);
 
-            // Retrieve creator.
-            address creator = this.getCreator(token, tokenId);
+    //         // Retrieve curve owner.
+    //         address owner = this.getOwner(curveId);
 
-            // Determine to mint or burn.
-            if (contribution > _contribution) {
-                IKaliTokenManager(dao).mintTokens(creator, contribution - _contribution);
-                IKaliTokenManager(dao).mintTokens(_patron, contribution - _contribution);
-            } else {
-                IKaliTokenManager(dao).burnTokens(creator, _contribution - contribution);
-                IKaliTokenManager(dao).burnTokens(_patron, _contribution - contribution);
-            }
+    //         // Determine to mint or burn.
+    //         if (contribution > _contribution) {
+    //             IKaliTokenManager(dao).mintTokens(owner, contribution - _contribution);
+    //             IKaliTokenManager(dao).mintTokens(_patron, contribution - _contribution);
+    //         } else {
+    //             IKaliTokenManager(dao).burnTokens(owner, _contribution - contribution);
+    //             IKaliTokenManager(dao).burnTokens(_patron, _contribution - contribution);
+    //         }
 
-            unchecked {
-                ++i;
-            }
-        }
-    }
+    //         unchecked {
+    //             ++i;
+    //         }
+    //     }
+    // }
 
     /// -----------------------------------------------------------------------
     /// Unclaimed Logic
@@ -218,28 +222,68 @@ contract KaliCurve is Storage {
     /// Patron Logic
     /// -----------------------------------------------------------------------
 
+    /// @notice Mint patron certificate.
+    function mint(uint256 curveId) external payable initialized forSale(curveId) {
+        // Retrieve max price, max supply, current supply and mint price.
+        uint256 maxPrice = this.getCurveMaxPrice(curveId);
+        uint256 maxSupply = this.getCurveMaxSupply(curveId);
+        uint256 mintPrice = this.getMintPrice(curveId);
+        uint256 supply = this.getCurveSupply(curveId);
+
+        // Validate mint conditions.
+        if (msg.value != mintPrice) revert InvalidAmount();
+        if (++supply > maxSupply) revert InvalidMint();
+        if (this.getCurveMintStatus(curveId)) revert InvalidMint();
+
+        // If price exceeds max price allowed, use max price as purchase price.
+        bool plateaued = this.getCurvePlateaued(curveId);
+        if (mintPrice > maxPrice) {
+            mintPrice = maxPrice;
+            setCurvePlateaued(curveId, true);
+        } else {
+            if (plateaued) deleteCurvePlateaued(curveId);
+        }
+
+        // Retrieve current burn price.
+        uint256 burnPrice = this.getBurnPrice(curveId);
+        if (plateaued) burnPrice = maxPrice * 9 / 10;
+
+        // Retrieve impactDAO.
+        address impactDAO = this.getImpactDao(curveId);
+
+        // Send price difference to impactDAO.
+        (bool success,) = impactDAO.call{value: mintPrice - burnPrice}("");
+        if (success) revert TransferFailed();
+
+        // If impactDAO does not exist, summon one with owner and patron both holding one impactDAO token.
+        if (impactDAO == address(0)) {
+            impactDAO = summonDao(curveId, msg.sender);
+        } else {
+            // If impactDAO does exist, mint one impactDAO token to owner and another to patron.
+            IKaliTokenManager(impactDAO).mintTokens(this.getOwner(curveId), 1);
+            IKaliTokenManager(impactDAO).mintTokens(msg.sender, 1);
+        }
+    }
+
     /// @notice Buy Patron Certificate.
-    /// @param token ERC721 token address.
-    /// @param tokenId ERC721 tokenId.
-    /// @param newPrice New purchase price for ERC721.
-    /// @param currentPrice Current purchase price for ERC721.
-    function buy(address token, uint256 tokenId, uint256 newPrice, uint256 currentPrice)
-        external
-        payable
-        initialized
-        forSale(token, tokenId)
-    {
-        address owner = this.getOwner(token, tokenId);
+    function burn(uint256 curveId) external payable initialized {
+        // Retrieve current burn price.
+        uint256 price = this.getBurnPrice(curveId);
+        uint256 maxPrice = this.getCurveMaxPrice(curveId);
 
-        // Pay currentPrice + deposit to current owner.
-        processPayment(token, tokenId, owner, newPrice, currentPrice);
+        bool plateaued = this.getCurvePlateaued(curveId);
+        if (plateaued) price = maxPrice * 9 / 10;
 
-        // Balance DAO according to updated contribution.
-        updateBalances(token, tokenId, this.getImpactDao(token, tokenId), msg.sender);
+        // Send price to burn to patron.
+        (bool success,) = msg.sender.call{value: price}("");
+        if (success) setUnclaimed(msg.sender, price);
 
-        // TODO: check (1) if already summoned, (2) if initial owner token to jumpstart impactDao is burned
-        // Summon ImpactDAO
-        summonDao(curveId, msg.sender);
+        // Retrieve impactDAO.
+        address impactDAO = this.getImpactDao(curveId);
+
+        // Burn patron certificate.
+        IKaliTokenManager(impactDAO).burnTokens(this.getOwner(curveId), 1);
+        IKaliTokenManager(impactDAO).burnTokens(msg.sender, 1);
     }
 
     /// -----------------------------------------------------------------------
@@ -247,45 +291,48 @@ contract KaliCurve is Storage {
     /// -----------------------------------------------------------------------
 
     function setKaliDaoFactory(address factory) external payable onlyOperator {
-        this.setAddress(keccak256(abi.encodePacked("dao.factory")), factory);
+        _setAddress(keccak256(abi.encodePacked("dao.factory")), factory);
     }
 
     function setImpactDao(uint256 curveId, address impactDao) external payable onlyOperator {
-        this.setAddress(keccak256(abi.encode(curveId, ".impactDao")), impactDao);
+        _setAddress(keccak256(abi.encode(curveId, ".impactDao")), impactDao);
     }
 
     function setOwner(uint256 curveId, address owner) internal {
-        this.setAddress(keccak256(abi.encode(curveId, ".owner")), owner);
+        _setAddress(keccak256(abi.encode(curveId, ".owner")), owner);
     }
 
-    function setCurveDetail(uint256 curveId, string calldata detail) external payable onlyOperator {
-        this.setString(keccak256(abi.encode(curveId, ".detail")), detail);
-    }
-
-    function _setCurveDetail(uint256 curveId, string calldata detail) internal {
-        this.setString(keccak256(abi.encode(curveId, ".detail")), detail);
-    }
-
-    function setCurvePurchaseStatus(uint256 curveId, bool sale) external payable onlyOwner(curveId) {
-        this.setBool(keccak256(abi.encode(curveId, ".forSale")), sale);
-    }
-
-    function _setCurvePurchaseStatus(uint256 curveId, bool sale) internal {
-        this.setBool(keccak256(abi.encode(curveId, ".forSale")), sale);
+    function setUnclaimed(address user, uint256 amount) internal {
+        _setUint(keccak256(abi.encode(user, ".unclaimed")), amount);
     }
 
     function setPatron(uint256 curveId, address patron) internal {
-        incrementPatronId(curveId);
-        this.setAddress(keccak256(abi.encode(curveId, this.getPatronCount(curveId))), patron);
+        _setAddress(keccak256(abi.encode(curveId, this.getPatronCount(curveId))), patron);
     }
 
     function setPatronStatus(uint256 curveId, address patron, bool status) internal {
-        this.setBool(keccak256(abi.encode(curveId, patron, ".isPatron")), status);
+        _setBool(keccak256(abi.encode(curveId, patron, ".isPatron")), status);
     }
 
     /// -----------------------------------------------------------------------
     /// Curve Setter Logic
     /// -----------------------------------------------------------------------
+
+    function setCurveDetail(uint256 curveId, string calldata detail) external payable onlyOperator {
+        _setString(keccak256(abi.encode(curveId, ".detail")), detail);
+    }
+
+    function _setCurveDetail(uint256 curveId, string calldata detail) internal {
+        _setString(keccak256(abi.encode(curveId, ".detail")), detail);
+    }
+
+    function setCurveMintStatus(uint256 curveId, bool sale) external payable onlyOwner(curveId) {
+        _setBool(keccak256(abi.encode(curveId, ".forSale")), sale);
+    }
+
+    function _setCurveMintStatus(uint256 curveId, bool sale) internal {
+        _setBool(keccak256(abi.encode(curveId, ".forSale")), sale);
+    }
 
     function setCurveMaxSupply(uint256 curveId, uint256 maxSupply) external payable onlyOwner(curveId) {
         _setCurveMaxSupply(curveId, maxSupply);
@@ -320,62 +367,66 @@ contract KaliCurve is Storage {
     }
 
     function setCurveType(uint256 curveId, CurveType curveType) internal {
-        this.setUint(keccak256(abi.encode(curveId, ".curveType")), uint256(curveType));
+        _setUint(keccak256(abi.encode(curveId, ".curveType")), uint256(curveType));
     }
 
     function incrementCurveSupply(uint256 curveId) internal {
         addUint(keccak256(abi.encode(curveId, ".supply")), 1);
     }
 
+    function setCurvePlateaued(uint256 curveId, bool plateaued) internal {
+        _setBool(keccak256(abi.encode(curveId, ".plateaued")), plateaued);
+    }
+
     function _setCurveMaxSupply(uint256 curveId, uint256 maxSupply) internal {
         if (this.getCurveMaxSupply(curveId) >= maxSupply) revert InvalidAmount();
-        this.setUint(keccak256(abi.encode(curveId, ".maxSupply")), uint256(maxSupply));
+        _setUint(keccak256(abi.encode(curveId, ".maxSupply")), uint256(maxSupply));
     }
 
     function _setCurveMaxPrice(uint256 curveId, uint256 maxPrice) internal {
         if (this.getCurveMaxPrice(curveId) >= maxPrice) revert InvalidAmount();
-        this.setUint(keccak256(abi.encode(curveId, ".maxPrice")), uint256(maxPrice));
+        _setUint(keccak256(abi.encode(curveId, ".maxPrice")), uint256(maxPrice));
     }
 
     function _setMintConstantA(uint256 curveId, uint256 constant_a) internal {
         // To prevent future calculation errors, such as arithmetic overflow/underflow.
         if (constant_a - this.getBurnConstantA(curveId) >= 0) {
-            this.setUint(keccak256(abi.encode(curveId, ".mint.a")), constant_a);
+            _setUint(keccak256(abi.encode(curveId, ".mint.a")), constant_a);
         }
     }
 
     function _setMintConstantB(uint256 curveId, uint256 constant_b) internal {
         // To prevent future calculation errors, such as arithmetic overflow/underflow.
         if (constant_b - this.getBurnConstantB(curveId) >= 0) {
-            this.setUint(keccak256(abi.encode(curveId, ".mint.b")), constant_b);
+            _setUint(keccak256(abi.encode(curveId, ".mint.b")), constant_b);
         }
     }
 
     function _setMintConstantC(uint256 curveId, uint256 constant_c) internal {
         // To prevent future calculation errors, such as arithmetic overflow/underflow.
         if (constant_c - this.getBurnConstantC(curveId) >= 0) {
-            this.setUint(keccak256(abi.encode(curveId, ".mint.c")), constant_c);
+            _setUint(keccak256(abi.encode(curveId, ".mint.c")), constant_c);
         }
     }
 
     function _setBurnConstantA(uint256 curveId, uint256 constant_a) internal {
         // To prevent future calculation errors, such as arithmetic overflow/underflow.
         if (this.getMintConstantA(curveId) - constant_a >= 0) {
-            this.setUint(keccak256(abi.encode(curveId, ".burn.a")), constant_a);
+            _setUint(keccak256(abi.encode(curveId, ".burn.a")), constant_a);
         }
     }
 
     function _setBurnConstantB(uint256 curveId, uint256 constant_b) internal {
         // To prevent future calculation errors, such as arithmetic overflow/underflow.
         if (this.getMintConstantB(curveId) - constant_b >= 0) {
-            this.setUint(keccak256(abi.encode(curveId, ".burn.b")), constant_b);
+            _setUint(keccak256(abi.encode(curveId, ".burn.b")), constant_b);
         }
     }
 
     function _setBurnConstantC(uint256 curveId, uint256 constant_c) internal {
         // To prevent future calculation errors, such as arithmetic overflow/underflow.
         if (this.getMintConstantC(curveId) - constant_c >= 0) {
-            this.setUint(keccak256(abi.encode(curveId, ".burn.c")), constant_c);
+            _setUint(keccak256(abi.encode(curveId, ".burn.c")), constant_c);
         }
     }
     /// -----------------------------------------------------------------------
@@ -387,23 +438,35 @@ contract KaliCurve is Storage {
     }
 
     function getCurveCount() external view returns (uint256) {
-        return this.getUint(keccak256(abi.encodePacked("bergerTimes.count")));
+        return this.getUint(keccak256(abi.encodePacked("curves.count")));
     }
 
     function getImpactDao(uint256 curveId) external view returns (address) {
         return this.getAddress(keccak256(abi.encode(curveId, ".impactDao")));
     }
 
-    function getTokenPurchaseStatus(uint256 curveId) external view returns (bool) {
-        return this.getBool(keccak256(abi.encode(curveId, ".forSale")));
-    }
-
     /// -----------------------------------------------------------------------
     /// Curve Getter Logic
     /// -----------------------------------------------------------------------
 
-    function getCurveType(uint256 curveId, CurveType curveType) external view returns (CurveType) {
+    function getCurveSupply(uint256 curveId) external view returns (uint256) {
+        return this.getUint(keccak256(abi.encode(curveId, ".supply")));
+    }
+
+    function getCurveMintStatus(uint256 curveId) external view returns (bool) {
+        return this.getBool(keccak256(abi.encode(curveId, ".forSale")));
+    }
+
+    function getCurveType(uint256 curveId) external view returns (CurveType) {
         return CurveType(this.getUint(keccak256(abi.encode(curveId, ".curveType"))));
+    }
+
+    function getCurveMaxSupply(uint256 curveId) external view returns (uint256) {
+        return this.getUint(keccak256(abi.encode(curveId, ".maxSupply")));
+    }
+
+    function getCurveMaxPrice(uint256 curveId) external view returns (uint256) {
+        return this.getUint(keccak256(abi.encode(curveId, ".maxPrice")));
     }
 
     function getMintConstantA(uint256 curveId) external view returns (uint256) {
@@ -430,17 +493,27 @@ contract KaliCurve is Storage {
         return this.getUint(keccak256(abi.encode(curveId, ".burn.c")));
     }
 
+    function getCurvePlateaued(uint256 curveId) external view returns (bool) {
+        return this.getBool(keccak256(abi.encode(curveId, ".plateaued")));
+    }
     // mint formula - initMintPrice + supply * initMintPrice / 50 + (supply ** 2) * initMintPrice / 100;
     // burn formula - initMintPrice + supply * initMintPrice / 50 + (supply ** 2) * initMintPrice / 200;
 
     /// @notice Calculate mint price.
-    function getMintPrice(uint256 curveId, CurveType curveType) external view returns (uint256) {
+    function getMintPrice(uint256 curveId) external view returns (uint256) {
+        CurveType curveType = this.getCurveType(curveId);
+        if (curveType == CurveType.NA) return 0;
+        return _getMintPrice(curveId, curveType);
+    }
+
+    /// @notice Calculate mint price.
+    function _getMintPrice(uint256 curveId, CurveType curveType) internal view returns (uint256) {
         uint256 supply;
 
         // Retrieve constants.
-        uint256 constant_a = this.getConsantA(curveId);
-        uint256 constant_b = this.getConsantB(curveId);
-        uint256 constant_c = this.getConsantC(curveId);
+        uint256 constant_a = this.getMintConstantA(curveId);
+        uint256 constant_b = this.getMintConstantB(curveId);
+        uint256 constant_c = this.getMintConstantC(curveId);
 
         // Return linear pricing based on, a * b * x + b.
         if (curveType == CurveType.LINEAR) {
@@ -452,13 +525,20 @@ contract KaliCurve is Storage {
     }
 
     /// @notice Calculate burn price.
-    function getBurnPrice(uint256 curveId, CurveType curveType) external view returns (uint256) {
+    function getBurnPrice(uint256 curveId) external view returns (uint256) {
+        CurveType curveType = this.getCurveType(curveId);
+        if (curveType == CurveType.NA) return 0;
+        return _getBurnPrice(curveId, curveType);
+    }
+    /// @notice Calculate burn price.
+
+    function _getBurnPrice(uint256 curveId, CurveType curveType) internal view returns (uint256) {
         uint256 supply;
 
         // Retrieve constants.
-        uint256 constant_a = this.getConsantA(curveId);
-        uint256 constant_b = this.getConsantB(curveId);
-        uint256 constant_c = this.getConsantC(curveId);
+        uint256 constant_a = this.getBurnConstantA(curveId);
+        uint256 constant_b = this.getBurnConstantB(curveId);
+        uint256 constant_c = this.getBurnConstantC(curveId);
 
         // Return linear pricing based on, a * b * x + b.
         if (curveType == CurveType.LINEAR) {
@@ -467,11 +547,6 @@ contract KaliCurve is Storage {
             // Return curve pricing based on, a * c * x^2 + b * c * x + c.
             return constant_a * (supply ** 2) + constant_b * supply + constant_c;
         }
-    }
-
-    function getBurnPrice(uint256 curveId, uint256 curveType) external view returns (uint256) {
-        uint256 initMintPrice = 100000000000000; // at 0
-        uint256 supply;
     }
 
     function getOwner(uint256 curveId) external view returns (address) {
@@ -545,7 +620,7 @@ contract KaliCurve is Storage {
     }
 
     function incrementCurveCount() internal {
-        addUint(keccak256(abi.encodePacked("bergerTimes.count")), 1);
+        addUint(keccak256(abi.encodePacked("curves.count")), 1);
     }
 
     function incrementPatronId(address token, uint256 tokenId) internal {
@@ -560,44 +635,48 @@ contract KaliCurve is Storage {
         deleteUint(keccak256(abi.encode(user, ".unclaimed")));
     }
 
-    function deleteTokenPurchaseStatus(address token, uint256 tokenId) internal {
-        return deleteBool(keccak256(abi.encode(token, tokenId, ".forSale")));
+    function deleteCurvePurchaseStatus(uint256 curveId) internal {
+        deleteBool(keccak256(abi.encode(curveId, ".forSale")));
     }
 
-    /// @notice Process purchase payment.
-    /// @param token ERC721 token address.
-    /// @param tokenId ERC721 tokenId.
-    /// @param currentOwner Current owner of ERC721.
-    /// @param newPrice New price of ERC721.
-    /// @param currentPrice Current price of ERC721.
-    /// credit: simondlr  https://github.com/simondlr/thisartworkisalwaysonsale/blob/master/packages/hardhat/contracts/v1/ArtStewardV2.sol
-    function processPayment(
-        address token,
-        uint256 tokenId,
-        address currentOwner,
-        uint256 newPrice,
-        uint256 currentPrice
-    ) internal {
-        // Confirm price.
-        uint256 price = this.getPrice(token, tokenId);
-        if (price != currentPrice || newPrice == 0 || currentPrice > msg.value) revert InvalidAmount();
-
-        // Add purchase price to patron contribution.
-        addPatronContribution(token, tokenId, msg.sender, price);
-
-        // Retrieve deposit, if any.
-        uint256 deposit = this.getDeposit(token, tokenId);
-
-        if (price + deposit > 0) {
-            // this won't execute if KaliBerger owns it. price = 0. deposit = 0.
-            // pay previous owner their price + deposit back.
-            (bool success,) = currentOwner.call{value: price + deposit}("");
-            if (!success) addUnclaimed(currentOwner, price + deposit);
-        }
-
-        // Make deposit, if any.
-        _addDeposit(token, tokenId, msg.value - price);
+    function deleteCurvePlateaued(uint256 curveId) internal {
+        deleteBool(keccak256(abi.encode(curveId, ".plateaued")));
     }
+
+    // /// @notice Process purchase payment.
+    // /// @param token ERC721 token address.
+    // /// @param tokenId ERC721 tokenId.
+    // /// @param currentOwner Current owner of ERC721.
+    // /// @param newPrice New price of ERC721.
+    // /// @param currentPrice Current price of ERC721.
+    // /// credit: simondlr  https://github.com/simondlr/thisartworkisalwaysonsale/blob/master/packages/hardhat/contracts/v1/ArtStewardV2.sol
+    // function processPayment(
+    //     address token,
+    //     uint256 tokenId,
+    //     address currentOwner,
+    //     uint256 newPrice,
+    //     uint256 currentPrice
+    // ) internal {
+    //     // Confirm price.
+    //     uint256 price = this.getPrice(token, tokenId);
+    //     if (price != currentPrice || newPrice == 0 || currentPrice > msg.value) revert InvalidAmount();
+
+    //     // Add purchase price to patron contribution.
+    //     addPatronContribution(token, tokenId, msg.sender, price);
+
+    //     // Retrieve deposit, if any.
+    //     uint256 deposit = this.getDeposit(token, tokenId);
+
+    //     if (price + deposit > 0) {
+    //         // this won't execute if KaliBerger owns it. price = 0. deposit = 0.
+    //         // pay previous owner their price + deposit back.
+    //         (bool success,) = currentOwner.call{value: price + deposit}("");
+    //         if (!success) addUnclaimed(currentOwner, price + deposit);
+    //     }
+
+    //     // Make deposit, if any.
+    //     _addDeposit(token, tokenId, msg.value - price);
+    // }
 
     /// @notice Interface for any contract that wants to support safeTransfers from ERC721 asset contracts.
     /// credit: z0r0z.eth https://github.com/kalidao/kali-contracts/blob/main/contracts/utils/NFTreceiver.sol
