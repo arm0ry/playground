@@ -7,7 +7,7 @@ import {Base64} from "../../lib/solbase/src/utils/Base64.sol";
 import {LibString} from "../../lib/solbase/src/utils/LibString.sol";
 import {ERC721} from "../../lib/solbase/src/tokens/ERC721/ERC721.sol";
 
-import {IMissions, Mission, Task, Metric} from "../interface/IMissions.sol";
+import {IMissions, Mission, Task} from "../interface/IMissions.sol";
 import {IStorage} from "../interface/IStorage.sol";
 import {IQuest, QuestDetail} from "../interface/IQuest.sol";
 import {IKaliBerger} from "../interface/IKaliBerger.sol";

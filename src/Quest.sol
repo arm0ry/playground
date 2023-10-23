@@ -150,7 +150,7 @@ contract Quest is Storage {
         address recoveredAddress = ecrecover(digest, v, r, s);
         if (recoveredAddress == address(0) || recoveredAddress != signer) revert InvalidUser();
 
-        _respond(user, missions, missionId, taskId, feedback, response);
+        _respond(signer, missions, missionId, taskId, feedback, response);
     }
 
     /// -----------------------------------------------------------------------
@@ -158,16 +158,15 @@ contract Quest is Storage {
     /// -----------------------------------------------------------------------
 
     /// @notice Reviewer to submit review of task completion.
-    /// @param missionId .
-    /// @param taskId .
-    /// @param result .
-    /// @dev
-    function review(address user, address missions, uint256 missionId, uint256 taskId, bool result)
-        external
-        payable
-        onlyReviewer
-    {
-        _review(user, missions, missionId, taskId, result);
+    function review(
+        address user,
+        address missions,
+        uint256 missionId,
+        uint256 taskId,
+        uint256 data,
+        string calldata response
+    ) external payable onlyReviewer {
+        _review(msg.sender, user, missions, missionId, taskId, data, response);
     }
 
     function reviewBySig(
@@ -176,7 +175,8 @@ contract Quest is Storage {
         address missions,
         uint256 missionId,
         uint256 taskId,
-        bool result,
+        uint256 data,
+        string calldata response,
         uint8 v,
         bytes32 r,
         bytes32 s
@@ -185,14 +185,14 @@ contract Quest is Storage {
             abi.encodePacked(
                 "\x19\x01",
                 DOMAIN_SEPARATOR(),
-                keccak256(abi.encode(REVIEW_TYPEHASH, signer, user, missions, missionId, taskId, result))
+                keccak256(abi.encode(REVIEW_TYPEHASH, signer, user, missions, missionId, taskId, data, response))
             )
         );
 
         address recoveredAddress = ecrecover(digest, v, r, s);
         if (recoveredAddress == address(0) || recoveredAddress != msg.sender) revert InvalidUser();
 
-        _review(user, missions, missionId, taskId, reviewResult);
+        _review(signer, user, missions, missionId, taskId, data, response);
     }
 
     /// -----------------------------------------------------------------------
@@ -209,20 +209,25 @@ contract Quest is Storage {
     /// DAO Logic
     /// -----------------------------------------------------------------------
 
-    // function setMissions(address missions) external payable onlyOperator {
-    //     _setAddress(keccak256(abi.encode("missions")), missions);
-    // }
-
-    // function getMissions() external view returns (address) {
-    //     return this.getAddress(keccak256(abi.encode("missions")));
-    // }
-
-    function setReviewerStatus(uint256 questId, address reviewer, bool status) external payable onlyOperator {
-        if (status) _setBool(keccak256(abi.encode(questId, reviewer, ".exists")), status);
+    function setReviewerStatus(address reviewer, bool status) external payable onlyOperator {
+        if (status) _setBool(keccak256(abi.encode(reviewer, ".approved")), status);
     }
 
-    function setGlobalReview(bool status) external payable onlyOperator {
+    function isReviewer(address user) external view returns (bool) {
+        return this.getBool(keccak256(abi.encode(user, ".approved")));
+    }
+
+    function getGlobalReview() external view returns (bool) {
+        return this.getBool(keccak256(abi.encode("quest.review")));
+    }
+
+    /// @notice Review status applies to all quests.
+    function setReviewStatus(bool status) external payable onlyOperator {
         if (status) _setBool(keccak256(abi.encode("quest.review")), status);
+    }
+
+    function getReviewStatus() external view returns (bool) {
+        return this.getBool(keccak256(abi.encode("quest.review")));
     }
 
     function setCoolDown(uint40 cd) external payable onlyOperator {
@@ -233,27 +238,17 @@ contract Quest is Storage {
     /// Quest Setter Logic
     /// -----------------------------------------------------------------------
 
-    function setQuestReviewStatus(address user, address missions, uint256 missionId, bool status)
-        external
-        payable
-        onlyUser
-    {
-        _setBool(keccak256(abi.encode(user, missions, missionId, ".review")), status);
-    }
-
-    function _setQuestReviewStatus(address user, address missions, uint256 missionId, bool status) internal {
-        _setBool(keccak256(abi.encode(user, missions, missionId, ".review")), status);
-    }
-
     function toggleQuestActivity(address user, address missions, uint256 missionId) internal {
-        _setBool(keccak256(abi.encode(user, missions, missionId, ".active")), !this.isQuestActive(user, missionId));
+        _setBool(
+            keccak256(abi.encode(user, missions, missionId, ".active")), !this.isQuestActive(user, missions, missionId)
+        );
     }
 
     function deleteQuestActivity(address user, address missions, uint256 missionId) internal {
         deleteBool(keccak256(abi.encode(user, missions, missionId, ".active")));
     }
 
-    function setQuestProgress(address user, address missions, uint256 missionId, uint256 completed)
+    function updateQuestProgress(address user, address missions, uint256 missionId, uint256 completed)
         internal
         returns (uint256)
     {
@@ -262,22 +257,42 @@ contract Quest is Storage {
         return progress;
     }
 
-    function setQuestTasksCompletionCount(address user, address missions, uint256 missionId) internal {
-        getBool(keccak256(abi.encode(user, missions, missionId, ".completed")));
-    }
-
     function setTimeLastTaskCompleted(address user) internal {
         _setUint(keccak256(abi.encode(user, ".timeLastCompleted")), block.timestamp);
     }
 
-    function setFeedback(address user, address missions, uint256 missionId, uint256 tasId, string calldata feedback)
+    function setFeedback(address user, address missions, uint256 missionId, uint256 taskId, string calldata feedback)
         internal
     {
         _setString(keccak256(abi.encode(user, missions, missionId, taskId, ".feedback")), feedback);
     }
 
-    function setResponse(address user, address missions, uint256 missionId, uint256 tasId, uint256 response) internal {
+    function setResponse(address user, address missions, uint256 missionId, uint256 taskId, uint256 response)
+        internal
+    {
         _setUint(keccak256(abi.encode(user, missions, missionId, taskId, ".response")), response);
+    }
+
+    function setReviewData(
+        address reviewer,
+        address user,
+        address missions,
+        uint256 missionId,
+        uint256 taskId,
+        uint256 reviewData
+    ) internal {
+        _setUint(keccak256(abi.encode(reviewer, user, missions, missionId, taskId, ".reviewData")), reviewData);
+    }
+
+    function setReviewResponse(
+        address reviewer,
+        address user,
+        address missions,
+        uint256 missionId,
+        uint256 taskId,
+        string calldata response
+    ) internal {
+        _setString(keccak256(abi.encode(reviewer, user, missions, missionId, taskId, ".reviewResponse")), response);
     }
 
     /// -----------------------------------------------------------------------
@@ -288,40 +303,23 @@ contract Quest is Storage {
         return this.getBool(keccak256(abi.encode(user, missions, missionId, ".active")));
     }
 
-    function doesQuestRequireReview(user, address user, address missions, uint256 missionId)
-        external
-        view
-        returns (bool)
-    {
-        // TODO: Also retrieve global review stsatus
-        return this.getBool(keccak256(abi.encode(user, missions, missionId, ".review")));
-    }
-
     function getQuestProgress(address user, address missions, uint256 missionId) external view returns (uint256) {
         return this.getUint(keccak256(abi.encode(user, missions, missionId, ".progress")));
     }
 
-    function getQuestTasksCompletions(address user, address missions, uint256 missionId)
-        external
-        view
-        returns (uint256)
-    {
-        return this.getUint(keccak256(abi.encode(user, missions, missionId, ".completed")));
+    function getCompletedTaskCount(address user, address missions, uint256 missionId) external view returns (uint256) {
+        return this.getUint(keccak256(abi.encode(user, missions, missionId, ".taskCompleted")));
     }
 
-    function getQuestDeadline(uint256 missionId) external payable returns (uint256) {
-        // Confirm quest deadline has not passed
-        return IMissions(this.getMissions()).getMissionDeadline(missionId);
-    }
-
-    function isEligibleToQuest(uint256 missionId) external view returns (bool) {
-        uint256 deadline = IMissions(this.getMissions()).getMissionDeadline(missionId);
+    function isEligibleToQuest(address missions, uint256 missionId) external view returns (bool) {
+        uint256 deadline = IMissions(missions).getMissionDeadline(missionId);
         if (deadline != 0) return true;
         if (deadline > block.timestamp) return true;
+        return false;
     }
 
-    function getCoolDown(uint256 missionId) external view returns (uint256) {
-        this.getUint(keccak256(abi.encode("quest.cd")));
+    function getCoolDown() external view returns (uint256) {
+        return this.getUint(keccak256(abi.encode("quest.cd")));
     }
 
     function getTimeLastTaskCompleted(address user) external view returns (uint256) {
@@ -329,7 +327,7 @@ contract Quest is Storage {
     }
 
     function hasCooledDown(address user) external view returns (bool) {
-        if (block.timestamp > this.getTimeLastTaskCompleted(user) + this.getCooldown()) return true;
+        return (block.timestamp >= this.getTimeLastTaskCompleted(user) + this.getCoolDown()) ? true : false;
     }
 
     function getFeedback(address user, uint256 missionId, uint256 taskId) external view returns (string memory) {
@@ -368,14 +366,12 @@ contract Quest is Storage {
         addUint(keccak256(abi.encode(user, missions, missionId, taskId, ".completed")), 1);
     }
 
-    function incrementTaskCompletionInMission(address user, address missions, uint256 missionId)
+    function incrementCompletedTaskInMission(address user, address missions, uint256 missionId)
         internal
         returns (uint256)
     {
-        uint256 completed = this.getQuestTasksCompletions(user, missions, missionId);
-        unchecked {
-            return ++completed;
-        }
+        addUint(keccak256(abi.encode(user, missions, missionId, ".taskCompleted")), 1);
+        return this.getCompletedTaskCount(user, missions, missionId);
     }
 
     /// -----------------------------------------------------------------------
@@ -383,35 +379,25 @@ contract Quest is Storage {
     /// -----------------------------------------------------------------------
 
     /// @notice Internal function using signature to start quest.
-    /// @param user.
-    /// @param missions.
-    /// @param missionId.
-    /// @dev
     function _start(address user, address missions, uint256 missionId) internal virtual {
         // Confirm mission has been initialized and has not expired.
-        if (!this.isEligibleToQuest(missionId)) revert InvalidMission();
-        if (this.isQuestActive(user, missionId)) revert QuestInProgress();
+        if (!this.isEligibleToQuest(missions, missionId)) revert InvalidMission();
+        if (this.isQuestActive(user, missions, missionId)) revert QuestInProgress();
 
         // Toggle quest activity status.
-        toggleQuestActivity(user, missionId);
+        toggleQuestActivity(user, missions, missionId);
 
-        // Initialize quest detail.
-        _setQuestReviewStatus(user, missionId, reviewStatus);
+        // Increment number of missions started by user, as facilitated by this Quest contract.
+        incrementUserMissionStarts(user, missions, missionId);
 
-        // Increment number of mission starts by user.
-        incrementUserMissionStarts(missionId, user);
+        // Increment number of missions started and facilitated by this Quest contract.
+        incrementMissionStarts();
 
         // Increment number of mission starts.
-        IMissions(this.getMissions()).incrementMissionStarts(missionId);
+        IMissions(missions).incrementMissionStarts(missionId);
     }
 
     /// @notice Internal function using signature to respond to quest tasks.
-    /// @param user .
-    /// @param missions .
-    /// @param missionId .
-    /// @param taskId .
-    /// @param response .
-    /// @dev
     function _respond(
         address user,
         address missions,
@@ -421,35 +407,29 @@ contract Quest is Storage {
         uint256 response
     ) internal virtual {
         // Confirm mission has been initialized and has not expired.
-        if (!this.isEligibleToQuest(missionId)) revert InvalidMission();
-        if (this.isQuestActive(user, missionId)) revert QuestInProgress();
+        if (!this.isEligibleToQuest(missions, missionId)) revert InvalidMission();
+        if (this.isQuestActive(user, missions, missionId)) revert QuestInProgress();
 
         // Confirm Task is valid
         if (!IMissions(missions).isTaskInMission(missionId, taskId)) revert InvalidMission();
 
         // Confirm user is no longer in cooldown.
-        if (!hasCooledDown(user)) revert Cooldown();
+        if (!this.hasCooledDown(user)) revert Cooldown();
 
         // Store responses.
-        setResponse(user, missionId, tasId, response);
-        setFeedback(user, missionId, tasId, feedback);
+        setResponse(user, missions, missionId, taskId, response);
+        setFeedback(user, missions, missionId, taskId, feedback);
 
         // Start cooldown.
         setTimeLastTaskCompleted(user);
 
         // When review is not required, update quest detail and stats.
-        if (!this.doesQuestRequireReview(user, missions, missionId)) {
-            updateQuestAndStats(user, missions, missionId);
+        if (!this.getReviewStatus()) {
+            updateQuestAndStats(user, missions, missionId, taskId);
         }
     }
 
     /// @notice Internal function using signature to review quest tasks.
-    /// @param user .
-    /// @param missions .
-    /// @param missionId .
-    /// @param taskId .
-    /// @param reviewResult .
-    /// @dev
     function _review(
         address reviewer,
         address user,
@@ -457,35 +437,31 @@ contract Quest is Storage {
         uint256 missionId,
         uint256 taskId,
         uint256 reviewData,
-        string calldata reviewRepsonse
+        string calldata reviewResponse
     ) internal {
-        if (!this.doesQuestRequireReview(user, missions, missionId)) revert InvalidReview();
-        if (!isReviewer) revert InvalidReviewer();
+        if (!this.getReviewStatus()) revert InvalidReview();
 
         // Store review results.
         setReviewData(reviewer, user, missions, missionId, taskId, reviewData);
         setReviewResponse(reviewer, user, missions, missionId, taskId, reviewResponse);
 
         // Update quest detail.
-        updateQuestAndStats(user, missions, missionId);
+        updateQuestAndStats(user, missions, missionId, taskId);
     }
 
     /// @notice Update, and finalize when appropriate, the Quest detail.
-    /// @param questKey .
-    /// @param missionId .
-    /// @dev
-    function updateQuestAndStats(address user, address missions, uint256 missionId) internal {
+    function updateQuestAndStats(address user, address missions, uint256 missionId, uint256 taskId) internal {
         // Calculate and udpate quest detail
-        uint256 completed = incrementTaskCompletionInMission(user, missions, missionId);
-        uint256 progress = setQuestProgress(user, missions, missionId, completed);
+        uint256 completed = incrementCompletedTaskInMission(user, missions, missionId);
+        uint256 progress = updateQuestProgress(user, missions, missionId, completed);
 
         // Update Task-related stats
 
-        // Increment number of missions facilitated through this Quest contract.
+        // Increment number of missions facilitated by this Quest contract.
         incrementTaskCompletions();
 
         // Increment number of tasks completed by user, as facilitated by this Quest contract.
-        incrementUserTaskCompletions(user, missions, missionId);
+        incrementUserTaskCompletions(user, missions, missionId, taskId);
 
         // Increment task completion at Missions contract.
         IMissions(missions).incrementTaskCompletions(taskId);
@@ -500,7 +476,7 @@ contract Quest is Storage {
             // Increment number of mission completions.
             IMissions(missions).incrementMissionCompletions(missionId);
 
-            // Increment number of missions facilitated through this Quest contract.
+            // Increment number of missions facilitated by this Quest contract.
             incrementMissionCompletions();
 
             // Increment number of missions completed by user, as facilitated by this Quest contract.

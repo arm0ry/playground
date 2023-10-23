@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import {Mission, Metric, Task} from "../Missions.sol";
+import {Mission, Task} from "../Missions.sol";
 
 interface IMissions {
     error InvalidMission();

@@ -7,7 +7,7 @@ import "forge-std/console2.sol";
 import {IMissions} from "src/interface/IMissions.sol";
 import {IQuest} from "src/interface/IQuest.sol";
 
-import {Quest, QuestDetail, QuestConfig} from "src/Quest.sol"; // Community goes on quest
+import {Quest, QuestDetail} from "src/Quest.sol"; // Community goes on quest
 import {Missions, Task, Mission} from "src/Missions.sol"; // Put up missions
 import {KaliDAO, ProposalType} from "src/kali/KaliDAO.sol"; // Start with a governance framework
 
@@ -277,28 +277,24 @@ contract QuestsTest is Test {
             deadline: 100,
             creator: address(arm0ry),
             detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza",
-            starts: 0,
             completions: 0
         });
         Task memory task2 = Task({
             deadline: 100,
             creator: charlie,
             detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza",
-            starts: 0,
             completions: 0
         });
         Task memory task3 = Task({
             deadline: 100,
             creator: charlie,
             detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza",
-            starts: 0,
             completions: 0
         });
         Task memory task4 = Task({
             deadline: 100,
             creator: charlie,
             detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza",
-            starts: 0,
             completions: 0
         });
 

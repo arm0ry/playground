@@ -5,7 +5,7 @@ import {SVG} from "../utils/SVG.sol";
 import {JSON} from "../utils/JSON.sol";
 
 import {Missions} from "../Missions.sol";
-import {IMissions, Mission, Task, Metric} from "../interface/IMissions.sol";
+import {IMissions, Mission, Task} from "../interface/IMissions.sol";
 import {IStorage} from "../interface/IStorage.sol";
 import {Storage} from "../Storage.sol";
 import {IQuest, QuestDetail} from "../interface/IQuest.sol";
