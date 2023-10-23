@@ -10,28 +10,23 @@ import {Storage} from "./Storage.sol";
 /// @author audsssy.eth
 
 struct Mission {
-    bool forPurchase; // Status for purchase
-    address creator; // Creator of Mission
-    string title; // Title of Mission
-    string detail; // Mission detail
-    uint256[] taskIds; // Tasks associated with Mission
-    uint256 taskCount; // Number of Tasks
-    uint256 starts; // The number of mission completions
-    uint256 completions; // The number of mission completions
-}
-
-struct Metric {
-    uint256 total;
-    uint256 mean;
-    uint256 numberOfEntries;
+    bool forPurchase; // Status for purchase.
+    address creator; // Mission creator.
+    uint40 deadline; // Mission deadline.
+    uint40 starts; // Number of mission completions.
+    uint40 completions; // Number of mission completions.
+    uint256[] taskIds; // An array of Tasks by id.
+    uint256 taskCount; // Number of Tasks in a Mission.
+    string title; // Mission Title.
+    string detail; // Mission detail.
 }
 
 struct Task {
-    uint40 deadline; // Deadline to complete a Task
-    address creator; // Creator of a Task
-    string detail; // Task detail
-    uint256 starts;
-    uint256 completions;
+    address creator; // Creator of a Task.
+    uint40 deadline; // Deadline to complete a Task.
+    uint40 starts; // Number of times task starts.
+    uint40 completions; // Number of time a task completions.
+    string detail; // Task detail.
 }
 
 contract Missions is Storage {
@@ -172,18 +167,25 @@ contract Missions is Storage {
     }
 
     function getMissionDeadline(uint256 missionId) external view returns (uint256) {
-        uint256[] memory taskIds = this.getMissionTaskIds(missionId);
-        uint256 deadline;
+        uint256 deadline = this.getString(keccak256(abi.encode(address(this), missionId, ".deadline")));
+        if (deadline == 0) {
+            if (this.getMissionTaskCount(missionId) > 0) {
+                uint256[] memory taskIds = this.getMissionTaskIds(missionId);
 
-        for (uint256 i; i < taskIds.length;) {
-            uint256 _deadline = this.getUint(keccak256(abi.encode(address(this), taskIds[i], ".deadline")));
-            if (deadline < _deadline) deadline = _deadline;
-            unchecked {
-                ++i;
+                for (uint256 i; i < taskIds.length;) {
+                    uint256 _deadline = this.getUint(keccak256(abi.encode(address(this), taskIds[i], ".deadline")));
+                    if (deadline < _deadline) deadline = _deadline;
+                    unchecked {
+                        ++i;
+                    }
+                }
+                return deadline;
+            } else {
+                return 0;
             }
+        } else {
+            return deadline;
         }
-
-        return (deadline);
     }
 
     function getMissionLoops(uint256 missionId) external view returns (uint256, uint256[] memory) {
@@ -209,9 +211,10 @@ contract Missions is Storage {
         this.addUint(keccak256(abi.encode(address(this), taskId, ".starts")), 1);
     }
 
-    function getTaskStarts(uint256 taskId) external view returns (uint256) {
-        return this.getUint(keccak256(abi.encode(address(this), taskId, ".starts")));
-    }
+    // TODO: Consider removing this
+    // function getTaskStarts(uint256 taskId) external view returns (uint256) {
+    //     return this.getUint(keccak256(abi.encode(address(this), taskId, ".starts")));
+    // }
 
     function incrementTaskCompletions(uint256 taskId) external playground(msg.sender) {
         this.addUint(keccak256(abi.encode(address(this), taskId, ".completions")), 1);
