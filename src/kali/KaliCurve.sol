@@ -33,7 +33,7 @@ contract KaliCurve is Storage {
 
     function initialize(address dao, address daoFactory) external {
         if (daoFactory != address(0)) {
-            init(dao, address(0));
+            init(dao);
             setKaliDaoFactory(daoFactory);
         }
     }

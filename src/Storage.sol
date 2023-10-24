@@ -29,9 +29,8 @@ contract Storage {
     /// Constructor
     /// -----------------------------------------------------------------------
 
-    function init(address dao, address target) internal {
+    function init(address dao) internal {
         _setDao(dao);
-        if (target != address(0)) booleanStorage[keccak256(abi.encodePacked("playground.", target))] = true;
     }
 
     /// -----------------------------------------------------------------------

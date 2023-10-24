@@ -7,7 +7,7 @@ import "forge-std/console2.sol";
 import {IMissions} from "src/interface/IMissions.sol";
 import {IQuest} from "src/interface/IQuest.sol";
 
-import {Quest, QuestDetail} from "src/Quest.sol"; // Community goes on quest
+import {Quest} from "src/Quest.sol"; // Community goes on quest
 import {Missions, Task, Mission} from "src/Missions.sol"; // Put up missions
 import {KaliDAO, ProposalType} from "src/kali/KaliDAO.sol"; // Start with a governance framework
 
@@ -44,7 +44,7 @@ contract QuestsTest is Test {
     bytes[] extensionsData;
     uint32[16] govSettings;
 
-    QuestDetail qd;
+    // QuestDetail qd;
 
     /// @dev Users.
 
@@ -73,7 +73,7 @@ contract QuestsTest is Test {
         // Deploy contracts
         missions = new Missions();
         vm.prank(address(arm0ry));
-        missions.initialize((address(arm0ry)), address(quests_dao));
+        missions.initialize((address(arm0ry)));
         // vm.prank(address(arm0ry));
         // quests_dao.initialize(directory);
         // vm.prank(address(arm0ry));
@@ -90,6 +90,8 @@ contract QuestsTest is Test {
         // setupTasksAndMissions();
         // setupRewards_Dao();
         // setupRewards_Erc20();
+
+        // Let's do the same thing with `getCode`
 
         vm.warp(1000);
     }
@@ -305,20 +307,20 @@ contract QuestsTest is Test {
 
         // Create new Tasks
         vm.prank(address(arm0ry));
-        missions.setTask(0, task1);
+        // missions.setTask(0, task1);
 
         // Validate Task setup
-        task = missions.getTask(1);
-        assertEq(task.creator, address(arm0ry));
-        assertEq(task.deadline, 100);
+        // task = missions.getTask(1);
+        // assertEq(task.creator, address(arm0ry));
+        // assertEq(task.deadline, 100);
     }
 
     function setupMissions() internal {
         // Prepare to create new Mission
-        taskIds.push(1);
-        taskIds.push(2);
-        taskIds.push(3);
-        taskIds.push(4);
+        // taskIds.push(1);
+        // taskIds.push(2);
+        // taskIds.push(3);
+        // taskIds.push(4);
 
         // Create new mission
         // vm.prank(address(arm0ry));

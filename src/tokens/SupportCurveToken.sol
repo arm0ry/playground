@@ -8,7 +8,7 @@ import {Missions} from "../Missions.sol";
 import {IMissions, Mission, Task} from "../interface/IMissions.sol";
 import {IStorage} from "../interface/IStorage.sol";
 import {Storage} from "../Storage.sol";
-import {IQuest, QuestDetail} from "../interface/IQuest.sol";
+// import {IQuest, QuestDetail} from "../interface/IQuest.sol";
 import {pERC1155} from "../utils/pERC1155.sol";
 
 /// TODO: NEED TO SEPARATE CURVE FROM TOKEN
@@ -60,20 +60,20 @@ contract SupportCurveToken is pERC1155 {
     }
 
     function generateSvg(uint256 id) public view returns (string memory) {
-        (address user, uint256 questStarts) = this.decodeId(id);
-        (bytes32 questKey, QuestDetail memory qd) = IQuest(quest).getQuestDetail(user, questStarts);
+        // (address user, uint256 questStarts) = this.decodeId(id);
+        // (bytes32 questKey, QuestDetail memory qd) = IQuest(quest).getQuestDetail(user, questStarts);
 
-        uint256 cd = IStorage(quest).getUint(keccak256(abi.encode("quest.cd")));
-        string memory url = IStorage(quest).getString(keccak256(abi.encode(msg.sender, ".profile")));
+        // uint256 cd = IStorage(quest).getUint(keccak256(abi.encode("quest.cd")));
+        // string memory url = IStorage(quest).getString(keccak256(abi.encode(msg.sender, ".profile")));
 
-        return string.concat(
-            '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" style="background:#FFFBF5">',
-            buildSvgLogo(),
-            buildSvgData(cd, questKey, qd.toReview, qd.deadline),
-            buildSvgProgress(qd.progress),
-            buildSvgProfile(url),
-            "</svg>"
-        );
+        // return string.concat(
+        //     '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" style="background:#FFFBF5">',
+        //     buildSvgLogo(),
+        //     buildSvgData(cd, questKey, qd.toReview, qd.deadline),
+        //     buildSvgProgress(qd.progress),
+        //     buildSvgProfile(url),
+        //     "</svg>"
+        // );
     }
 
     function buildSvgProgress(uint256 progress) public pure returns (string memory) {
@@ -116,85 +116,85 @@ contract SupportCurveToken is pERC1155 {
         view
         returns (string memory)
     {
-        (address missions, uint256 missionId,) = IQuest(quest).decodeKey(questKey);
+        // (address missions, uint256 missionId,) = IQuest(quest).decodeKey(questKey);
 
-        return string.concat(
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "40"),
-                    SVG._prop("font-size", "20"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat("Mission #", SVG._uint2str(missionId))
-            ),
-            SVG._rect(
-                string.concat(
-                    SVG._prop("fill", "#FFBE0B"),
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "50"),
-                    SVG._prop("width", SVG._uint2str(160)),
-                    SVG._prop("height", SVG._uint2str(5))
-                ),
-                SVG.NULL
-            ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "80"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat("Title: ")
-            ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "110"),
-                    SVG._prop("font-size", "18"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                IMissions(missions).getMissionTitle(missionId)
-            ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "220"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat(
-                    "# of steps to complete: ", SVG._uint2str(IMissions(missions).getMissionTaskCount(missionId))
-                )
-            ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "240"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat("Cooldown: ", SVG._uint2str(cd))
-            ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "280"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat("Review required: ", toReview ? unicode"🧑‍🏫" : unicode"🙅")
-            ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "260"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat("Deadline: ", SVG._uint2str(deadline))
-            )
-        );
+        // return string.concat(
+        //     SVG._text(
+        //         string.concat(
+        //             SVG._prop("x", "20"),
+        //             SVG._prop("y", "40"),
+        //             SVG._prop("font-size", "20"),
+        //             SVG._prop("fill", "#00040a")
+        //         ),
+        //         string.concat("Mission #", SVG._uint2str(missionId))
+        //     ),
+        //     SVG._rect(
+        //         string.concat(
+        //             SVG._prop("fill", "#FFBE0B"),
+        //             SVG._prop("x", "20"),
+        //             SVG._prop("y", "50"),
+        //             SVG._prop("width", SVG._uint2str(160)),
+        //             SVG._prop("height", SVG._uint2str(5))
+        //         ),
+        //         SVG.NULL
+        //     ),
+        //     SVG._text(
+        //         string.concat(
+        //             SVG._prop("x", "20"),
+        //             SVG._prop("y", "80"),
+        //             SVG._prop("font-size", "12"),
+        //             SVG._prop("fill", "#00040a")
+        //         ),
+        //         string.concat("Title: ")
+        //     ),
+        //     SVG._text(
+        //         string.concat(
+        //             SVG._prop("x", "20"),
+        //             SVG._prop("y", "110"),
+        //             SVG._prop("font-size", "18"),
+        //             SVG._prop("fill", "#00040a")
+        //         ),
+        //         IMissions(missions).getMissionTitle(missionId)
+        //     ),
+        //     SVG._text(
+        //         string.concat(
+        //             SVG._prop("x", "20"),
+        //             SVG._prop("y", "220"),
+        //             SVG._prop("font-size", "12"),
+        //             SVG._prop("fill", "#00040a")
+        //         ),
+        //         string.concat(
+        //             "# of steps to complete: ", SVG._uint2str(IMissions(missions).getMissionTaskCount(missionId))
+        //         )
+        //     ),
+        //     SVG._text(
+        //         string.concat(
+        //             SVG._prop("x", "20"),
+        //             SVG._prop("y", "240"),
+        //             SVG._prop("font-size", "12"),
+        //             SVG._prop("fill", "#00040a")
+        //         ),
+        //         string.concat("Cooldown: ", SVG._uint2str(cd))
+        //     ),
+        //     SVG._text(
+        //         string.concat(
+        //             SVG._prop("x", "20"),
+        //             SVG._prop("y", "280"),
+        //             SVG._prop("font-size", "12"),
+        //             SVG._prop("fill", "#00040a")
+        //         ),
+        //         string.concat("Review required: ", toReview ? unicode"🧑‍🏫" : unicode"🙅")
+        //     ),
+        //     SVG._text(
+        //         string.concat(
+        //             SVG._prop("x", "20"),
+        //             SVG._prop("y", "260"),
+        //             SVG._prop("font-size", "12"),
+        //             SVG._prop("fill", "#00040a")
+        //         ),
+        //         string.concat("Deadline: ", SVG._uint2str(deadline))
+        //     )
+        // );
     }
 
     function buildSvgLogo() public pure returns (string memory) {
@@ -225,8 +225,8 @@ contract SupportCurveToken is pERC1155 {
         (address user, uint256 questStarts) = this.decodeId(id);
 
         // Confirm quest is active
-        (, QuestDetail memory qd) = IQuest(quest).getQuestDetail(user, questStarts);
-        if (!qd.active) revert InvalidQuest();
+        // (, QuestDetail memory qd) = IQuest(quest).getQuestDetail(user, questStarts);
+        // if (!qd.active) revert InvalidQuest();
 
         // Get current mint price
         uint256 mintPrice = getCurrentPriceToMint(id);

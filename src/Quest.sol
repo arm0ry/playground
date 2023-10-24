@@ -9,17 +9,8 @@ import {IERC721} from "../lib/forge-std/src/interfaces/IERC721.sol";
 import {IERC20} from "../lib/forge-std/src/interfaces/IERC20.sol";
 import {IKaliTokenManager} from "./interface/IKaliTokenManager.sol";
 
-/// @title  Quest
+/// @title Quest captures intents and commitments while carrying out a Mission.
 /// @author audsssy.eth
-
-struct QuestDetail {
-    bool active; // Indicates whether a quest is active.
-    bool toReview; // Indicates whether quest tasks require reviews.
-    uint8 progress; // 0-100%.
-    uint40 deadline; // Time left to complete quest.
-    uint40 completed; // Number of tasks completed in quest.
-}
-
 contract Quest is Storage {
     /// -----------------------------------------------------------------------
     /// Custom Errors
@@ -375,11 +366,11 @@ contract Quest is Storage {
     }
 
     function incrementMissionCompletions() internal {
-        addUint(keccak256(abi.encode(address(this), ".stats.mission.completed")), 1);
+        addUint(keccak256(abi.encode(address(this), ".stats.mission.completions")), 1);
     }
 
     function incrementTaskCompletions() internal {
-        addUint(keccak256(abi.encode(address(this), ".stats.task.completed")), 1);
+        addUint(keccak256(abi.encode(address(this), ".stats.task.completions")), 1);
     }
 
     function incrementUserMissionStarts(address user, address missions, uint256 missionId) internal {
@@ -387,11 +378,11 @@ contract Quest is Storage {
     }
 
     function incrementUserMissionCompletions(address user, address missions, uint256 missionId) internal {
-        addUint(keccak256(abi.encode(user, missions, missionId, ".completed")), 1);
+        addUint(keccak256(abi.encode(user, missions, missionId, ".completions")), 1);
     }
 
     function incrementUserTaskCompletions(address user, address missions, uint256 missionId, uint256 taskId) internal {
-        addUint(keccak256(abi.encode(user, missions, missionId, taskId, ".completed")), 1);
+        addUint(keccak256(abi.encode(user, missions, missionId, taskId, ".completions")), 1);
     }
 
     function incrementCompletedTaskInMission(address user, address missions, uint256 missionId)

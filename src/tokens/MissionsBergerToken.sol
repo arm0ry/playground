@@ -9,7 +9,7 @@ import {ERC721} from "../../lib/solbase/src/tokens/ERC721/ERC721.sol";
 
 import {IMissions, Mission, Task} from "../interface/IMissions.sol";
 import {IStorage} from "../interface/IStorage.sol";
-import {IQuest, QuestDetail} from "../interface/IQuest.sol";
+import {IQuest} from "../interface/IQuest.sol";
 import {IKaliBerger} from "../interface/IKaliBerger.sol";
 
 /// @title Impact NFTs
