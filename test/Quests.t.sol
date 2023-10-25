@@ -8,7 +8,7 @@ import {IMissions} from "src/interface/IMissions.sol";
 import {IQuest} from "src/interface/IQuest.sol";
 
 import {Quest} from "src/Quest.sol"; // Community goes on quest
-import {Missions, Task, Mission} from "src/Missions.sol"; // Put up missions
+import {Missions} from "src/Missions.sol"; // Put up missions
 import {KaliDAO, ProposalType} from "src/kali/KaliDAO.sol"; // Start with a governance framework
 
 /// @dev Mocks.
@@ -27,10 +27,10 @@ contract QuestsTest is Test {
 
     MockERC721 erc721;
 
-    Task task;
-    Task[] tasks;
+    // Task task;
+    // Task[] tasks;
     uint256[] taskIds;
-    Mission mission;
+    // Mission mission;
 
     // Kali proposals.
     address[] accounts;
@@ -275,30 +275,30 @@ contract QuestsTest is Test {
 
     function setupTasks() internal {
         // Prepare data to create new Tasks
-        Task memory task1 = Task({
-            deadline: 100,
-            creator: address(arm0ry),
-            detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza",
-            completions: 0
-        });
-        Task memory task2 = Task({
-            deadline: 100,
-            creator: charlie,
-            detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza",
-            completions: 0
-        });
-        Task memory task3 = Task({
-            deadline: 100,
-            creator: charlie,
-            detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza",
-            completions: 0
-        });
-        Task memory task4 = Task({
-            deadline: 100,
-            creator: charlie,
-            detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza",
-            completions: 0
-        });
+        // Task memory task1 = Task({
+        //     deadline: 100,
+        //     creator: address(arm0ry),
+        //     detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza",
+        //     completions: 0
+        // });
+        // Task memory task2 = Task({
+        //     deadline: 100,
+        //     creator: charlie,
+        //     detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza",
+        //     completions: 0
+        // });
+        // Task memory task3 = Task({
+        //     deadline: 100,
+        //     creator: charlie,
+        //     detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza",
+        //     completions: 0
+        // });
+        // Task memory task4 = Task({
+        //     deadline: 100,
+        //     creator: charlie,
+        //     detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza",
+        //     completions: 0
+        // });
 
         // tasks.push(task1);
         // tasks.push(task2);

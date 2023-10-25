@@ -14,13 +14,10 @@ contract Missions is Storage {
     /// -----------------------------------------------------------------------
 
     error NotAuthorized();
-    error TransferFailed();
     error InvalidMission();
-    error NotForSale();
-    error AmountMismatch();
 
     /// -----------------------------------------------------------------------
-    /// Constructor
+    /// Modifier
     /// -----------------------------------------------------------------------
 
     modifier onlyQuest() {
@@ -62,9 +59,9 @@ contract Missions is Storage {
         uint256 taskId = incrementTaskId();
 
         // Set new task content.
-        setTaskCreator(taskId, creator);
-        setTaskDeadline(taskId, deadline);
-        setTaskDetail(taskId, detail);
+        _setTaskCreator(taskId, creator);
+        _setTaskDeadline(taskId, deadline);
+        _setTaskDetail(taskId, detail);
     }
 
     /// @dev Create or update a Mission.
@@ -80,24 +77,36 @@ contract Missions is Storage {
         uint256 missionId = incrementMissionId();
 
         // Set new mission content.
-        setMissionCreator(missionId, creator);
-        setMissionDetail(missionId, detail);
-        setMissionTitle(missionId, title);
-        if (setMissionDeadline(missionId) == 0) revert InvalidMission();
         _setMissionTasks(missionId, taskIds);
+        _setMissionCreator(missionId, creator);
+        _setMissionDetail(missionId, detail);
+        _setMissionTitle(missionId, title);
+        if (setMissionDeadline(missionId) == 0) revert InvalidMission();
     }
 
     /// -----------------------------------------------------------------------
     /// Mission Setter Logic
     /// -----------------------------------------------------------------------
 
-    function incrementMissionId() internal returns (uint256) {
-        return addUint(keccak256(abi.encode(address(this), "missions.count")), 1);
+    function setMissionCreator(uint256 missionId, address creator) external payable onlyOperator {
+        _setAddress(keccak256(abi.encode(address(this), missionId, ".creator")), creator);
+    }
+
+    function setMissionTitle(uint256 missionId, string calldata title) external payable onlyOperator {
+        _setString(keccak256(abi.encode(address(this), missionId, ".title")), title);
+    }
+
+    function setMissionDetail(uint256 missionId, string calldata detail) external payable onlyOperator {
+        _setString(keccak256(abi.encode(address(this), missionId, ".detail")), detail);
     }
 
     /// @notice Associate multple tasks with a mission.
     function setMissionTasks(uint256 missionId, uint256[] calldata taskIds) external payable onlyOperator {
         _setMissionTasks(missionId, taskIds);
+    }
+
+    function incrementMissionId() internal returns (uint256) {
+        return addUint(keccak256(abi.encode(address(this), "missions.count")), 1);
     }
 
     /// @notice Associate multple tasks with a mission.
@@ -122,15 +131,15 @@ contract Missions is Storage {
         _setBool(keccak256(abi.encode(address(this), missionId, taskId)), true);
     }
 
-    function setMissionCreator(uint256 missionId, address creator) internal {
+    function _setMissionCreator(uint256 missionId, address creator) internal {
         _setAddress(keccak256(abi.encode(address(this), missionId, ".creator")), creator);
     }
 
-    function setMissionDetail(uint256 missionId, string calldata detail) internal {
+    function _setMissionDetail(uint256 missionId, string calldata detail) internal {
         _setString(keccak256(abi.encode(address(this), missionId, ".detail")), detail);
     }
 
-    function setMissionTitle(uint256 missionId, string calldata title) internal {
+    function _setMissionTitle(uint256 missionId, string calldata title) internal {
         _setString(keccak256(abi.encode(address(this), missionId, ".title")), title);
     }
 
@@ -221,19 +230,31 @@ contract Missions is Storage {
     /// Task Setter Logic
     /// -----------------------------------------------------------------------
 
+    function setTaskCreator(uint256 taskId, address creator) external payable {
+        _setAddress(keccak256(abi.encode(address(this), taskId, ".creator")), creator);
+    }
+
+    function setTaskDeadline(uint256 taskId, uint256 deadline) external payable {
+        _setUint(keccak256(abi.encode(address(this), taskId, ".deadline")), deadline);
+    }
+
+    function setTaskDetail(uint256 taskId, string calldata detail) external payable {
+        _setString(keccak256(abi.encode(address(this), taskId, ".detail")), detail);
+    }
+
     function incrementTaskId() internal returns (uint256) {
         return addUint(keccak256(abi.encode("tasks.count")), 1);
     }
 
-    function setTaskCreator(uint256 taskId, address creator) internal {
+    function _setTaskCreator(uint256 taskId, address creator) internal {
         _setAddress(keccak256(abi.encode(address(this), taskId, ".creator")), creator);
     }
 
-    function setTaskDeadline(uint256 taskId, uint256 deadline) internal {
+    function _setTaskDeadline(uint256 taskId, uint256 deadline) internal {
         _setUint(keccak256(abi.encode(address(this), taskId, ".deadline")), deadline);
     }
 
-    function setTaskDetail(uint256 taskId, string calldata detail) internal {
+    function _setTaskDetail(uint256 taskId, string calldata detail) internal {
         _setString(keccak256(abi.encode(address(this), taskId, ".detail")), detail);
     }
 
