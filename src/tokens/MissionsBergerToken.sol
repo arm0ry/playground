@@ -7,7 +7,7 @@ import {Base64} from "../../lib/solbase/src/utils/Base64.sol";
 import {LibString} from "../../lib/solbase/src/utils/LibString.sol";
 import {ERC721} from "../../lib/solbase/src/tokens/ERC721/ERC721.sol";
 
-import {IMissions, Mission, Task} from "../interface/IMissions.sol";
+import {IMissions} from "../interface/IMissions.sol";
 import {IStorage} from "../interface/IStorage.sol";
 import {IQuest} from "../interface/IQuest.sol";
 import {IKaliBerger} from "../interface/IKaliBerger.sol";
@@ -17,29 +17,33 @@ import {IKaliBerger} from "../interface/IKaliBerger.sol";
 /// Majory inspired by Kali, Async.art
 contract MissionsBergerToken is ERC721 {
     /// -----------------------------------------------------------------------
-    /// Custom Errors
-    /// -----------------------------------------------------------------------
-
-    /// -----------------------------------------------------------------------
     /// DAO Storage
     /// -----------------------------------------------------------------------
 
     address public dao;
-    address public missions;
     address public kaliBerger;
 
     /// -----------------------------------------------------------------------
-    /// Immutable Storage
+    /// Modifier
     /// -----------------------------------------------------------------------
+
+    modifier onlyDao() {
+        if (msg.sender != dao) revert Unauthorized();
+        _;
+    }
 
     /// -----------------------------------------------------------------------
     /// Constructor
     /// -----------------------------------------------------------------------
 
-    constructor(address _dao, address _kaliBerger, address _missions) ERC721("Mission Berger Token", "MBT") {
+    constructor(address _dao, address _kaliBerger) ERC721("Mission Berger Token", "MBT") {
         dao = _dao;
         kaliBerger = _kaliBerger;
-        missions = _missions;
+    }
+
+    modifier onlyMissionCreators(address missions, uint256 missionId, address user) {
+        if (IMissions(missions).getMissionCreator(missionId) != msg.sender) revert Unauthorized();
+        _;
     }
 
     /// -----------------------------------------------------------------------
@@ -52,27 +56,20 @@ contract MissionsBergerToken is ERC721 {
 
     // credit: z0r0z.eth (https://github.com/kalidao/kali-contracts/blob/60ba3992fb8d6be6c09eeb74e8ff3086a8fdac13/contracts/access/KaliAccessManager.sol)
     function _buildURI(uint256 tokenId) private view returns (string memory) {
-        (address _missions, uint256 missionId) = this.decodeTokenId(tokenId);
-        return JSON._formattedMetadata(
-            "Mission Berger Token",
-            "",
-            generateSvg(
-                (_missions == address(0) ? missions : _missions), (_missions == address(0) ? tokenId : missionId)
-            )
-        );
+        (address missions, uint256 missionId) = this.decodeTokenId(tokenId);
+        return JSON._formattedMetadata("Mission Berger Token", "", generateSvg(missions, missionId));
     }
 
-    function generateSvg(address _missions, uint256 missionId) public view returns (string memory) {
-        string memory title = IMissions(_missions).getMissionTitle(missionId);
-        uint256 deadline = IMissions(_missions).getMissionDeadline(missionId);
-        uint256 completions =
-            IStorage(_missions).getUint(keccak256(abi.encodePacked(_missions, missionId, ".completions")));
+    function generateSvg(address missions, uint256 missionId) public view returns (string memory) {
+        string memory title = IMissions(missions).getMissionTitle(missionId);
+        uint256 deadline = IMissions(missions).getMissionDeadline(missionId);
+        uint256 completions = IMissions(missions).getMissionCompletions(missionId);
 
         return string.concat(
             '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" style="background:#FFFBF5">',
             buildSvgLogo(),
-            buildSvgData(_missions, missionId, title, deadline, completions),
-            buildTreeRing(_missions, missionId),
+            buildSvgData(missions, missionId, title, deadline, completions),
+            buildTreeRing(missions, missionId),
             "</svg>"
         );
     }
@@ -90,7 +87,7 @@ contract MissionsBergerToken is ERC721 {
     }
 
     function buildSvgData(
-        address _missions,
+        address missions,
         uint256 missionId,
         string memory title,
         uint256 deadline,
@@ -143,7 +140,7 @@ contract MissionsBergerToken is ERC721 {
                 ),
                 string.concat(
                     "Harberger Tax: ",
-                    SVG._uint2str((kaliBerger == address(0)) ? IKaliBerger(kaliBerger).getTax(_missions, missionId) : 0),
+                    SVG._uint2str((kaliBerger == address(0)) ? IKaliBerger(kaliBerger).getTax(missions, missionId) : 0),
                     "%"
                 )
             ),
@@ -168,13 +165,13 @@ contract MissionsBergerToken is ERC721 {
         );
     }
 
-    function buildTreeRing(address _missions, uint256 missionId) public view returns (string memory str) {
+    function buildTreeRing(address missions, uint256 missionId) public view returns (string memory str) {
         uint256 baseRadius = 500;
-        uint256[] memory taskIds = IMissions(_missions).getMissionTaskIds(missionId);
+        uint256[] memory taskIds = IMissions(missions).getMissionTaskIds(missionId);
         string[] memory strArray;
 
         for (uint256 i = 0; i < taskIds.length;) {
-            uint256 completions = IMissions(_missions).getTaskCompletions(taskIds[i]);
+            uint256 completions = IMissions(missions).getTaskCompletions(taskIds[i]);
 
             // radius = completions * max radius / max completions at max radius + base radius
             uint256 radius = completions * 500 / 100;
@@ -203,28 +200,48 @@ contract MissionsBergerToken is ERC721 {
     }
 
     /// -----------------------------------------------------------------------
-    // Mint Logic
+    /// DAO Logic
     /// -----------------------------------------------------------------------
 
-    function mint(address to, uint256 id) external payable {
-        _mint(to, id);
+    function setKaliBerger(address _kaliBerger) external payable onlyDao {
+        kaliBerger = _kaliBerger;
+    }
+
+    /// -----------------------------------------------------------------------
+    /// Mission Creator Logic
+    /// -----------------------------------------------------------------------
+
+    function mint(address missions, uint256 missionId)
+        external
+        payable
+        onlyMissionCreators(missions, missionId, msg.sender)
+    {
+        _mint(msg.sender, this.getTokenId(missions, missionId));
+    }
+
+    function burn(address missions, uint256 missionId)
+        external
+        payable
+        onlyMissionCreators(missions, missionId, msg.sender)
+    {
+        _burn(this.getTokenId(missions, missionId));
     }
 
     /// -----------------------------------------------------------------------
     /// Helper Functions
     /// -----------------------------------------------------------------------
 
-    function getTokenId(address _missions, uint256 missionId) external pure returns (uint256) {
-        return uint256(bytes32(abi.encodePacked(_missions, uint96(missionId))));
+    function getTokenId(address missions, uint256 missionId) external pure returns (uint256) {
+        return uint256(bytes32(abi.encodePacked(missions, uint96(missionId))));
     }
 
-    function decodeTokenId(uint256 tokenId) external pure returns (address _missions, uint256 missionId) {
+    function decodeTokenId(uint256 tokenId) external pure returns (address missions, uint256 missionId) {
         uint96 _id;
         bytes32 key = bytes32(tokenId);
         assembly {
             _id := key
-            _missions := shr(96, key)
+            missions := shr(96, key)
         }
-        return (_missions, uint256(_id));
+        return (missions, uint256(_id));
     }
 }

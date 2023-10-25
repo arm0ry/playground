@@ -4,7 +4,6 @@ pragma solidity ^0.8.17;
 import "forge-std/Test.sol";
 import "forge-std/console2.sol";
 
-import {Missions, Task, Mission} from "src/Missions.sol";
 import {Missions} from "src/Missions.sol";
 import {IMissions} from "src/interface/IMissions.sol";
 import {Quest} from "src/Quest.sol";
@@ -12,26 +11,21 @@ import {IQuest} from "src/interface/IQuest.sol";
 import {Storage} from "src/Storage.sol";
 import {IStorage} from "src/interface/IStorage.sol";
 import {Minter} from "src/Minter.sol";
-import {SupportCurveToken} from "src/tokens/SupportCurveToken.sol";
+import {SupportCurves} from "src/tokens/SupportCurves.sol";
 // import {IStorage} from "src/interface/IStorage.sol";
 
-contract SupportCurveTokenTest is Test {
+contract SupportCurveTokes is Test {
     Quest quest;
     Missions missions;
     Storage stor;
-    SupportCurveToken support;
+    SupportCurves support;
 
     IQuest iQuest;
     IMissions iMissions;
     IStorage iStorage;
 
-    Task task;
-    Task[] tasks;
-    Task[] newTasks;
     uint256[] taskIds;
     uint256[] newTaskIds;
-
-    Mission mission;
 
     uint256 royalties;
     /// @dev Users.
@@ -58,15 +52,7 @@ contract SupportCurveTokenTest is Test {
 
     function setUp() public payable {
         // Deploy contract
-        support = new SupportCurveToken(alice);
-        // missions = new Missions();
-        // missions.initialize((address(arm0ry)));
-
-        // Validate global variables
-        // assertEq(missions.royalties(), 0);
-        // assertEq(missions_v2.dao(), arm0ry);
-
-        // setupTasksAndMissions();
+        support = new SupportCurves(alice);
     }
 
     function testReceiveETH() public payable {

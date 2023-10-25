@@ -63,6 +63,7 @@ contract KaliCurve is Storage {
 
     /// @notice Configure a curve.
     function curve(
+        address owner,
         uint256 curveId,
         CurveType curveType,
         uint256 minSupplyToBurn,
@@ -71,14 +72,14 @@ contract KaliCurve is Storage {
         uint256 constant_c,
         bool sale,
         string calldata detail
-    ) external payable {
+    ) external payable returns (uint256) {
         // Setup new curve.
         if (curveId == 0) {
             // Increment and assign curveId.
-            curveId = incrementCurveCount();
+            curveId = incrementCurveId();
 
             // Initialize curve owner.
-            setOwner(curveId, msg.sender);
+            setOwner(curveId, owner);
 
             // Initialize curve type.
             setCurveType(curveId, curveType);
@@ -101,6 +102,8 @@ contract KaliCurve is Storage {
 
         // Set any detail.
         if (bytes(detail).length > 0) _setCurveDetail(curveId, detail);
+
+        return curveId;
     }
 
     /// -----------------------------------------------------------------------
@@ -168,7 +171,7 @@ contract KaliCurve is Storage {
     /// -----------------------------------------------------------------------
 
     /// @notice Mint patron certificate.
-    function mint(uint256 curveId) external payable initialized forSale(curveId) {
+    function mint(uint256 curveId, address patron) external payable initialized forSale(curveId) {
         // Retrieve current supply and mint price.
         uint256 mintPrice = this.getMintPrice(curveId);
 
@@ -188,33 +191,33 @@ contract KaliCurve is Storage {
 
         // If impactDAO does not exist, summon one with owner and patron both holding one impactDAO token.
         if (impactDAO == address(0)) {
-            impactDAO = summonDao(curveId, msg.sender);
+            impactDAO = summonDao(curveId, patron);
         } else {
             // If impactDAO does exist, mint one impactDAO token to owner and another to patron, only if patron does not already have one.
-            if (IKaliTokenManager(impactDAO).balanceOf(msg.sender) == 0) {
+            if (IKaliTokenManager(impactDAO).balanceOf(patron) == 0) {
                 IKaliTokenManager(impactDAO).mintTokens(this.getOwner(curveId), 1);
-                IKaliTokenManager(impactDAO).mintTokens(msg.sender, 1);
+                IKaliTokenManager(impactDAO).mintTokens(patron, 1);
             }
         }
     }
 
     /// @notice Burn Patron Certificate.
-    function burn(uint256 curveId) external payable initialized {
-        // Retrieve impactDAO and check if msg.sender is eligible.
+    function burn(uint256 curveId, address patron) external payable initialized {
+        // Retrieve impactDAO and check if patron is eligible.
         address impactDAO = this.getImpactDao(curveId);
-        if (IKaliTokenManager(impactDAO).balanceOf(msg.sender) == 0) revert InvalidBurn();
+        if (IKaliTokenManager(impactDAO).balanceOf(patron) == 0) revert InvalidBurn();
 
         // Retrieve current burn price.
         uint256 price = this.getBurnPrice(curveId);
         if (price == 0) revert InvalidBurn();
 
         // Send price to burn to patron.
-        (bool success,) = msg.sender.call{value: price}("");
-        if (success) addUnclaimed(msg.sender, price);
+        (bool success,) = patron.call{value: price}("");
+        if (success) addUnclaimed(patron, price);
 
         // Burn patron certificate.
         IKaliTokenManager(impactDAO).burnTokens(this.getOwner(curveId), 1);
-        IKaliTokenManager(impactDAO).burnTokens(msg.sender, 1);
+        IKaliTokenManager(impactDAO).burnTokens(patron, 1);
     }
 
     /// -----------------------------------------------------------------------
@@ -472,7 +475,7 @@ contract KaliCurve is Storage {
         return subUint(keccak256(abi.encodePacked(curveId, ".supply")), 1);
     }
 
-    function incrementCurveCount() internal returns (uint256) {
+    function incrementCurveId() internal returns (uint256) {
         return addUint(keccak256(abi.encodePacked("curves.count")), 1);
     }
 

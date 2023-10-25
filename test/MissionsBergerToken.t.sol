@@ -4,7 +4,6 @@ pragma solidity ^0.8.17;
 import "forge-std/Test.sol";
 import "forge-std/console2.sol";
 
-import {Missions, Task, Mission} from "src/Missions.sol";
 import {Missions} from "src/Missions.sol";
 import {IMissions} from "src/interface/IMissions.sol";
 import {Quest} from "src/Quest.sol";
@@ -25,13 +24,10 @@ contract MissionsBergerTokenTest is Test {
     IMissions iMissions;
     IStorage iStorage;
 
-    Task task;
-    Task[] tasks;
-    Task[] newTasks;
     uint256[] taskIds;
     uint256[] newTaskIds;
 
-    Mission mission;
+    // Mission mission;
 
     uint256 royalties;
     /// @dev Users.
@@ -58,15 +54,7 @@ contract MissionsBergerTokenTest is Test {
 
     function setUp() public payable {
         // Deploy contract
-        mbt = new MissionsBergerToken(alice, alice, alice);
-        // missions = new Missions();
-        // missions.initialize((address(arm0ry)));
-
-        // Validate global variables
-        // assertEq(missions.royalties(), 0);
-        // assertEq(missions_v2.dao(), arm0ry);
-
-        // setupTasksAndMissions();
+        mbt = new MissionsBergerToken(alice, alice);
     }
 
     function testReceiveETH() public payable {
