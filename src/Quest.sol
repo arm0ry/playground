@@ -250,7 +250,9 @@ contract Quest is Storage {
         internal
         returns (uint256)
     {
-        uint256 progress = completed * 100 / IMissions(missions).getMissionTaskCount(missionId);
+        uint256 count = IMissions(missions).getMissionTaskCount(missionId);
+        if (count == 0) revert NotInitialized();
+        uint256 progress = completed * 100 / count;
         _setUint(keccak256(abi.encode(user, missions, missionId, ".progress")), progress);
         return progress;
     }
@@ -389,8 +391,7 @@ contract Quest is Storage {
         internal
         returns (uint256)
     {
-        addUint(keccak256(abi.encode(user, missions, missionId, ".taskCompleted")), 1);
-        return this.getCompletedTaskCount(user, missions, missionId);
+        return addUint(keccak256(abi.encode(user, missions, missionId, ".taskCompleted")), 1);
     }
 
     /// -----------------------------------------------------------------------
@@ -490,19 +491,24 @@ contract Quest is Storage {
         // Increment number of missions started and facilitated by this Quest contract.
         incrementMissionStarts();
 
-        // Increment number of mission starts.
-        IMissions(missions).incrementMissionStarts(missionId);
+        // Confirm Mission contract allows input from this Quest contract.
+        if (IMissions(missions).isQuestAllowed(address(this))) {
+            // Increment number of mission starts.
+            IMissions(missions).incrementMissionStarts(missionId);
+        }
     }
 
     function updateMissionCompletionStats(address user, address missions, uint256 missionId) internal {
-        // Increment number of mission completions.
-        IMissions(missions).incrementMissionCompletions(missionId);
+        // Increment number of missions completed by user, as facilitated by this Quest contract.
+        incrementUserMissionCompletions(user, missions, missionId);
 
         // Increment number of missions facilitated by this Quest contract.
         incrementMissionCompletions();
 
-        // Increment number of missions completed by user, as facilitated by this Quest contract.
-        incrementUserMissionCompletions(user, missions, missionId);
+        // Increment number of mission completions.
+        if (IMissions(missions).isQuestAllowed(address(this))) {
+            IMissions(missions).incrementMissionCompletions(missionId);
+        }
     }
 
     function updateTaskCompletionStats(address user, address missions, uint256 missionId, uint256 taskId) internal {
@@ -513,6 +519,8 @@ contract Quest is Storage {
         incrementUserTaskCompletions(user, missions, missionId, taskId);
 
         // Increment task completion at Missions contract.
-        IMissions(missions).incrementTaskCompletions(taskId);
+        if (IMissions(missions).isQuestAllowed(address(this))) {
+            IMissions(missions).incrementTaskCompletions(taskId);
+        }
     }
 }
