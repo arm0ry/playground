@@ -2,7 +2,7 @@
 pragma solidity ^0.8.4;
 
 /// @notice Modern, minimalist, and gas-optimized ERC1155 implementation for Playground.
-/// @author Modified ERC1155 with totalSuppy per id, without batch operations, and encoded tokenId.
+/// @author Temporary SBT ERC1155 without batch operations.
 /// @author Modified from SolDAO (https://github.com/Sol-DAO/solbase/blob/main/src/tokens/ERC1155/ERC1155.sol)
 abstract contract pERC1155 {
     /// -----------------------------------------------------------------------
@@ -41,8 +41,6 @@ abstract contract pERC1155 {
 
     mapping(address => mapping(address => bool)) public isApprovedForAll;
 
-    mapping(uint256 => uint256) public totalSupply;
-
     /// -----------------------------------------------------------------------
     /// Metadata Logic
     /// -----------------------------------------------------------------------
@@ -59,8 +57,8 @@ abstract contract pERC1155 {
         emit ApprovalForAll(msg.sender, operator, approved);
     }
 
-    function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes calldata data)
-        public
+    function _safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes calldata data)
+        internal
         virtual
     {
         if (msg.sender != from) {
@@ -82,13 +80,13 @@ abstract contract pERC1155 {
         }
     }
 
-    function safeBatchTransferFrom(
+    function _safeBatchTransferFrom(
         address from,
         address to,
         uint256[] calldata ids,
         uint256[] calldata amounts,
         bytes calldata data
-    ) public virtual {
+    ) internal virtual {
         if (ids.length != amounts.length) revert LengthMismatch();
 
         if (msg.sender != from) {
@@ -161,8 +159,6 @@ abstract contract pERC1155 {
     function _mint(address to, uint256 id, uint256 amount, bytes memory data) internal virtual {
         balanceOf[to][id] += amount;
 
-        totalSupply[id] += amount;
-
         emit TransferSingle(msg.sender, address(0), to, id, amount);
 
         if (to.code.length != 0) {
@@ -178,33 +174,27 @@ abstract contract pERC1155 {
     function _burn(address from, uint256 id, uint256 amount) internal virtual {
         balanceOf[from][id] -= amount;
 
-        totalSupply[id] -= amount;
-
         emit TransferSingle(msg.sender, from, address(0), id, amount);
-    }
-
-    function idExists(uint256 id) public view virtual returns (bool) {
-        return totalSupply[id] > 0;
     }
 
     /// -----------------------------------------------------------------------
     /// TokenId Logic
     /// -----------------------------------------------------------------------
 
-    function encodeId(address _address, uint96 value) external pure returns (bytes32) {
-        return bytes32(abi.encodePacked(_address, value));
-    }
+    // function encodeId(address _address, uint96 value) external pure returns (bytes32) {
+    //     return bytes32(abi.encodePacked(_address, value));
+    // }
 
-    function decodeId(uint256 id) external pure returns (address _address, uint256 value) {
-        bytes32 key = bytes32(id);
+    // function decodeId(uint256 id) external pure returns (address _address, uint256 value) {
+    //     bytes32 key = bytes32(id);
 
-        assembly {
-            value := key
-            _address := shr(96, key)
-        }
+    //     assembly {
+    //         value := key
+    //         _address := shr(96, key)
+    //     }
 
-        return (_address, uint256(value));
-    }
+    //     return (_address, uint256(value));
+    // }
 }
 
 /// @author SolDAO (https://github.com/Sol-DAO/solbase/blob/main/src/tokens/ERC1155/ERC1155.sol)

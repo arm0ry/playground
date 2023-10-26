@@ -10,15 +10,14 @@ import {Quest} from "src/Quest.sol";
 import {IQuest} from "src/interface/IQuest.sol";
 import {Storage} from "src/Storage.sol";
 import {IStorage} from "src/interface/IStorage.sol";
-import {Minter} from "src/Minter.sol";
-import {SupportCurves} from "src/tokens/SupportCurves.sol";
+import {SupportCurveToken} from "src/tokens/SupportCurveToken.sol";
 // import {IStorage} from "src/interface/IStorage.sol";
 
 contract SupportCurveTokes is Test {
     Quest quest;
     Missions missions;
     Storage stor;
-    SupportCurves support;
+    SupportCurveToken support;
 
     IQuest iQuest;
     IMissions iMissions;
@@ -52,7 +51,7 @@ contract SupportCurveTokes is Test {
 
     function setUp() public payable {
         // Deploy contract
-        support = new SupportCurves(alice);
+        support = new SupportCurveToken(alice);
     }
 
     function testReceiveETH() public payable {
