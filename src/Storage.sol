@@ -135,7 +135,8 @@ contract Storage {
     /// @param _key The key for the record.
     /// @param _amount An amount to subtract from the record's value
     function subUint(bytes32 _key, uint256 _amount) internal returns (uint256) {
-        return uintStorage[_key] = uintStorage[_key] - _amount;
+        uint256 value = uintStorage[_key];
+        return (value >= _amount) ? uintStorage[_key] = value - _amount : 0;
     }
 
     /// -----------------------------------------------------------------------
