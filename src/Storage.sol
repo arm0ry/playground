@@ -38,10 +38,7 @@ contract Storage {
     /// -----------------------------------------------------------------------
 
     modifier onlyOperator() {
-        // TODO: Double check if need to remove second condition
-        if (msg.sender != this.getDao() && msg.sender != address(this)) {
-            revert NotOperator();
-        }
+        if (msg.sender != this.getDao()) revert NotOperator();
         _;
     }
 
