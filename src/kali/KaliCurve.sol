@@ -453,6 +453,10 @@ contract KaliCurve is Storage {
         }
     }
 
+    function getMintBurnDifference(uint256 curveId) external view returns (uint256) {
+        return this.getMintPrice(curveId) - this.getBurnPrice(curveId);
+    }
+
     function getOwner(uint256 curveId) external view returns (address) {
         return this.getAddress(keccak256(abi.encode(curveId, ".owner")));
     }

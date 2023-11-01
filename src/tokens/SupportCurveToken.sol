@@ -4,7 +4,7 @@ pragma solidity >=0.8.4;
 import {SVG} from "../utils/SVG.sol";
 import {JSON} from "../utils/JSON.sol";
 import {IERC20} from "../../lib/forge-std/src/interfaces/IERC20.sol";
-import {ERC1155B} from "lib/solbase/src/tokens/ERC1155/ERC1155B.sol";
+import {ERC1155} from "lib/solbase/src/tokens/ERC1155/ERC1155.sol";
 
 import {Missions} from "../Missions.sol";
 import {IMissions} from "../interface/IMissions.sol";
@@ -12,12 +12,11 @@ import {IStorage} from "../interface/IStorage.sol";
 import {IQuest} from "../interface/IQuest.sol";
 import {IQuest} from "../interface/IQuest.sol";
 import {IKaliCurve, CurveType} from "../interface/IKaliCurve.sol";
+import {IKaliTokenManager} from "../interface/IKaliTokenManager.sol";
 
-// TODO: Separate Mission portion to MissionCurveToken.sol bc uri will be different
-/// @title Support NFTs
-/// @notice SVG NFTs displaying impact generated from users' journeys.
-/// Major inspiration from Kali, Async.art
-contract SupportCurveToken is ERC1155B {
+/// @title Support SVG NFTs.
+/// @notice SVG NFTs displaying impact generated from quests.
+contract SupportCurveToken is ERC1155 {
     /// -----------------------------------------------------------------------
     /// Custom Error
     /// -----------------------------------------------------------------------
@@ -25,6 +24,7 @@ contract SupportCurveToken is ERC1155B {
     error NotAuthorized();
     error NotActive();
     error TransferFailed();
+    error InvalidAmount();
 
     /// -----------------------------------------------------------------------
     /// Storage
@@ -33,18 +33,18 @@ contract SupportCurveToken is ERC1155B {
     address public dao;
     address public quest;
     address public missions;
-    address public kaliCurve;
+    address public curve;
     mapping(address => uint256) public unclaimed;
 
     /// -----------------------------------------------------------------------
     /// Constructor & Modifier
     /// -----------------------------------------------------------------------
 
-    constructor(address _dao, address _quest, address _missions, address _kaliCurve) {
+    constructor(address _dao, address _quest, address _missions, address _curve) {
         dao = _dao;
         quest = _quest;
         missions = _missions;
-        kaliCurve = _kaliCurve;
+        curve = _curve;
     }
 
     modifier onlyDao() {
@@ -54,14 +54,6 @@ contract SupportCurveToken is ERC1155B {
 
     modifier onlyActive(address user, address _missions, uint256 missionId) {
         if (!IQuest(quest).isQuestActive(user, _missions, missionId)) revert NotActive();
-        _;
-    }
-
-    modifier priceCheck(address curve, uint256 curveId) {
-        // Confirm msg.value is valid.
-        if (IKaliCurve(curve).getMintPrice(curveId) - IKaliCurve(curve).getBurnPrice(curveId) != msg.value) {
-            revert InvalidAmount();
-        }
         _;
     }
 
@@ -170,7 +162,7 @@ contract SupportCurveToken is ERC1155B {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat("# of steps to complete: ", SVG._uint2str(IKaliCurve(kaliCurve).getMintPrice(curveId)))
+                string.concat("# of steps to complete: ", SVG._uint2str(IKaliCurve(curve).getMintPrice(curveId)))
             ),
             SVG._text(
                 string.concat(
@@ -233,22 +225,36 @@ contract SupportCurveToken is ERC1155B {
     /// Patron Logic
     /// -----------------------------------------------------------------------
 
-    function support(address user, uint256 missionId, uint256 curveId)
+    ///
+    function redeem(address user, uint256 missionId, uint256 curveId) external payable {
+        // Confirm user is a patron.
+        if (IKaliTokenManager(IKaliCurve(curve).getImpactDao(curveId)).balanceOf(user) == 0) revert NotAuthorized();
+
+        // Mint support tokens.
+        _mint(msg.sender, this.getTokenId(quest, missionId, curveId), 1, "");
+    }
+
+    function support(address user, uint256 missionId, uint256 curveId, uint256 amount)
         external
         payable
         onlyActive(user, missions, missionId)
-        priceCheck(kaliCurve, curveId)
     {
+        // Retrieve price to support.
+        uint256 diff = IKaliCurve(curve).getMintBurnDifference(curveId);
+
+        // Confirm msg.value is valid.
+        if (diff * amount != msg.value) revert InvalidAmount();
+
         // Mint support tokens.
-        _mint(msg.sender, this.getTokenId(quest, missionId, curveId), "");
+        _mint(msg.sender, this.getTokenId(quest, missionId, curveId), amount, "");
 
         // Confirm impactDAO exists.
-        address impactDao = IKaliCurve(kaliCurve).getImpactDao(curveId);
+        address impactDao = IKaliCurve(curve).getImpactDao(curveId);
         if (impactDao == address(0)) revert NotActive();
 
         // Transfer funds to impactDAO.
-        (bool success,) = impactDao.call{value: msg.value}("");
-        if (!success) unclaimed[impactDao] = msg.value;
+        (bool success,) = impactDao.call{value: diff}("");
+        if (!success) unclaimed[impactDao] = diff;
     }
 
     /// -----------------------------------------------------------------------
