@@ -51,7 +51,7 @@ contract SupportCurveTokes is Test {
 
     function setUp() public payable {
         // Deploy contract
-        support = new SupportCurveToken(alice);
+        support = new SupportCurveToken(alice, alice, alice, alice);
     }
 
     function testReceiveETH() public payable {

@@ -53,6 +53,6 @@ interface IKaliCurve {
     function getBurnConstantA(uint256 curveId) external view returns (uint256);
     function getBurnConstantB(uint256 curveId) external view returns (uint256);
     function getBurnConstantC(uint256 curveId) external view returns (uint256);
-    function getMintPrice(uint256 curveId) external returns (uint256);
-    function getBurnPrice(uint256 curveId) external returns (uint256);
+    function getMintPrice(uint256 curveId) external view returns (uint256);
+    function getBurnPrice(uint256 curveId) external view returns (uint256);
 }

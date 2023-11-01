@@ -398,13 +398,13 @@ contract KaliCurve is Storage {
     // burn formula - initMintPrice + supply * initMintPrice / 50 + (supply ** 2) * initMintPrice / 200;
 
     /// @notice Calculate mint price.
-    function getMintPrice(uint256 curveId) external returns (uint256) {
+    function getMintPrice(uint256 curveId) external view returns (uint256) {
         uint256 supply = this.getCurveSupply(curveId);
         return _getMintPrice(curveId, supply);
     }
 
     /// @notice Calculate mint price.
-    function _getMintPrice(uint256 curveId, uint256 supply) internal returns (uint256) {
+    function _getMintPrice(uint256 curveId, uint256 supply) internal view returns (uint256) {
         CurveType curveType = this.getCurveType(curveId);
         if (curveType == CurveType.NA) return 0;
 
@@ -423,13 +423,13 @@ contract KaliCurve is Storage {
     }
 
     /// @notice Calculate burn price.
-    function getBurnPrice(uint256 curveId) external returns (uint256) {
+    function getBurnPrice(uint256 curveId) external view returns (uint256) {
         uint256 supply = this.getCurveSupply(curveId);
         return _getBurnPrice(curveId, supply);
     }
     /// @notice Calculate burn price.
 
-    function _getBurnPrice(uint256 curveId, uint256 supply) internal returns (uint256) {
+    function _getBurnPrice(uint256 curveId, uint256 supply) internal view returns (uint256) {
         CurveType curveType = this.getCurveType(curveId);
         if (curveType == CurveType.NA) return 0;
 

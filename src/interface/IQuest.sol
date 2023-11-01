@@ -7,6 +7,8 @@ interface IQuest {
     function getCoolDown() external view returns (uint256);
 
     /// @notice User logic.
+    function setProfilePicture(string calldata url) external payable;
+    function getProfilePicture(address user) external view returns (string memory);
     function start(address missions, uint256 missionId) external payable;
     function startBySig(address signer, address missions, uint256 missionId, uint8 v, bytes32 r, bytes32 s)
         external
@@ -16,26 +18,25 @@ interface IQuest {
         payable;
     function respondBySig(
         address signer,
-        address missions,
-        uint256 missionId,
-        uint256 taskId,
+        uint256 taskKey,
         string calldata feedback,
         uint256 response,
         uint8 v,
         bytes32 r,
         bytes32 s
     ) external payable;
+    function getQuest(uint256 questId) external view returns (address, address, uint256);
     function isQuestActive(address user, address missions, uint256 missionId) external view returns (bool);
-    function hasCooledDown(address user) external view returns (bool);
     function getQuestProgress(address user, address missions, uint256 missionId) external view returns (uint256);
     function getCompletedTaskCount(address user, address missions, uint256 missionId) external view returns (uint256);
     function getTimeLastTaskCompleted(address user) external view returns (uint256);
+    function hasCooledDown(address user) external view returns (bool);
 
-    /// @notice Reviewer mechanics.
-    function getReviewStatus() external view;
-    function setReviewStatus(bool status) external payable;
+    /// @notice Reviewer logic.
     function setReviewer(address reviewer, bool status) external payable;
     function isReviewer(address user) external view;
+    function getReviewStatus() external view returns (bool);
+    function setReviewStatus(bool status) external payable;
     function review(
         address user,
         address missions,
@@ -57,7 +58,7 @@ interface IQuest {
         bytes32 s
     ) external payable;
 
-    /// @notice Response & Feedback storage.
+    /// @notice Get response & feedback.
     function getUserResponse(address user, address missions, uint256 missionId, uint256 taskId)
         external
         view
@@ -74,4 +75,32 @@ interface IQuest {
         external
         view
         returns (string memory);
+
+    /// @notice Get quest related counter.
+    function getMissionQuestedCount(address missions, uint256 missionId) external view returns (uint256, uint256);
+    function getResponseCountByUser(address user, address missions, uint256 missionId, uint256 taskId)
+        external
+        view
+        returns (uint256, uint256);
+    function getReviewCountByReviewer(address reviewer, address missions, uint256 missionId, uint256 taskId)
+        external
+        view
+        returns (uint256, uint256);
+
+    /// @notice Get quest related stats.
+    function getNumOfMissionsStarted() external view returns (uint256);
+    function getNumOfMissionsCompleted() external view returns (uint256);
+    function getNumOfTaskCompleted() external view returns (uint256);
+    function getNumOfMissionsStartedByUser(address user, address missions, uint256 missionId)
+        external
+        view
+        returns (uint256);
+    function getNumOfMissionsCompletedByUser(address user, address missions, uint256 missionId)
+        external
+        view
+        returns (uint256);
+    function getNumOfTasksCompletedByUser(address user, address missions, uint256 missionId, uint256 taskId)
+        external
+        view
+        returns (uint256);
 }
