@@ -1,4 +1,4 @@
-// // SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
@@ -10,14 +10,14 @@ import {Quest} from "src/Quest.sol";
 import {IQuest} from "src/interface/IQuest.sol";
 import {Storage} from "src/Storage.sol";
 import {IStorage} from "src/interface/IStorage.sol";
-import {SupportCurveToken} from "src/tokens/SupportCurveToken.sol";
+import {MissionSupportToken} from "src/tokens/MissionSupportToken.sol";
 // import {IStorage} from "src/interface/IStorage.sol";
 
-contract SupportCurveTokes is Test {
+contract MissionSupportTokenTest is Test {
     Quest quest;
     Missions missions;
     Storage stor;
-    SupportCurveToken support;
+    MissionSupportToken support;
 
     IQuest iQuest;
     IMissions iMissions;
@@ -51,7 +51,7 @@ contract SupportCurveTokes is Test {
 
     function setUp() public payable {
         // Deploy contract
-        support = new SupportCurveToken(alice, alice, alice, alice);
+        support = new MissionSupportToken(alice);
     }
 
     function testReceiveETH() public payable {
