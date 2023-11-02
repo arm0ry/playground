@@ -65,6 +65,7 @@ contract MissionSupportToken is ERC1155 {
         return string.concat(
             '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" style="background:#FFFBF5">',
             buildSvgData(missions, missionId, curveId),
+            buildTreeRing(missions, missionId),
             "</svg>"
         );
     }
@@ -78,7 +79,7 @@ contract MissionSupportToken is ERC1155 {
                     SVG._prop("font-size", "20"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat("Mission #", SVG._uint2str(missionId))
+                string.concat("Supporter")
             ),
             SVG._rect(
                 string.concat(
@@ -111,22 +112,65 @@ contract MissionSupportToken is ERC1155 {
             SVG._text(
                 string.concat(
                     SVG._prop("x", "20"),
-                    SVG._prop("y", "220"),
+                    SVG._prop("y", "170"),
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat("# of steps to complete: ", SVG._uint2str(IKaliCurve(curve).getMintPrice(curveId)))
+                string.concat("Mint Price: ", SVG._uint2str(IKaliCurve(curve).getMintPrice(curveId)))
             ),
             SVG._text(
                 string.concat(
                     SVG._prop("x", "20"),
-                    SVG._prop("y", "260"),
+                    SVG._prop("y", "210"),
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat("Deadline: ", SVG._uint2str(IMissions(missions).getMissionDeadline(missionId)))
+                string.concat("# of completions: ", SVG._uint2str(IMissions(missions).getMissionCompletions(missionId)))
+            ),
+            SVG._text(
+                string.concat(
+                    SVG._prop("x", "20"),
+                    SVG._prop("y", "190"),
+                    SVG._prop("font-size", "12"),
+                    SVG._prop("fill", "#00040a")
+                ),
+                string.concat("Complete by: ", SVG._uint2str(IMissions(missions).getMissionDeadline(missionId)))
             )
         );
+    }
+
+    function buildTreeRing(address missions, uint256 missionId) public view returns (string memory str) {
+        uint256 baseRadius = 500;
+        uint256[] memory taskIds = IMissions(missions).getMissionTaskIds(missionId);
+        string[] memory strArray;
+
+        for (uint256 i = 0; i < taskIds.length;) {
+            uint256 completions = IMissions(missions).getTaskCompletions(taskIds[i]);
+
+            // radius = completions * max radius / max completions at max radius + base radius
+            uint256 radius = completions * 500 / 100;
+            baseRadius += radius / 10;
+
+            strArray[i] = SVG._circle(
+                string.concat(
+                    SVG._prop("cx", "265"),
+                    SVG._prop("cy", "265"),
+                    SVG._prop("r", SVG._uint2str(baseRadius / 10)),
+                    SVG._prop("stroke", "#A1662F"),
+                    SVG._prop("stroke-opacity", "0.1"),
+                    SVG._prop("stroke-width", "3"),
+                    SVG._prop("fill", "#FFBE0B"),
+                    SVG._prop("fill-opacity", "0.1")
+                ),
+                ""
+            );
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        return str;
     }
 
     /// -----------------------------------------------------------------------

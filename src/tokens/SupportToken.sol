@@ -155,7 +155,7 @@ contract SupportToken is ERC1155 {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat("# of steps to complete: ", SVG._uint2str(IKaliCurve(curve).getMintPrice(curveId)))
+                string.concat("Mint Price: ", SVG._uint2str(IKaliCurve(curve).getMintPrice(curveId)))
             ),
             SVG._text(
                 string.concat(
