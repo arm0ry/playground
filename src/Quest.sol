@@ -9,7 +9,7 @@ import {IERC721} from "../lib/forge-std/src/interfaces/IERC721.sol";
 import {IERC20} from "../lib/forge-std/src/interfaces/IERC20.sol";
 import {IKaliTokenManager} from "./interface/IKaliTokenManager.sol";
 
-/// @title Quest captures intents and commitments while carrying out a Mission.
+/// @title An interface between physical and digital operation.
 /// @author audsssy.eth
 contract Quest is Storage {
     /// -----------------------------------------------------------------------
@@ -40,6 +40,28 @@ contract Quest is Storage {
     );
 
     /// -----------------------------------------------------------------------
+    /// Modifier
+    /// -----------------------------------------------------------------------
+
+    modifier onlyReviewer() {
+        if (!this.isReviewer(msg.sender)) revert InvalidReviewer();
+        _;
+    }
+
+    modifier hasExpired(address missions, uint256 missionId) {
+        checkExpiry(missions, missionId);
+        _;
+    }
+
+    /// -----------------------------------------------------------------------
+    /// Constructor
+    /// -----------------------------------------------------------------------
+
+    function initialize(address dao) external payable {
+        init(dao);
+    }
+
+    /// -----------------------------------------------------------------------
     /// EIP-2612 LOGIC
     /// -----------------------------------------------------------------------
 
@@ -57,20 +79,6 @@ contract Quest is Storage {
                 address(this)
             )
         );
-    }
-
-    /// -----------------------------------------------------------------------
-    /// Modifier
-    /// -----------------------------------------------------------------------
-
-    modifier onlyReviewer() {
-        if (!this.isReviewer(msg.sender)) revert InvalidReviewer();
-        _;
-    }
-
-    modifier hasExpired(address missions, uint256 missionId) {
-        checkExpiry(missions, missionId);
-        _;
     }
 
     /// -----------------------------------------------------------------------
@@ -655,7 +663,7 @@ contract Quest is Storage {
         incrementNumOfMissionsStarted();
 
         // Confirm Mission contract allows input from this Quest contract.
-        if (IMissions(missions).isQuestAllowed(address(this))) {
+        if (IMissions(missions).isQuestAuthorized(address(this))) {
             // Increment number of mission starts.
             IMissions(missions).incrementMissionStarts(missionId);
         }
@@ -669,7 +677,7 @@ contract Quest is Storage {
         incrementNumOfMissionsCompleted();
 
         // Increment number of mission completions.
-        if (IMissions(missions).isQuestAllowed(address(this))) {
+        if (IMissions(missions).isQuestAuthorized(address(this))) {
             IMissions(missions).incrementMissionCompletions(missionId);
         }
     }
@@ -682,7 +690,7 @@ contract Quest is Storage {
         incrementNumOfTasksCompletedByUser(user, missions, missionId, taskId);
 
         // Increment task completion at Missions contract.
-        if (IMissions(missions).isQuestAllowed(address(this))) {
+        if (IMissions(missions).isQuestAuthorized(address(this))) {
             IMissions(missions).incrementTaskCompletions(taskId);
         }
     }

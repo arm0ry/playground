@@ -8,8 +8,8 @@ interface IMissions {
     function getDao() external view returns (address);
 
     /// @dev Quest methods
-    function coordinate(address quest) external payable;
-    function isQuestAllowed(address target) external view returns (bool);
+    function authorizeQuest(address quest) external payable;
+    function isQuestAuthorized(address target) external view returns (bool);
 
     /// @dev Task set methods
     function setTask(address creator, uint256 deadline, string calldata detail) external payable;
