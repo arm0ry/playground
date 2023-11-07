@@ -6,13 +6,13 @@ import {JSON} from "../utils/JSON.sol";
 import {IERC20} from "../../lib/forge-std/src/interfaces/IERC20.sol";
 import {ERC1155} from "lib/solbase/src/tokens/ERC1155/ERC1155.sol";
 
-import {Missions} from "../Missions.sol";
-import {IMissions} from "../interface/IMissions.sol";
-import {IStorage} from "../interface/IStorage.sol";
+import {Mission} from "../Mission.sol";
+import {IMission} from "../interface/IMission.sol";
+import {IStorage} from "kali-berger/interface/IStorage.sol";
 import {IQuest} from "../interface/IQuest.sol";
 import {IQuest} from "../interface/IQuest.sol";
 import {IKaliCurve, CurveType} from "../interface/IKaliCurve.sol";
-import {IKaliTokenManager} from "../interface/IKaliTokenManager.sol";
+import {IKaliTokenManager} from "kali-berger/interface/IKaliTokenManager.sol";
 
 /// @title Support SVG NFTs.
 /// @notice SVG NFTs displaying impact generated from quests.
@@ -31,7 +31,7 @@ contract SupportToken is ERC1155 {
     /// -----------------------------------------------------------------------
 
     address public quest;
-    address public missions;
+    address public mission;
     address public curve;
     mapping(address => uint256) public unclaimed;
 
@@ -39,14 +39,14 @@ contract SupportToken is ERC1155 {
     /// Constructor & Modifier
     /// -----------------------------------------------------------------------
 
-    constructor(address _quest, address _missions, address _curve) {
+    constructor(address _quest, address _mission, address _curve) {
         quest = _quest;
-        missions = _missions;
+        mission = _mission;
         curve = _curve;
     }
 
-    modifier onlyActive(address user, address _missions, uint256 missionId) {
-        if (!IQuest(quest).isQuestActive(user, _missions, missionId)) revert NotActive();
+    modifier onlyActive(address user, address _mission, uint256 missionId) {
+        if (!IQuest(quest).isQuestActive(user, _mission, missionId)) revert NotActive();
         _;
     }
 
@@ -68,7 +68,7 @@ contract SupportToken is ERC1155 {
         return string.concat(
             '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" style="background:#FFFBF5">',
             buildSvgData(missionId, curveId),
-            buildSvgProgress(IQuest(quest).getQuestProgress(user, missions, missionId)),
+            buildSvgProgress(IQuest(quest).getQuestProgress(user, mission, missionId)),
             buildSvgProfile(IQuest(quest).getProfilePicture(user)),
             "</svg>"
         );
@@ -146,7 +146,7 @@ contract SupportToken is ERC1155 {
                     SVG._prop("font-size", "18"),
                     SVG._prop("fill", "#00040a")
                 ),
-                IMissions(missions).getMissionTitle(missionId)
+                IMission(mission).getMissionTitle(missionId)
             ),
             SVG._text(
                 string.concat(
@@ -184,7 +184,7 @@ contract SupportToken is ERC1155 {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat("Deadline: ", SVG._uint2str(IMissions(missions).getMissionDeadline(missionId)))
+                string.concat("Deadline: ", SVG._uint2str(IMission(mission).getMissionDeadline(missionId)))
             )
         );
     }
@@ -222,7 +222,7 @@ contract SupportToken is ERC1155 {
     function redeem(address user, uint256 missionId, uint256 curveId)
         external
         payable
-        onlyActive(user, missions, missionId)
+        onlyActive(user, mission, missionId)
     {
         // Confirm user is a patron.
         if (IKaliTokenManager(IKaliCurve(curve).getImpactDao(curveId)).balanceOf(user) == 0) revert NotAuthorized();
@@ -234,7 +234,7 @@ contract SupportToken is ERC1155 {
     function support(address user, uint256 missionId, uint256 curveId, uint256 amount)
         external
         payable
-        onlyActive(user, missions, missionId)
+        onlyActive(user, mission, missionId)
     {
         // Retrieve price to support.
         uint256 diff = IKaliCurve(curve).getMintBurnDifference(curveId);

@@ -5,11 +5,11 @@ import {LibString} from "../../lib/solbase/src/utils/LibString.sol";
 import {IERC721} from "../../lib/forge-std/src/interfaces/IERC721.sol";
 import {IERC20} from "../../lib/forge-std/src/interfaces/IERC20.sol";
 
-import {IStorage} from "../interface/IStorage.sol";
-import {Storage} from "../Storage.sol";
+import {IStorage} from "kali-berger/interface/IStorage.sol";
+import {Storage} from "kali-berger/Storage.sol";
 
 import {KaliDAOfactory} from "./KaliDAOfactory.sol";
-import {IKaliTokenManager} from "../interface/IKaliTokenManager.sol";
+import {IKaliTokenManager} from "kali-berger/interface/IKaliTokenManager.sol";
 import {IKaliCurve, CurveType} from "../interface/IKaliCurve.sol";
 
 /// @notice When DAOs use math equations as basis for selling goods and services and

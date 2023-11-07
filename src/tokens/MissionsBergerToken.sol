@@ -7,10 +7,10 @@ import {Base64} from "../../lib/solbase/src/utils/Base64.sol";
 import {LibString} from "../../lib/solbase/src/utils/LibString.sol";
 import {ERC721} from "../../lib/solbase/src/tokens/ERC721/ERC721.sol";
 
-import {IMissions} from "../interface/IMissions.sol";
-import {IStorage} from "../interface/IStorage.sol";
+import {IMission} from "../interface/IMission.sol";
+import {IStorage} from "kali-berger/interface/IStorage.sol";
 import {IQuest} from "../interface/IQuest.sol";
-import {IKaliBerger} from "../interface/IKaliBerger.sol";
+import {IKaliBerger} from "kali-berger/interface/IKaliBerger.sol";
 
 /// @title Impact NFTs
 /// @notice SVG NFTs displaying impact results and metrics.
@@ -42,7 +42,7 @@ contract MissionsBergerToken is ERC721 {
     }
 
     modifier onlyMissionCreators(address missions, uint256 missionId, address user) {
-        if (IMissions(missions).getMissionCreator(missionId) != msg.sender) revert Unauthorized();
+        if (IMission(missions).getMissionCreator(missionId) != msg.sender) revert Unauthorized();
         _;
     }
 
@@ -106,7 +106,7 @@ contract MissionsBergerToken is ERC721 {
                     SVG._prop("font-size", "18"),
                     SVG._prop("fill", "#00040a")
                 ),
-                IMissions(missions).getMissionTitle(missionId)
+                IMission(missions).getMissionTitle(missionId)
             ),
             SVG._text(
                 string.concat(
@@ -128,7 +128,7 @@ contract MissionsBergerToken is ERC721 {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat("# of completions: ", SVG._uint2str(IMissions(missions).getMissionCompletions(missionId)))
+                string.concat("# of completions: ", SVG._uint2str(IMission(missions).getMissionCompletions(missionId)))
             ),
             SVG._text(
                 string.concat(
@@ -137,18 +137,18 @@ contract MissionsBergerToken is ERC721 {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat("Complete by: ", SVG._uint2str(IMissions(missions).getMissionDeadline(missionId)))
+                string.concat("Complete by: ", SVG._uint2str(IMission(missions).getMissionDeadline(missionId)))
             )
         );
     }
 
     function buildTreeRing(address missions, uint256 missionId) public view returns (string memory str) {
         uint256 baseRadius = 500;
-        uint256[] memory taskIds = IMissions(missions).getMissionTaskIds(missionId);
+        uint256[] memory taskIds = IMission(missions).getMissionTaskIds(missionId);
         string[] memory strArray;
 
         for (uint256 i = 0; i < taskIds.length;) {
-            uint256 completions = IMissions(missions).getTaskCompletions(taskIds[i]);
+            uint256 completions = IMission(missions).getTaskCompletions(taskIds[i]);
 
             // radius = completions * max radius / max completions at max radius + base radius
             uint256 radius = completions * 500 / 100;

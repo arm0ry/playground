@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.4;
 
-import {IQuest} from "./interface/IQuest.sol";
+import {IMission} from "./interface/IMission.sol";
 import {LibClone} from "../lib/solbase/src/utils/LibClone.sol";
 
-contract QuestFactory {
+contract MissionFactory {
     /// -----------------------------------------------------------------------
     /// Library Usage
     /// -----------------------------------------------------------------------
@@ -31,10 +31,10 @@ contract QuestFactory {
         );
     }
 
-    function deployQuest(
+    function deployMission(
         address dao // create2 salt.
     ) public payable virtual {
-        address quest = template.cloneDeterministic(abi.encodePacked(dao), bytes32(uint256(uint160(dao))));
-        IQuest(quest).initialize(dao);
+        address mission = template.cloneDeterministic(abi.encodePacked(dao), bytes32(uint256(uint160(dao))));
+        IMission(mission).initialize(dao);
     }
 }

@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.4;
 
-import {IMissions} from "./interface/IMissions.sol";
-import {Missions} from "./Missions.sol";
-import {IStorage} from "./interface/IStorage.sol";
-import {Storage} from "./Storage.sol";
+import {IMission} from "./interface/IMission.sol";
+import {Mission} from "./Mission.sol";
+import {IStorage} from "kali-berger/interface/IStorage.sol";
+import {Storage} from "kali-berger/Storage.sol";
 import {IERC721} from "../lib/forge-std/src/interfaces/IERC721.sol";
 import {IERC20} from "../lib/forge-std/src/interfaces/IERC20.sol";
-import {IKaliTokenManager} from "./interface/IKaliTokenManager.sol";
+import {IKaliTokenManager} from "kali-berger/interface/IKaliTokenManager.sol";
 
 /// @title An interface between physical and digital operation.
 /// @author audsssy.eth
@@ -104,9 +104,7 @@ contract Quest is Storage {
 
     /// @notice Set profile picture.
     function setProfilePicture(string calldata url) external payable {
-        // Retrieve user quest start count.
-        uint256 questId = this.getUint(keccak256(abi.encode(msg.sender, ".questId")));
-        if (questId > 0) _setString(keccak256(abi.encode(msg.sender, ".profile")), url);
+        if (bytes(url).length > 0) _setString(keccak256(abi.encode(msg.sender, ".profile")), url);
     }
 
     /// @notice Start a quest.
@@ -317,7 +315,7 @@ contract Quest is Storage {
         virtual
         returns (uint256)
     {
-        uint256 count = IMissions(missions).getMissionTaskCount(missionId);
+        uint256 count = IMission(missions).getMissionTaskCount(missionId);
         if (count == 0) revert NotInitialized();
         uint256 progress = completed * 100 / count;
         _setUint(keccak256(abi.encode(user, missions, missionId, ".progress")), progress);
@@ -596,7 +594,7 @@ contract Quest is Storage {
         if (!this.isQuestActive(user, missions, missionId)) revert QuestInactive();
 
         // Confirm Task is valid
-        if (!IMissions(missions).isTaskInMission(missionId, taskId)) revert InvalidMission();
+        if (!IMission(missions).isTaskInMission(missionId, taskId)) revert InvalidMission();
 
         // Confirm user is no longer in cooldown.
         if (!this.hasCooledDown(user)) revert Cooldown();
@@ -663,9 +661,9 @@ contract Quest is Storage {
         incrementNumOfMissionsStarted();
 
         // Confirm Mission contract allows input from this Quest contract.
-        if (IMissions(missions).isQuestAuthorized(address(this))) {
+        if (IMission(missions).isQuestAuthorized(address(this))) {
             // Increment number of mission starts.
-            IMissions(missions).incrementMissionStarts(missionId);
+            IMission(missions).incrementMissionStarts(missionId);
         }
     }
 
@@ -677,8 +675,8 @@ contract Quest is Storage {
         incrementNumOfMissionsCompleted();
 
         // Increment number of mission completions.
-        if (IMissions(missions).isQuestAuthorized(address(this))) {
-            IMissions(missions).incrementMissionCompletions(missionId);
+        if (IMission(missions).isQuestAuthorized(address(this))) {
+            IMission(missions).incrementMissionCompletions(missionId);
         }
     }
 
@@ -690,8 +688,8 @@ contract Quest is Storage {
         incrementNumOfTasksCompletedByUser(user, missions, missionId, taskId);
 
         // Increment task completion at Missions contract.
-        if (IMissions(missions).isQuestAuthorized(address(this))) {
-            IMissions(missions).incrementTaskCompletions(taskId);
+        if (IMission(missions).isQuestAuthorized(address(this))) {
+            IMission(missions).incrementTaskCompletions(taskId);
         }
     }
 
@@ -723,7 +721,7 @@ contract Quest is Storage {
     }
 
     function checkExpiry(address missions, uint256 missionId) internal view {
-        uint256 deadline = IMissions(missions).getMissionDeadline(missionId);
+        uint256 deadline = IMission(missions).getMissionDeadline(missionId);
         if (deadline == 0) revert NotInitialized();
         if (block.timestamp > deadline) revert InvalidMission();
     }

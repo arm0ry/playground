@@ -6,13 +6,13 @@ import {JSON} from "../utils/JSON.sol";
 import {IERC20} from "../../lib/forge-std/src/interfaces/IERC20.sol";
 import {ERC1155} from "lib/solbase/src/tokens/ERC1155/ERC1155.sol";
 
-import {Missions} from "../Missions.sol";
-import {IMissions} from "../interface/IMissions.sol";
-import {IStorage} from "../interface/IStorage.sol";
+import {Mission} from "../Mission.sol";
+import {IMission} from "../interface/IMission.sol";
+import {IStorage} from "kali-berger/interface/IStorage.sol";
 import {IQuest} from "../interface/IQuest.sol";
 import {IQuest} from "../interface/IQuest.sol";
 import {IKaliCurve, CurveType} from "../interface/IKaliCurve.sol";
-import {IKaliTokenManager} from "../interface/IKaliTokenManager.sol";
+import {IKaliTokenManager} from "kali-berger/interface/IKaliTokenManager.sol";
 
 /// @title Support SVG NFTs for Mission.
 /// @notice SVG NFTs displaying impact generated from quests.
@@ -43,7 +43,7 @@ contract MissionSupportToken is ERC1155 {
     }
 
     modifier onlyActive(address missions, uint256 missionId) {
-        if (block.timestamp > IMissions(missions).getMissionDeadline(missionId)) revert NotActive();
+        if (block.timestamp > IMission(missions).getMissionDeadline(missionId)) revert NotActive();
         _;
     }
 
@@ -107,7 +107,7 @@ contract MissionSupportToken is ERC1155 {
                     SVG._prop("font-size", "18"),
                     SVG._prop("fill", "#00040a")
                 ),
-                IMissions(missions).getMissionTitle(missionId)
+                IMission(missions).getMissionTitle(missionId)
             ),
             SVG._text(
                 string.concat(
@@ -125,7 +125,7 @@ contract MissionSupportToken is ERC1155 {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat("# of completions: ", SVG._uint2str(IMissions(missions).getMissionCompletions(missionId)))
+                string.concat("# of completions: ", SVG._uint2str(IMission(missions).getMissionCompletions(missionId)))
             ),
             SVG._text(
                 string.concat(
@@ -134,18 +134,18 @@ contract MissionSupportToken is ERC1155 {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat("Complete by: ", SVG._uint2str(IMissions(missions).getMissionDeadline(missionId)))
+                string.concat("Complete by: ", SVG._uint2str(IMission(missions).getMissionDeadline(missionId)))
             )
         );
     }
 
     function buildTreeRing(address missions, uint256 missionId) public view returns (string memory str) {
         uint256 baseRadius = 500;
-        uint256[] memory taskIds = IMissions(missions).getMissionTaskIds(missionId);
+        uint256[] memory taskIds = IMission(missions).getMissionTaskIds(missionId);
         string[] memory strArray;
 
         for (uint256 i = 0; i < taskIds.length;) {
-            uint256 completions = IMissions(missions).getTaskCompletions(taskIds[i]);
+            uint256 completions = IMission(missions).getTaskCompletions(taskIds[i]);
 
             // radius = completions * max radius / max completions at max radius + base radius
             uint256 radius = completions * 500 / 100;
