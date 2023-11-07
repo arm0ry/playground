@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-interface IMissions {
+interface IMission {
     error InvalidMission();
 
     /// @dev DAO methods
-    function getDao() external view returns (address);
+    function initialize(address dao) external payable;
 
     /// @dev Quest methods
     function authorizeQuest(address quest) external payable;
