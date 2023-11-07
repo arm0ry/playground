@@ -6,7 +6,7 @@
 
 // import {Missions, Task, Mission} from "src/Missions.sol";
 // import {Missions} from "src/Missions.sol";
-// import {IMissions} from "src/interface/IMissions.sol";
+// import {IMission} from "src/interface/IMission.sol";
 // import {Quest} from "src/Quest.sol";
 // import {IQuest} from "src/interface/IQuest.sol";
 // import {IDirectory} from "src/interface/IDirectory.sol";
@@ -22,7 +22,6 @@
 //     Directory directory;
 
 //     IQuest iQuest;
-//     IMissions iMissions;
 //     IDirectory iDirectory;
 
 //     Task task;

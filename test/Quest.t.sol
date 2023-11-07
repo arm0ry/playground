@@ -4,11 +4,11 @@ pragma solidity ^0.8.17;
 import "forge-std/Test.sol";
 import "forge-std/console2.sol";
 
-import {IMissions} from "src/interface/IMissions.sol";
+import {IMission} from "src/interface/IMission.sol";
 import {IQuest} from "src/interface/IQuest.sol";
 
 import {Quest} from "src/Quest.sol"; // Community goes on quest
-import {Missions} from "src/Missions.sol"; // Put up missions
+import {Mission} from "src/Mission.sol"; // Put up missions
 import {KaliDAO, ProposalType} from "src/kali/KaliDAO.sol"; // Start with a governance framework
 
 /// @dev Mocks.
@@ -20,10 +20,9 @@ import {MockERC721} from "../lib/solbase/test/utils/mocks/MockERC721.sol";
 
 contract QuestsTest is Test {
     IQuest iQuest;
-    IMissions iMissions;
     Quest quests_dao;
     Quest quests_erc20;
-    Missions missions;
+    Mission missions;
 
     MockERC721 erc721;
 
@@ -71,7 +70,7 @@ contract QuestsTest is Test {
         quests_dao = new Quest();
 
         // Deploy contracts
-        missions = new Missions();
+        missions = new Mission();
         vm.prank(address(arm0ry));
         missions.initialize((address(arm0ry)));
         // vm.prank(address(arm0ry));
@@ -177,11 +176,11 @@ contract QuestsTest is Test {
 
     // function testUpdateContracts() public payable {
     //     // vm.prank(address(arm0ry));
-    //     // iMissions = IMissions(address(dummy));
-    //     // quests_dao.updateContracts(iMissions);
+    //     // IMission = IMission(address(dummy));
+    //     // quests_dao.updateContracts(IMission);
 
     //     // Validate contract update
-    //     // assertEq(address(quests_dao.mission()), address(iMissions));
+    //     // assertEq(address(quests_dao.mission()), address(IMission));
     // }
 
     function testReceiveETH() public payable {

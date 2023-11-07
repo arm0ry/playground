@@ -4,23 +4,21 @@ pragma solidity ^0.8.17;
 import "forge-std/Test.sol";
 import "forge-std/console2.sol";
 
-import {Missions} from "src/Missions.sol";
-import {IMissions} from "src/interface/IMissions.sol";
+import {Mission} from "src/Mission.sol";
+import {IMission} from "src/interface/IMission.sol";
 import {Quest} from "src/Quest.sol";
 import {IQuest} from "src/interface/IQuest.sol";
-import {Storage} from "src/Storage.sol";
-import {IStorage} from "src/interface/IStorage.sol";
+import {Storage} from "kali-berger/Storage.sol";
+import {IStorage} from "kali-berger/interface/IStorage.sol";
 import {MissionsBergerToken} from "src/tokens/MissionsBergerToken.sol";
-// import {IStorage} from "src/interface/IStorage.sol";
 
 contract MissionsBergerTokenTest is Test {
     Quest quest;
-    Missions missions;
+    Mission mission;
     Storage stor;
     MissionsBergerToken mbt;
 
     IQuest iQuest;
-    IMissions iMissions;
     IStorage iStorage;
 
     uint256[] taskIds;

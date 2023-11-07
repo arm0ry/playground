@@ -1,32 +1,15 @@
-// SPDX-License-Identifier: MIT
+// // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
 import "forge-std/console2.sol";
 
-import {Mission} from "src/Mission.sol";
-import {IMission} from "src/interface/IMission.sol";
-import {Quest} from "src/Quest.sol";
-import {IQuest} from "src/interface/IQuest.sol";
-import {Storage} from "kali-berger/Storage.sol";
-import {IStorage} from "kali-berger/interface/IStorage.sol";
-import {MissionSupportToken} from "src/tokens/MissionSupportToken.sol";
+import {QuestFactory} from "src/QuestFactory.sol";
 
-contract MissionSupportTokenTest is Test {
-    Quest quest;
-    Mission missions;
-    Storage stor;
-    MissionSupportToken support;
+contract QuestFactoryTest is Test {
+    QuestFactory qf;
 
-    IQuest iQuest;
-    IStorage iStorage;
-
-    uint256[] taskIds;
-    uint256[] newTaskIds;
-
-    uint256 royalties;
     /// @dev Users.
-
     address public immutable alice = makeAddr("alice");
     address public immutable bob = makeAddr("bob");
     address public immutable charlie = makeAddr("charlie");
@@ -49,11 +32,11 @@ contract MissionSupportTokenTest is Test {
 
     function setUp() public payable {
         // Deploy contract
-        support = new MissionSupportToken(alice);
+        qf = new QuestFactory(alice);
     }
 
     function testReceiveETH() public payable {
-        (bool sent,) = address(support).call{value: 5 ether}("");
+        (bool sent,) = address(qf).call{value: 5 ether}("");
         assert(!sent);
     }
 }
