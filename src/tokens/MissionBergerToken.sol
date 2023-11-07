@@ -15,7 +15,7 @@ import {IKaliBerger} from "kali-berger/interface/IKaliBerger.sol";
 /// @title Impact NFTs
 /// @notice SVG NFTs displaying impact results and metrics.
 /// Majory inspired by Kali, Async.art
-contract MissionsBergerToken is ERC721 {
+contract MissionBergerToken is ERC721 {
     /// -----------------------------------------------------------------------
     /// DAO Storage
     /// -----------------------------------------------------------------------

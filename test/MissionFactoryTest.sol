@@ -1,34 +1,15 @@
-// // SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
 import "forge-std/console2.sol";
 
-import {Mission} from "src/Mission.sol";
-import {IMission} from "src/interface/IMission.sol";
-import {Quest} from "src/Quest.sol";
-import {IQuest} from "src/interface/IQuest.sol";
-import {Storage} from "kali-berger/Storage.sol";
-import {IStorage} from "kali-berger/interface/IStorage.sol";
-import {MissionsBergerToken} from "src/tokens/MissionsBergerToken.sol";
+import {MissionFactory} from "src/MissionFactory.sol";
 
-contract MissionsBergerTokenTest is Test {
-    Quest quest;
-    Mission mission;
-    Storage stor;
-    MissionsBergerToken mbt;
+contract MissionFactoryTest is Test {
+    MissionFactory mf;
 
-    IQuest iQuest;
-    IStorage iStorage;
-
-    uint256[] taskIds;
-    uint256[] newTaskIds;
-
-    // Mission mission;
-
-    uint256 royalties;
     /// @dev Users.
-
     address public immutable alice = makeAddr("alice");
     address public immutable bob = makeAddr("bob");
     address public immutable charlie = makeAddr("charlie");
@@ -51,11 +32,11 @@ contract MissionsBergerTokenTest is Test {
 
     function setUp() public payable {
         // Deploy contract
-        mbt = new MissionsBergerToken(alice, alice);
+        mf = new MissionFactory(alice);
     }
 
     function testReceiveETH() public payable {
-        (bool sent,) = address(mbt).call{value: 5 ether}("");
+        (bool sent,) = address(mf).call{value: 5 ether}("");
         assert(!sent);
     }
 }
