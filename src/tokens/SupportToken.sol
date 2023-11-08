@@ -3,15 +3,14 @@ pragma solidity >=0.8.4;
 
 import {SVG} from "../utils/SVG.sol";
 import {JSON} from "../utils/JSON.sol";
-import {IERC20} from "../../lib/forge-std/src/interfaces/IERC20.sol";
-import {ERC1155} from "lib/solbase/src/tokens/ERC1155/ERC1155.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
+import {ERC1155} from "solbase/tokens/ERC1155/ERC1155.sol";
 
 import {Mission} from "../Mission.sol";
 import {IMission} from "../interface/IMission.sol";
-import {IStorage} from "kali-berger/interface/IStorage.sol";
-import {IQuest} from "../interface/IQuest.sol";
 import {IQuest} from "../interface/IQuest.sol";
 import {IKaliCurve, CurveType} from "../interface/IKaliCurve.sol";
+import {IStorage} from "kali-berger/interface/IStorage.sol";
 import {IKaliTokenManager} from "kali-berger/interface/IKaliTokenManager.sol";
 
 /// @title Support SVG NFTs.

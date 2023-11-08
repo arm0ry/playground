@@ -9,7 +9,7 @@ import {IQuest} from "src/interface/IQuest.sol";
 
 import {Quest} from "src/Quest.sol"; // Community goes on quest
 import {Mission} from "src/Mission.sol"; // Put up missions
-import {KaliDAO, ProposalType} from "src/kali/KaliDAO.sol"; // Start with a governance framework
+import {KaliDAO, ProposalType} from "kali-berger/kalidao/KaliDAO.sol"; // Start with a governance framework
 
 /// @dev Mocks.
 import {MockERC721} from "../lib/solbase/test/utils/mocks/MockERC721.sol";

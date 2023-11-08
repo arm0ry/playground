@@ -3,14 +3,14 @@ pragma solidity >=0.8.4;
 
 import {SVG} from "../utils/SVG.sol";
 import {JSON} from "../utils/JSON.sol";
-import {Base64} from "../../lib/solbase/src/utils/Base64.sol";
-import {LibString} from "../../lib/solbase/src/utils/LibString.sol";
-import {ERC721} from "../../lib/solbase/src/tokens/ERC721/ERC721.sol";
+import {Base64} from "solbase/utils/Base64.sol";
+import {LibString} from "solbase/utils/LibString.sol";
+import {ERC721} from "solbase/tokens/ERC721/ERC721.sol";
 
 import {IMission} from "../interface/IMission.sol";
-import {IStorage} from "kali-berger/interface/IStorage.sol";
 import {IQuest} from "../interface/IQuest.sol";
-import {IKaliBerger} from "kali-berger/interface/IKaliBerger.sol";
+import {IStorage} from "kali-markets/interface/IStorage.sol";
+import {IKaliBerger} from "kali-markets/interface/IKaliBerger.sol";
 
 /// @title Impact NFTs
 /// @notice SVG NFTs displaying impact results and metrics.

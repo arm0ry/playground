@@ -2,7 +2,7 @@
 pragma solidity >=0.8.4;
 
 import {IMission} from "./interface/IMission.sol";
-import {LibClone} from "../lib/solbase/src/utils/LibClone.sol";
+import {LibClone} from "solbase/utils/LibClone.sol";
 
 contract MissionFactory {
     /// -----------------------------------------------------------------------

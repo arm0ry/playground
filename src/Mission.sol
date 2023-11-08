@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.4;
 
-import {IStorage} from "kali-berger/interface/IStorage.sol";
-import {Storage} from "kali-berger/Storage.sol";
 import {IMission} from "./interface/IMission.sol";
+import {IStorage} from "kali-markets/interface/IStorage.sol";
+import {Storage} from "kali-markets/Storage.sol";
 
 /// @title Missions
 /// @notice A list of missions and tasks.
