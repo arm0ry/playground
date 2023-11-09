@@ -41,7 +41,7 @@ contract MissionSupportToken is ERC1155 {
     constructor(address _curve) {
         curve = _curve;
     }
-´
+
     modifier onlyActive(address missions, uint256 missionId) {
         if (block.timestamp > IMission(missions).getMissionDeadline(missionId)) revert NotActive();
         _;

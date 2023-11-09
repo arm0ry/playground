@@ -33,8 +33,9 @@ contract QuestFactory {
 
     function deployQuest(
         address dao // create2 salt.
-    ) public payable virtual {
+    ) public payable virtual returns (address) {
         address quest = template.cloneDeterministic(abi.encodePacked(dao), bytes32(uint256(uint160(dao))));
         IQuest(quest).initialize(dao);
+        return quest;
     }
 }

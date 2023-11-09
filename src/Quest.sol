@@ -152,32 +152,6 @@ contract Quest is Storage {
         _respond(msg.sender, missions, missionId, taskId, response, feedback);
     }
 
-    /// @notice Respond to a task (gasless).
-    function respondBySig(
-        address signer,
-        uint256 taskKey,
-        string calldata feedback,
-        uint256 response,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external payable virtual {
-        (address missions, uint256 missionId, uint256 taskId) = this.decodeKey(taskKey);
-        checkExpiry(missions, missionId);
-        bytes32 digest = keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                DOMAIN_SEPARATOR(),
-                keccak256(abi.encode(RESPOND_TYPEHASH, signer, missions, missionId, taskId, feedback, response))
-            )
-        );
-
-        address recoveredAddress = ecrecover(digest, v, r, s);
-        if (recoveredAddress == address(0) || recoveredAddress != signer) revert InvalidUser();
-
-        _respond(signer, missions, missionId, taskId, response, feedback);
-    }
-
     /// -----------------------------------------------------------------------
     /// Review Logic
     /// -----------------------------------------------------------------------
@@ -696,29 +670,6 @@ contract Quest is Storage {
     /// -----------------------------------------------------------------------
     /// Helper Logic
     /// -----------------------------------------------------------------------
-
-    function encode(address addr, uint256 num1, uint256 num2) external pure returns (uint256) {
-        return uint256(bytes32(abi.encodePacked(addr, uint48(num1), uint48(num2))));
-    }
-
-    function decodeKey(uint256 key) external pure returns (address, uint256, uint256) {
-        // Convert tokenId from type uint256 to bytes32.
-        bytes32 _key = bytes32(key);
-
-        // Declare variables to return later.
-        uint48 num2;
-        uint48 num1;
-        address addr;
-
-        // Parse data via assembly.
-        assembly {
-            num2 := _key
-            num1 := shr(48, _key)
-            addr := shr(96, _key)
-        }
-
-        return (addr, uint256(num1), uint256(num2));
-    }
 
     function checkExpiry(address missions, uint256 missionId) internal view {
         uint256 deadline = IMission(missions).getMissionDeadline(missionId);

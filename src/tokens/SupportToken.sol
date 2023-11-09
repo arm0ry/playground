@@ -9,9 +9,9 @@ import {ERC1155} from "solbase/tokens/ERC1155/ERC1155.sol";
 import {Mission} from "../Mission.sol";
 import {IMission} from "../interface/IMission.sol";
 import {IQuest} from "../interface/IQuest.sol";
-import {IKaliCurve, CurveType} from "../interface/IKaliCurve.sol";
-import {IStorage} from "kali-berger/interface/IStorage.sol";
-import {IKaliTokenManager} from "kali-berger/interface/IKaliTokenManager.sol";
+import {IKaliCurve, CurveType} from "kali-markets/interface/IKaliCurve.sol";
+import {IStorage} from "kali-markets/interface/IStorage.sol";
+import {IKaliTokenManager} from "kali-markets/interface/IKaliTokenManager.sol";
 
 /// @title Support SVG NFTs.
 /// @notice SVG NFTs displaying impact generated from quests.
