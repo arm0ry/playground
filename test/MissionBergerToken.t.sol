@@ -8,8 +8,8 @@ import {Mission} from "src/Mission.sol";
 import {IMission} from "src/interface/IMission.sol";
 import {Quest} from "src/Quest.sol";
 import {IQuest} from "src/interface/IQuest.sol";
-import {Storage} from "kali-berger/Storage.sol";
-import {IStorage} from "kali-berger/interface/IStorage.sol";
+import {Storage} from "kali-markets/Storage.sol";
+import {IStorage} from "kali-markets/interface/IStorage.sol";
 import {MissionBergerToken} from "src/tokens/MissionBergerToken.sol";
 
 contract MissionBergerTokenTest is Test {

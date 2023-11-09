@@ -1,283 +1,360 @@
-// // SPDX-License-Identifier: MIT
-// pragma solidity ^0.8.17;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.17;
 
-// import "forge-std/Test.sol";
-// import "forge-std/console2.sol";
+import "forge-std/Test.sol";
+import "forge-std/console2.sol";
 
-// import {Missions, Task, Mission} from "src/Missions.sol";
-// import {Missions} from "src/Missions.sol";
-// import {IMission} from "src/interface/IMission.sol";
-// import {Quest} from "src/Quest.sol";
-// import {IQuest} from "src/interface/IQuest.sol";
-// import {IDirectory} from "src/interface/IDirectory.sol";
-// import {Directory} from "src/Directory.sol";
+import "kali-markets/Storage.sol";
+import {Mission} from "src/Mission.sol";
+import {IMission} from "src/interface/IMission.sol";
+import {Quest} from "src/Quest.sol";
+import {IQuest} from "src/interface/IQuest.sol";
 
-// /// -----------------------------------------------------------------------
-// /// Test Logic
-// /// -----------------------------------------------------------------------
+/// -----------------------------------------------------------------------
+/// Test Logic
+/// -----------------------------------------------------------------------
 
-// contract MissionsTest is Test {
-//     Quest quest;
-//     Missions missions;
-//     Directory directory;
+contract MissionTest is Test {
+    Quest quest;
+    Mission mission;
 
-//     IQuest iQuest;
-//     IDirectory iDirectory;
+    address[] creators;
+    address[] newCreators;
+    uint256[] deadlines;
+    uint256[] newDeadlines;
+    string[] detail;
+    string[] newDetail;
+    uint256[] taskIds;
+    uint256[] newTaskIds;
 
-//     Task task;
-//     Task[] tasks;
-//     Task[] newTasks;
-//     uint256[] taskIds;
-//     uint256[] newTaskIds;
+    /// @dev Users.
+    address public immutable alice = makeAddr("alice");
+    address public immutable bob = makeAddr("bob");
+    address public immutable charlie = makeAddr("charlie");
+    address public immutable dummy = makeAddr("dummy");
+    address public immutable dao = makeAddr("dao");
 
-//     Mission mission;
+    /// @dev Helpers.
+    uint256 taskId;
+    uint256 missionId;
 
-//     uint256 royalties;
-//     /// @dev Users.
+    /// -----------------------------------------------------------------------
+    /// Setup Tests
+    /// -----------------------------------------------------------------------
 
-//     address public immutable alice = makeAddr("alice");
-//     address public immutable bob = makeAddr("bob");
-//     address public immutable charlie = makeAddr("charlie");
-//     address public immutable dummy = makeAddr("dummy");
-//     address payable public immutable arm0ry = payable(makeAddr("arm0ry"));
+    /// @notice Set up the testing suite.
 
-//     /// @dev Helpers.
+    function setUp() public payable {
+        // Deploy contract
+        mission = new Mission();
+        quest = new Quest();
+    }
 
-//     string internal constant description = "TEST";
+    function testReceiveETH() public payable {
+        (bool sent,) = address(mission).call{value: 5 ether}("");
+        assert(!sent);
+    }
 
-//     bytes32 internal constant name1 = 0x5445535400000000000000000000000000000000000000000000000000000000;
+    function testInitialized() public payable {
+        // Initialize.
+        initialize(dao);
 
-//     bytes32 internal constant name2 = 0x5445535432000000000000000000000000000000000000000000000000000000;
+        // Validate initialization.
+        assertEq(mission.getDao(), dao);
+    }
 
-//     /// -----------------------------------------------------------------------
-//     /// Kali Setup Tests
-//     /// -----------------------------------------------------------------------
+    /// -----------------------------------------------------------------------
+    /// DAO Test
+    /// ----------------------------------------------------------------------
 
-//     /// @notice Set up the testing suite.
+    function testAuthorizeQuest() public payable {
+        // Initialize.
+        initialize(dao);
 
-//     function setUp() public payable {
-//         // Deploy contract
-//         missions = new Missions();
-//         // missions.initialize((address(arm0ry)));
+        // Authorize quest contract.
+        vm.prank(dao);
+        mission.authorizeQuest(address(quest), true);
 
-//         // Validate global variables
-//         assertEq(missions.royalties(), 0);
-//         // assertEq(missions_v2.dao(), arm0ry);
+        // Validate.
+        assertEq(mission.isQuestAuthorized(address(quest)), true);
+    }
 
-//         // setupTasksAndMissions();
-//     }
+    function testAuthorizeQuest_NotOperator() public payable {
+        // Initialize.
+        initialize(dao);
 
-//     function testReceiveETH() public payable {
-//         (bool sent,) = address(missions).call{value: 5 ether}("");
-//         assert(sent);
-//         assert(address(missions).balance == 5 ether);
-//     }
+        // Authorize quest contract.
+        vm.expectRevert(Storage.NotOperator.selector);
+        mission.authorizeQuest(address(quest), true);
+    }
 
-//     function testUpdateDao() public payable {
-//         vm.prank(arm0ry);
-//         missions.updateDao(charlie);
+    /// -----------------------------------------------------------------------
+    /// Task Test - Setter
+    /// ----------------------------------------------------------------------
 
-//         // Validate DAO update
-//         assertEq(missions.dao(), charlie);
-//     }
+    function testSetTask() public payable {
+        // Initialize.
+        initialize(dao);
 
-//     function testUpdateRoyalties() public payable {
-//         vm.prank(arm0ry);
-//         missions.updateRoyalties(12);
+        // Set up task.
+        setTask(alice, 100000, "Test");
+    }
 
-//         // Validate royalties update
-//         assertEq(missions.royalties(), 12);
-//     }
+    function testSetTask_NotOperator() public payable {
+        // Initialize.
+        initialize(dao);
 
-//     function testPurchase() public payable {
-//         // Deal Alice 100 eth
-//         deal(alice, 100e18);
+        // Set up task.
+        vm.expectRevert(Storage.NotOperator.selector);
+        mission.setTasks(creators, deadlines, detail);
+    }
 
-//         // Validate existing balances
-//         assertEq(alice.balance, 100e18);
-//         assertEq(bob.balance, 0);
-//         assertEq(address(arm0ry).balance, 0);
+    function testSetTask_LengthMismatch() public payable {
+        // Initialize.
+        initialize(dao);
+        creators.push(alice);
+        detail.push("Test");
 
-//         // Alice makes purchase
-//         vm.prank(alice);
-//         missions.purchase{value: 1e18}(1);
-//         assertEq(missions.balanceOf(alice, 1), 1);
+        // Set up task.
+        vm.expectRevert(Storage.LengthMismatch.selector);
+        vm.prank(dao);
+        mission.setTasks(creators, deadlines, detail);
+    }
 
-//         // Validate royalties distribution
-//         assertEq(address(bob).balance, 0.5e18);
-//         assertEq(address(arm0ry).balance, 0.5e18);
-//     }
+    function testSetTask_InvalidTask() public payable {
+        // Initialize.
+        initialize(dao);
 
-//     function testUpdateTasks() public payable {
-//         // Prepare data to create new Tasks
-//         Task memory task1 = Task({
-//             xp: 4,
-//             duration: 2000000,
-//             creator: arm0ry,
-//             detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
-//         });
-//         Task memory task2 = Task({
-//             xp: 3,
-//             duration: 2000000,
-//             creator: alice,
-//             detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
-//         });
-//         Task memory task3 = Task({
-//             xp: 2,
-//             duration: 2000000,
-//             creator: bob,
-//             detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
-//         });
-//         Task memory task4 = Task({
-//             xp: 1,
-//             duration: 2000000,
-//             creator: charlie,
-//             detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
-//         });
+        // Set up task.
+        vm.expectRevert(Mission.InvalidTask.selector);
+        vm.prank(dao);
+        mission.setTasks(creators, deadlines, detail);
+    }
 
-//         newTasks.push(task1);
-//         newTasks.push(task2);
-//         newTasks.push(task3);
-//         newTasks.push(task4);
+    function testSetTasks() public payable {
+        // Initialize.
+        initialize(dao);
 
-//         newTaskIds.push(1);
-//         newTaskIds.push(2);
-//         newTaskIds.push(3);
-//         newTaskIds.push(4);
+        // Set up param.
+        creators.push(alice);
+        creators.push(bob);
+        creators.push(charlie);
+        deadlines.push(10000);
+        deadlines.push(100);
+        deadlines.push(1);
+        detail.push("TEST");
+        detail.push("TEST 2");
+        detail.push("TEST 3");
 
-//         // Update Tasks
-//         vm.prank(arm0ry);
-//         missions.setTasks(newTaskIds, newTasks);
+        // Set up task.
+        setTasks();
+    }
 
-//         // Validate Task setup
-//         task = missions.getTask(1);
-//         assertEq(task.creator, arm0ry);
-//         assertEq(task.xp, 4);
-//     }
+    function testSetTaskCreator() public payable {}
 
-//     function testUpdateMission() public payable {
-//         // Prepare to create new Mission
-//         taskIds.push(2);
-//         taskIds.push(5);
+    function testSetTaskDeadline() public payable {}
 
-//         // Create new mission
-//         vm.prank(arm0ry);
-//         missions.setMission(
-//             1,
-//             false,
-//             charlie,
-//             "Welcome to New School",
-//             "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza",
-//             taskIds,
-//             1e18 // 1 ETH
-//         );
+    function testSetTaskDetail() public payable {}
 
-//         // Validate Mission setup
-//         (mission,) = missions.getMission(1);
-//         assertEq(missions.missionId(), 1);
-//         assertEq(mission.creator, charlie);
-//         assertEq(mission.taskIds.length, 2);
-//     }
+    function testIncrementTaskCompletions() public payable {}
 
-//     function testAggregateTasksDate() public payable {
-//         taskIds.push(2);
-//         taskIds.push(3);
+    /// -----------------------------------------------------------------------
+    /// Mission Test - Setter
+    /// ----------------------------------------------------------------------
 
-//         (uint256 xp, uint40 duration) = missions.aggregateTasksData(taskIds);
+    function testSetMission() public payable {
+        // Prepare to create new Mission
+        // taskIds.push(2);
+        // taskIds.push(5);
 
-//         assertEq(xp, 5);
-//         assertEq(duration, 200);
-//     }
+        // // Create new mission
+        // vm.prank(dao);
+        // mission.setMission(
+        //     charlie, "Welcome to New School", "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza", taskIds
+        // );
 
-//     function testIsTaskInMission() public payable {
-//         bool existTask1 = missions.isTaskInMission(1, 1);
-//         bool existTask2 = missions.isTaskInMission(1, 2);
-//         bool existTask3 = missions.isTaskInMission(1, 3);
-//         bool existTask4 = missions.isTaskInMission(1, 4);
-//         bool existTask5 = missions.isTaskInMission(1, 5);
+        // Validate Mission setup
+        // (mission,) = mission.getMission(1);
+        // assertEq(mission.missionId(), 1);
+        // assertEq(mission.creator, charlie);
+        // assertEq(mission.taskIds.length, 2);
+    }
 
-//         assertEq(existTask1, true);
-//         assertEq(existTask2, true);
-//         assertEq(existTask3, true);
-//         assertEq(existTask4, true);
-//         assertEq(existTask5, false);
-//     }
+    function testSetMissionCreator() public payable {}
 
-//     /// -----------------------------------------------------------------------
-//     /// Internal Functions
-//     /// -----------------------------------------------------------------------
+    function testSetMissionDeadline() public payable {}
 
-//     function setupTasksAndMissions() internal {
-//         // Prepare data to create new Tasks
-//         Task memory task1 = Task({
-//             xp: 1,
-//             duration: 100,
-//             creator: address(arm0ry),
-//             detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
-//         });
-//         Task memory task2 = Task({
-//             xp: 2,
-//             duration: 100,
-//             creator: alice,
-//             detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
-//         });
-//         Task memory task3 = Task({
-//             xp: 3,
-//             duration: 100,
-//             creator: bob,
-//             detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
-//         });
-//         Task memory task4 = Task({
-//             xp: 4,
-//             duration: 100,
-//             creator: charlie,
-//             detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
-//         });
+    function testSetMissionDetail() public payable {}
 
-//         tasks.push(task1);
-//         tasks.push(task2);
-//         tasks.push(task3);
-//         tasks.push(task4);
+    function testSetMissionTasks() public payable {}
 
-//         // Create new Tasks
-//         vm.prank(address(arm0ry));
-//         missions.setTasks(taskIds, tasks);
+    function testIncrementMissionStarts() public payable {}
 
-//         // Validate Task setup
-//         task = missions.getTask(1);
-//         assertEq(task.creator, address(arm0ry));
-//         assertEq(task.xp, 1);
+    function testIncrementMissionCompletions() public payable {}
 
-//         // Prepare to create new Mission
-//         taskIds.push(1);
-//         taskIds.push(2);
-//         taskIds.push(3);
-//         taskIds.push(4);
+    /// -----------------------------------------------------------------------
+    /// Task Test - Getter
+    /// ----------------------------------------------------------------------
 
-//         // Create new mission
-//         vm.prank(address(arm0ry));
-//         missions.setMission(
-//             0,
-//             true,
-//             bob,
-//             "Welcome to New School",
-//             "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza",
-//             taskIds,
-//             1e18 // 1 ETH
-//         );
+    function testGetTaskId() public payable {}
 
-//         // Validate Mission setup
-//         (mission,) = missions.getMission(1);
-//         assertEq(missions.missionId(), 1);
-//         assertEq(mission.creator, bob);
+    function testGetTaskCreator() public payable {}
 
-//         // Validate tasks exist in Mission
-//         assertEq(missions.isTaskInMission(1, 1), true);
-//         assertEq(missions.isTaskInMission(1, 2), true);
-//         assertEq(missions.isTaskInMission(1, 3), true);
-//         assertEq(missions.isTaskInMission(1, 4), true);
-//         assertEq(missions.isTaskInMission(1, 5), false);
+    function testGetTaskDeadline() public payable {}
 
-//         delete taskIds;
-//     }
-// }
+    function testGetTaskDetail() public payable {}
+
+    function testGetTaskCompletions() public payable {}
+
+    function testIsTaskInMission() public payable {
+        // bool existTask1 = mission.isTaskInMission(1, 1);
+        // bool existTask2 = mission.isTaskInMission(1, 2);
+        // bool existTask3 = mission.isTaskInMission(1, 3);
+        // bool existTask4 = mission.isTaskInMission(1, 4);
+        // bool existTask5 = mission.isTaskInMission(1, 5);
+
+        // assertEq(existTask1, true);
+        // assertEq(existTask2, true);
+        // assertEq(existTask3, true);
+        // assertEq(existTask4, true);
+        // assertEq(existTask5, false);
+    }
+
+    /// -----------------------------------------------------------------------
+    /// Mission Test - Getter
+    /// ----------------------------------------------------------------------
+
+    function testGetMissionId() public payable {}
+
+    function testGetMissionCreator() public payable {}
+
+    function testGetMissionDetail() public payable {}
+
+    function testGetMissionTitle() public payable {}
+
+    function testGetMissionTaskCount() public payable {}
+
+    function testGetMissionTaskId() public payable {}
+
+    function testGetMissionTaskIds() public payable {}
+
+    function testGetMissionDeadline() public payable {}
+
+    function testGetMissionStarts() public payable {}
+
+    function testGetMissionCompletions() public payable {}
+
+    /// -----------------------------------------------------------------------
+    /// Internal Functions
+    /// -----------------------------------------------------------------------
+
+    function initialize(address _dao) internal {
+        mission.initialize(_dao);
+    }
+
+    function setTask(address creator, uint256 deadline, string memory description) internal {
+        // Set up task param.
+        creators.push(creator);
+        deadlines.push(deadline);
+        detail.push(description);
+
+        // Set up task.
+        vm.prank(dao);
+        mission.setTasks(creators, deadlines, detail);
+
+        // Validate setup.
+        assertEq(mission.getTaskId(), ++taskId);
+        assertEq(mission.getTaskCreator(taskId), creator);
+        assertEq(mission.getTaskDeadline(taskId), deadline);
+        assertEq(mission.getTaskDetail(taskId), description);
+    }
+
+    function setTasks() internal {
+        // Set up task.
+        vm.prank(dao);
+        mission.setTasks(creators, deadlines, detail);
+
+        // Validate setup.
+        for (uint256 i = 0; i < creators.length; i++) {
+            ++taskId;
+            assertEq(mission.getTaskCreator(taskId), creators[i]);
+            assertEq(mission.getTaskDeadline(taskId), deadlines[i]);
+            assertEq(mission.getTaskDetail(taskId), detail[i]);
+        }
+        assertEq(mission.getTaskId(), taskId);
+    }
+
+    // function setupTasksAndMission() internal {
+    //     // Prepare data to create new Tasks
+    //     Task memory task1 = Task({
+    //         xp: 1,
+    //         duration: 100,
+    //         creator: address(dao),
+    //         detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
+    //     });
+    //     Task memory task2 = Task({
+    //         xp: 2,
+    //         duration: 100,
+    //         creator: alice,
+    //         detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
+    //     });
+    //     Task memory task3 = Task({
+    //         xp: 3,
+    //         duration: 100,
+    //         creator: bob,
+    //         detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
+    //     });
+    //     Task memory task4 = Task({
+    //         xp: 4,
+    //         duration: 100,
+    //         creator: charlie,
+    //         detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
+    //     });
+
+    //     tasks.push(task1);
+    //     tasks.push(task2);
+    //     tasks.push(task3);
+    //     tasks.push(task4);
+
+    //     // Create new Tasks
+    //     vm.prank(address(dao));
+    //     missions.setTasks(taskIds, tasks);
+
+    //     // Validate Task setup
+    //     task = missions.getTask(1);
+    //     assertEq(task.creator, address(dao));
+    //     assertEq(task.xp, 1);
+
+    //     // Prepare to create new Mission
+    //     taskIds.push(1);
+    //     taskIds.push(2);
+    //     taskIds.push(3);
+    //     taskIds.push(4);
+
+    //     // Create new mission
+    //     vm.prank(address(dao));
+    //     missions.setMission(
+    //         0,
+    //         true,
+    //         bob,
+    //         "Welcome to New School",
+    //         "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza",
+    //         taskIds,
+    //         1e18 // 1 ETH
+    //     );
+
+    //     // Validate Mission setup
+    //     (mission,) = missions.getMission(1);
+    //     assertEq(missions.missionId(), 1);
+    //     assertEq(mission.creator, bob);
+
+    //     // Validate tasks exist in Mission
+    //     assertEq(missions.isTaskInMission(1, 1), true);
+    //     assertEq(missions.isTaskInMission(1, 2), true);
+    //     assertEq(missions.isTaskInMission(1, 3), true);
+    //     assertEq(missions.isTaskInMission(1, 4), true);
+    //     assertEq(missions.isTaskInMission(1, 5), false);
+
+    //     delete taskIds;
+    // }
+}
