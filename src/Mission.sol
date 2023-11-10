@@ -2,7 +2,6 @@
 pragma solidity >=0.8.4;
 
 import {IMission} from "./interface/IMission.sol";
-import {IStorage} from "kali-markets/interface/IStorage.sol";
 import {Storage} from "kali-markets/Storage.sol";
 
 /// @title Missions
@@ -40,11 +39,11 @@ contract Mission is Storage {
 
     /// @notice Authorize a Quest contract to export data to this Mission contract.
     function authorizeQuest(address quest, bool status) external payable onlyOperator {
-        _setBool(keccak256(abi.encodePacked(quest, ".authorized")), status);
+        _setBool(keccak256(abi.encode(address(this), quest, ".authorized")), status);
     }
 
     function isQuestAuthorized(address target) external view returns (bool) {
-        return this.getBool(keccak256(abi.encodePacked(target, ".authorized")));
+        return this.getBool(keccak256(abi.encode(address(this), target, ".authorized")));
     }
 
     /// -----------------------------------------------------------------------
@@ -87,6 +86,16 @@ contract Mission is Storage {
     /// @notice Update deadline of a task.
     function setTaskDeadline(uint256 taskId, uint256 deadline) external payable onlyOperator {
         _setTaskDeadline(taskId, deadline);
+
+        // Update any deadline of associated missions.
+        uint256 count = this.getTaskMissionCount(taskId);
+        for (uint256 i = 0; i < count;) {
+            _setMissionDeadline(this.getTaskMissionId(taskId, i));
+
+            unchecked {
+                ++i;
+            }
+        }
     }
 
     /// @notice Update detail of a task.
@@ -111,12 +120,17 @@ contract Mission is Storage {
 
     /// @notice Increment and return task id.
     function incrementTaskId() internal returns (uint256) {
-        return addUint(keccak256(abi.encode("tasks.count")), 1);
+        return addUint(keccak256(abi.encode(address(this), "tasks.count")), 1);
     }
 
     /// @notice Increment number of task completions by task id by authorized Quest contracts only.
     function incrementTaskCompletions(uint256 taskId) external payable onlyQuest {
         addUint(keccak256(abi.encode(address(this), taskId, ".completions")), 1);
+    }
+
+    /// @notice Increment and return number of tasks a mission.
+    function incrementTaskMissionCount(uint256 taskId) internal returns (uint256) {
+        return addUint(keccak256(abi.encode(address(this), taskId, ".missionCount")), 1);
     }
 
     /// -----------------------------------------------------------------------
@@ -133,7 +147,7 @@ contract Mission is Storage {
         uint256 missionId = incrementMissionId();
 
         // Set new mission content.
-        if (taskIds.length > 0) _setMissionTasks(missionId, taskIds);
+        if (taskIds.length > 0) _addMissionTasks(missionId, taskIds);
         else revert InvalidMission();
         if (_setMissionDeadline(missionId) == 0) revert InvalidMission();
         _setMissionCreator(missionId, creator);
@@ -156,9 +170,9 @@ contract Mission is Storage {
         if (bytes(detail).length > 0) _setMissionDetail(missionId, detail);
     }
 
-    /// @notice Associate multple tasks with a mission.
-    function setMissionTasks(uint256 missionId, uint256[] calldata taskIds) external payable onlyOperator {
-        _setMissionTasks(missionId, taskIds);
+    /// @notice Add tasks to a mission.
+    function addMissionTasks(uint256 missionId, uint256[] calldata taskIds) external payable onlyOperator {
+        _addMissionTasks(missionId, taskIds);
     }
 
     /// @notice Increment and return mission id.
@@ -166,31 +180,66 @@ contract Mission is Storage {
         return addUint(keccak256(abi.encode(address(this), "missions.count")), 1);
     }
 
-    /// @notice Associate tasks with a mission.
-    function _setMissionTasks(uint256 missionId, uint256[] calldata taskIds) internal {
+    /// @notice Add tasks to a mission.
+    function _addMissionTasks(uint256 missionId, uint256[] calldata taskIds) internal {
         uint256 length = taskIds.length;
         if (length == 0) revert InvalidMission();
         for (uint256 i = 0; i < length;) {
-            // Associate mission and task
-            associateTaskWithMission(missionId, taskIds[i]);
-            associateMissionWithTask(missionId, taskIds[i]);
-            setIsTaskInMission(missionId, taskIds[i]);
+            if (!this.isTaskInMission(missionId, taskIds[i])) {
+                // Add task.
+                addNewTaskToMission(missionId, taskIds[i]);
+
+                // Associate mission with given task.
+                associateMissionWithTask(missionId, taskIds[i]);
+
+                // Update status of task id in given mission.
+                setIsTaskInMission(missionId, taskIds[i], true);
+            }
+
             unchecked {
                 ++i;
             }
         }
     }
 
+    /// @notice Update a task by its order in a given mission.
+    function setMissionTaskId(uint256 missionId, uint256 order, uint256 newTaskId) external onlyOperator {
+        if (!this.isTaskInMission(missionId, newTaskId)) {
+            // Update status of old task id.
+            uint256 oldTaskId = this.getMissionTaskId(missionId, order);
+            deleteIsTaskInMission(missionId, oldTaskId);
+
+            // Update task by its order.
+            updateTaskInMission(missionId, order, newTaskId);
+
+            // Associate mission with given task.
+            associateMissionWithTask(missionId, newTaskId);
+
+            // Update status of new task id.
+            setIsTaskInMission(missionId, newTaskId, true);
+        }
+    }
+
     /// @notice Set whether a task is part of a mission.
-    function setIsTaskInMission(uint256 missionId, uint256 taskId) internal {
-        _setBool(keccak256(abi.encode(address(this), missionId, taskId)), true);
+    function setIsTaskInMission(uint256 missionId, uint256 taskId, bool status) internal {
+        _setBool(keccak256(abi.encode(address(this), missionId, taskId)), status);
+    }
+
+    /// @notice Set whether a task is part of a mission.
+    function deleteIsTaskInMission(uint256 missionId, uint256 taskId) internal {
+        deleteBool(keccak256(abi.encode(address(this), missionId, taskId)));
     }
 
     /// @notice Associate a task with a given mission.
-    function associateTaskWithMission(uint256 missionId, uint256 taskId) internal {
+    function addNewTaskToMission(uint256 missionId, uint256 taskId) internal {
         _setUint(
             keccak256(abi.encode(address(this), missionId, ".taskIds.", incrementMissionTaskCount(missionId))), taskId
         );
+    }
+
+    /// @notice Associate a task with a given mission.
+    function updateTaskInMission(uint256 missionId, uint256 order, uint256 taskId) internal {
+        _setUint(keccak256(abi.encode(address(this), missionId, ".taskIds.", order)), taskId);
     }
 
     /// @notice Associate a mission with a given task.
@@ -265,18 +314,13 @@ contract Mission is Storage {
         return addUint(keccak256(abi.encode(address(this), missionId, ".taskCount")), 1);
     }
 
-    /// @notice Increment and return number of tasks a mission.
-    function incrementTaskMissionCount(uint256 taskId) internal returns (uint256) {
-        return addUint(keccak256(abi.encode(address(this), taskId, ".missionCount")), 1);
-    }
-
     /// -----------------------------------------------------------------------
     /// Task Logic - Getter
     /// -----------------------------------------------------------------------
 
     /// @notice Get task id.
     function getTaskId() external view returns (uint256) {
-        return this.getUint(keccak256(abi.encode("tasks.count")));
+        return this.getUint(keccak256(abi.encode(address(this), "tasks.count")));
     }
 
     /// @notice Get creator of a task.
@@ -294,14 +338,36 @@ contract Mission is Storage {
         return this.getString(keccak256(abi.encode(address(this), taskId, ".detail")));
     }
 
+    /// @notice Returns whether a task is part of a mission.
+    function isTaskInMission(uint256 missionId, uint256 taskId) external view returns (bool) {
+        return this.getBool(keccak256(abi.encode(address(this), missionId, taskId)));
+    }
+
     /// @notice Get number of task completions by task id.
     function getTaskCompletions(uint256 taskId) external view returns (uint256) {
         return this.getUint(keccak256(abi.encode(address(this), taskId, ".completions")));
     }
 
-    /// @notice Returns whether a task is part of a mission.
-    function isTaskInMission(uint256 missionId, uint256 taskId) external view returns (bool) {
-        return this.getBool(keccak256(abi.encode(address(this), missionId, taskId)));
+    /// @notice Get number of tasks in a mission.
+    function getTaskMissionCount(uint256 taskId) external view returns (uint256 missionCount) {
+        return this.getUint(keccak256(abi.encode(address(this), taskId, ".missionCount")));
+    }
+
+    /// @notice Get a mission id associated with of a given task by order.
+    function getTaskMissionId(uint256 taskId, uint256 order) external view returns (uint256) {
+        return this.getUint(keccak256(abi.encode(address(this), taskId, ".missionIds.", order)));
+    }
+
+    /// @notice Get all mission ids associated with a given task.
+    function getTaskMissionIds(uint256 taskId) external view returns (uint256[] memory missionIds) {
+        uint256 count = this.getTaskMissionCount(taskId);
+        for (uint256 i; i < count;) {
+            missionIds[i] = this.getTaskMissionId(taskId, i);
+
+            unchecked {
+                ++i;
+            }
+        }
     }
 
     /// -----------------------------------------------------------------------
@@ -310,12 +376,17 @@ contract Mission is Storage {
 
     /// @notice Get missoin id.
     function getMissionId() external view returns (uint256) {
-        return this.getUint(keccak256(abi.encode("missions.count")));
+        return this.getUint(keccak256(abi.encode(address(this), "missions.count")));
     }
 
     /// @notice Get creator of a mission.
     function getMissionCreator(uint256 missionId) external view returns (address) {
         return this.getAddress(keccak256(abi.encode(address(this), missionId, ".creator")));
+    }
+
+    /// @notice Get deadline of a mission.
+    function getMissionDeadline(uint256 missionId) external payable returns (uint256) {
+        return this.getUint(keccak256(abi.encode(address(this), missionId, ".deadline")));
     }
 
     /// @notice Get detail of a mission.
@@ -328,17 +399,27 @@ contract Mission is Storage {
         return this.getString(keccak256(abi.encode(address(this), missionId, ".title")));
     }
 
+    /// @notice Get the number of mission starts by missionId.
+    function getMissionStarts(uint256 missionId) external view returns (uint256) {
+        return this.getUint(keccak256(abi.encode(address(this), missionId, ".starts")));
+    }
+
+    /// @notice Get the number of mission completions by missionId.
+    function getMissionCompletions(uint256 missionId) external view returns (uint256) {
+        return this.getUint(keccak256(abi.encode(address(this), missionId, ".completions")));
+    }
+
     /// @notice Get number of tasks in a mission.
     function getMissionTaskCount(uint256 missionId) external view returns (uint256 taskCount) {
         return this.getUint(keccak256(abi.encode(address(this), missionId, ".taskCount")));
     }
 
-    /// @notice Get a task id by its order in a mission.
+    /// @notice Get a task id associated with in a given mission by order.
     function getMissionTaskId(uint256 missionId, uint256 order) external view returns (uint256) {
         return this.getUint(keccak256(abi.encode(address(this), missionId, ".taskIds.", order)));
     }
 
-    /// @notice Get all task ids in a mission.
+    /// @notice Get all task ids associated with a given mission.
     function getMissionTaskIds(uint256 missionId) external view returns (uint256[] memory) {
         uint256[] memory taskIds;
         uint256 count = this.getMissionTaskCount(missionId);
@@ -351,20 +432,5 @@ contract Mission is Storage {
         }
 
         return taskIds;
-    }
-
-    /// @notice Get deadline of a mission.
-    function getMissionDeadline(uint256 missionId) external payable returns (uint256) {
-        return this.getUint(keccak256(abi.encode(address(this), missionId, ".deadline")));
-    }
-
-    /// @notice Get the number of mission starts by missionId.
-    function getMissionStarts(uint256 missionId) external view returns (uint256) {
-        return this.getUint(keccak256(abi.encode(address(this), missionId, ".starts")));
-    }
-
-    /// @notice Get the number of mission completions by missionId.
-    function getMissionCompletions(uint256 missionId) external view returns (uint256) {
-        return this.getUint(keccak256(abi.encode(address(this), missionId, ".completions")));
     }
 }

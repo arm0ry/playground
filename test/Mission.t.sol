@@ -43,7 +43,6 @@ contract MissionTest is Test {
     /// -----------------------------------------------------------------------
 
     /// @notice Set up the testing suite.
-
     function setUp() public payable {
         // Deploy contract
         mission = new Mission();
@@ -150,7 +149,18 @@ contract MissionTest is Test {
         setTasks();
     }
 
-    function testSetTaskCreator() public payable {}
+    function testSetTaskCreator() public payable {
+        // Set tasks.
+        testSetTasks();
+        vm.warp(block.timestamp + 1000);
+
+        // Update creator.
+        vm.prank(dao);
+        mission.setTaskCreator(2, alice);
+
+        // Validate.
+        assertEq(mission.getTaskCreator(2), alice);
+    }
 
     function testSetTaskDeadline() public payable {}
 
