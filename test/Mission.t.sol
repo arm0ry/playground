@@ -19,11 +19,8 @@ contract MissionTest is Test {
     Mission mission;
 
     address[] creators;
-    address[] newCreators;
     uint256[] deadlines;
-    uint256[] newDeadlines;
     string[] detail;
-    string[] newDetail;
     uint256[] taskIds;
     uint256[] newTaskIds;
 
@@ -31,7 +28,9 @@ contract MissionTest is Test {
     address public immutable alice = makeAddr("alice");
     address public immutable bob = makeAddr("bob");
     address public immutable charlie = makeAddr("charlie");
-    address public immutable dummy = makeAddr("dummy");
+    address public immutable david = makeAddr("david");
+    address public immutable eric = makeAddr("eric");
+    address public immutable fred = makeAddr("fred");
     address public immutable dao = makeAddr("dao");
 
     /// @dev Helpers.
@@ -138,12 +137,21 @@ contract MissionTest is Test {
         creators.push(alice);
         creators.push(bob);
         creators.push(charlie);
-        deadlines.push(10000);
+        creators.push(david);
+        creators.push(eric);
+        creators.push(fred);
+        deadlines.push(2);
+        deadlines.push(10);
         deadlines.push(100);
-        deadlines.push(1);
-        detail.push("TEST");
+        deadlines.push(1000);
+        deadlines.push(10000);
+        deadlines.push(100000);
+        detail.push("TEST 1");
         detail.push("TEST 2");
         detail.push("TEST 3");
+        detail.push("TEST 4");
+        detail.push("TEST 5");
+        detail.push("TEST 6");
 
         // Set up task.
         setTasks();
@@ -162,9 +170,37 @@ contract MissionTest is Test {
         assertEq(mission.getTaskCreator(2), alice);
     }
 
-    function testSetTaskDeadline() public payable {}
+    function testSetTaskDeadline() public payable {
+        // Set tasks.
+        testSetTasks();
+        vm.warp(block.timestamp + 1000);
 
-    function testSetTaskDetail() public payable {}
+        uint256 newDeadline = 10000000;
+
+        // Update creator.
+        vm.prank(dao);
+        mission.setTaskDeadline(taskId, newDeadline);
+
+        // Validate.
+        assertEq(mission.getTaskDeadline(taskId), newDeadline);
+
+        // TODO: Check if associated mission is updated
+    }
+
+    function testSetTaskDetail() public payable {
+        // Set tasks.
+        testSetTasks();
+        vm.warp(block.timestamp + 1000);
+
+        string memory newDetail = "HELLO";
+
+        // Update creator.
+        vm.prank(dao);
+        mission.setTaskDetail(taskId, newDetail);
+
+        // Validate.
+        assertEq(mission.getTaskDetail(taskId), newDetail);
+    }
 
     function testIncrementTaskCompletions() public payable {}
 
@@ -173,30 +209,71 @@ contract MissionTest is Test {
     /// ----------------------------------------------------------------------
 
     function testSetMission() public payable {
-        // Prepare to create new Mission
-        // taskIds.push(2);
-        // taskIds.push(5);
+        // Set tasks.
+        testSetTasks();
+        vm.warp(block.timestamp + 1000);
 
-        // // Create new mission
-        // vm.prank(dao);
-        // mission.setMission(
-        //     charlie, "Welcome to New School", "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza", taskIds
-        // );
+        // Prepare tasks to add to a a new mission.
+        taskIds.push(1);
+        taskIds.push(2);
 
-        // Validate Mission setup
-        // (mission,) = mission.getMission(1);
-        // assertEq(mission.missionId(), 1);
-        // assertEq(mission.creator, charlie);
-        // assertEq(mission.taskIds.length, 2);
+        emit log_uint(mission.getMissionDeadline(1));
+
+        // Create new mission
+        setMission(alice, "Welcome to your first mission!", "For more, check here.");
     }
 
-    function testSetMissionCreator() public payable {}
+    function testSetMissionCreator() public payable {
+        // Set mission.
+        testSetMission();
+
+        // Update creator.
+        vm.prank(dao);
+        mission.setMissionCreator(1, bob);
+
+        // Validate.
+        assertEq(mission.getMissionCreator(1), bob);
+    }
 
     function testSetMissionDeadline() public payable {}
 
-    function testSetMissionDetail() public payable {}
+    function testSetMissionDetail() public payable {
+        // Set mission.
+        testSetMission();
 
-    function testSetMissionTasks() public payable {}
+        string memory newDetail = "Updating link to here.";
+
+        // Update creator.
+        vm.prank(dao);
+        mission.setMissionDetail(missionId, newDetail);
+
+        // Validate.
+        assertEq(mission.getMissionDetail(1), newDetail);
+    }
+
+    function testAddMissionTasks() public payable {
+        // Set mission.
+        testSetMission();
+
+        // Reset and update taskIds to add to mission.
+        delete taskIds;
+        taskIds.push(3);
+        taskIds.push(4);
+
+        // Add taskIds.
+        vm.prank(dao);
+        mission.addMissionTasks(missionId, taskIds);
+
+        // Reset and update taskIds to validate.
+        delete taskIds;
+        taskIds.push(1);
+        taskIds.push(2);
+        taskIds.push(3);
+        taskIds.push(4);
+
+        // Validate.
+        assertEq(mission.getMissionTaskIds(missionId), taskIds);
+    }
 
     function testIncrementMissionStarts() public payable {}
 
@@ -205,14 +282,6 @@ contract MissionTest is Test {
     /// -----------------------------------------------------------------------
     /// Task Test - Getter
     /// ----------------------------------------------------------------------
-
-    function testGetTaskId() public payable {}
-
-    function testGetTaskCreator() public payable {}
-
-    function testGetTaskDeadline() public payable {}
-
-    function testGetTaskDetail() public payable {}
 
     function testGetTaskCompletions() public payable {}
 
@@ -234,21 +303,11 @@ contract MissionTest is Test {
     /// Mission Test - Getter
     /// ----------------------------------------------------------------------
 
-    function testGetMissionId() public payable {}
-
-    function testGetMissionCreator() public payable {}
-
-    function testGetMissionDetail() public payable {}
-
-    function testGetMissionTitle() public payable {}
-
     function testGetMissionTaskCount() public payable {}
 
     function testGetMissionTaskId() public payable {}
 
     function testGetMissionTaskIds() public payable {}
-
-    function testGetMissionDeadline() public payable {}
 
     function testGetMissionStarts() public payable {}
 
@@ -294,77 +353,27 @@ contract MissionTest is Test {
         assertEq(mission.getTaskId(), taskId);
     }
 
-    // function setupTasksAndMission() internal {
-    //     // Prepare data to create new Tasks
-    //     Task memory task1 = Task({
-    //         xp: 1,
-    //         duration: 100,
-    //         creator: address(dao),
-    //         detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
-    //     });
-    //     Task memory task2 = Task({
-    //         xp: 2,
-    //         duration: 100,
-    //         creator: alice,
-    //         detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
-    //     });
-    //     Task memory task3 = Task({
-    //         xp: 3,
-    //         duration: 100,
-    //         creator: bob,
-    //         detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
-    //     });
-    //     Task memory task4 = Task({
-    //         xp: 4,
-    //         duration: 100,
-    //         creator: charlie,
-    //         detail: "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza"
-    //     });
+    function setMission(address creator, string memory title, string memory _detail) internal {
+        // Set up task.
+        vm.prank(dao);
+        mission.setMission(creator, title, _detail, taskIds);
 
-    //     tasks.push(task1);
-    //     tasks.push(task2);
-    //     tasks.push(task3);
-    //     tasks.push(task4);
+        // Retrieve deadlines from tasks identified by taskIds
+        uint256 length = taskIds.length;
+        uint256 _deadline;
+        uint256 temp;
+        for (uint256 i = 0; i < length; i++) {
+            temp = mission.getTaskDeadline(taskIds[i]);
+            (temp > _deadline) ? _deadline = temp : _deadline;
+        }
 
-    //     // Create new Tasks
-    //     vm.prank(address(dao));
-    //     missions.setTasks(taskIds, tasks);
-
-    //     // Validate Task setup
-    //     task = missions.getTask(1);
-    //     assertEq(task.creator, address(dao));
-    //     assertEq(task.xp, 1);
-
-    //     // Prepare to create new Mission
-    //     taskIds.push(1);
-    //     taskIds.push(2);
-    //     taskIds.push(3);
-    //     taskIds.push(4);
-
-    //     // Create new mission
-    //     vm.prank(address(dao));
-    //     missions.setMission(
-    //         0,
-    //         true,
-    //         bob,
-    //         "Welcome to New School",
-    //         "bafkreib5pjrdtrotqdj46bozovqpjrgqzkvpdbt3mevyntdfydmyvfysza",
-    //         taskIds,
-    //         1e18 // 1 ETH
-    //     );
-
-    //     // Validate Mission setup
-    //     (mission,) = missions.getMission(1);
-    //     assertEq(missions.missionId(), 1);
-    //     assertEq(mission.creator, bob);
-
-    //     // Validate tasks exist in Mission
-    //     assertEq(missions.isTaskInMission(1, 1), true);
-    //     assertEq(missions.isTaskInMission(1, 2), true);
-    //     assertEq(missions.isTaskInMission(1, 3), true);
-    //     assertEq(missions.isTaskInMission(1, 4), true);
-    //     assertEq(missions.isTaskInMission(1, 5), false);
-
-    //     delete taskIds;
-    // }
+        // Validate setup.
+        ++missionId;
+        assertEq(mission.getMissionId(), missionId);
+        assertEq(mission.getMissionCreator(missionId), creator);
+        assertEq(mission.getMissionTitle(missionId), title);
+        assertEq(mission.getMissionDetail(missionId), _detail);
+        assertEq(mission.getMissionDeadline(missionId), _deadline);
+        assertEq(mission.getMissionTaskCount(missionId), 2);
+    }
 }
