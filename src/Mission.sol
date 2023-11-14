@@ -66,17 +66,13 @@ contract Mission is Storage {
         if (length == 0) revert InvalidTask();
 
         // Set new task content.
-        for (uint256 i = 0; i < length;) {
+        for (uint256 i = 0; i < length; ++i) {
             // Increment and retrieve taskId.
             taskId = incrementTaskId();
 
             _setTaskCreator(taskId, creators[i]);
             _setTaskDeadline(taskId, deadlines[i]);
             _setTaskDetail(taskId, detail[i]);
-
-            unchecked {
-                ++i;
-            }
         }
     }
 
@@ -89,13 +85,15 @@ contract Mission is Storage {
     function setTaskDeadline(uint256 taskId, uint256 deadline) external payable onlyOperator {
         _setTaskDeadline(taskId, deadline);
 
-        // Update any deadline of associated missions.
+        // Update deadline of associated missions, if any.
         uint256 count = this.getTaskMissionCount(taskId);
-        for (uint256 i = 0; i < count;) {
-            _setMissionDeadline(this.getTaskMissionId(taskId, i));
-
-            unchecked {
-                ++i;
+        if (count != 0) {
+            uint256 missionId;
+            for (uint256 i = 0; i < count; ++i) {
+                missionId = this.getTaskMissionId(taskId, i + 1);
+                if (deadline > this.getMissionDeadline(missionId)) {
+                    __setMissionDeadline(missionId, deadline);
+                }
             }
         }
     }
@@ -155,7 +153,7 @@ contract Mission is Storage {
         // Set new mission content.
         if (taskIds.length > 0) _addMissionTasks(missionId, taskIds);
         else revert InvalidMission();
-        if (_setMissionDeadline(missionId) == 0) revert InvalidMission();
+        if (setMissionDeadline(missionId) == 0) revert InvalidMission();
         _setMissionCreator(missionId, creator);
         _setMissionDetail(missionId, detail);
         _setMissionTitle(missionId, title);
@@ -190,7 +188,7 @@ contract Mission is Storage {
     function _addMissionTasks(uint256 missionId, uint256[] calldata taskIds) internal {
         uint256 length = taskIds.length;
         if (length == 0) revert InvalidMission();
-        for (uint256 i = 0; i < length;) {
+        for (uint256 i = 0; i < length; ++i) {
             if (!this.isTaskInMission(missionId, taskIds[i])) {
                 // Add task.
                 addNewTaskToMission(missionId, taskIds[i]);
@@ -200,10 +198,6 @@ contract Mission is Storage {
 
                 // Update status of task id in given mission.
                 setIsTaskInMission(missionId, taskIds[i], true);
-            }
-
-            unchecked {
-                ++i;
             }
         }
     }
@@ -275,7 +269,7 @@ contract Mission is Storage {
     }
 
     /// @notice Set mission deadline.
-    function _setMissionDeadline(uint256 missionId) internal returns (uint256) {
+    function setMissionDeadline(uint256 missionId) internal returns (uint256) {
         uint256 deadline = this.getMissionDeadline(missionId);
 
         // Confirm deadline is initialized.
@@ -283,7 +277,7 @@ contract Mission is Storage {
             // If not, confirm mission is initialized.
             if (this.getMissionTaskCount(missionId) > 0) {
                 // If so, set mission deadline.
-                return __setMissionDeadline(missionId);
+                return _setMissionDeadline(missionId);
             } else {
                 return 0;
             }
@@ -293,22 +287,22 @@ contract Mission is Storage {
     }
 
     /// @notice Internal function to retrieve and set deadline of mission by using the latest task deadline.
-    function __setMissionDeadline(uint256 missionId) internal returns (uint256) {
+    function _setMissionDeadline(uint256 missionId) internal returns (uint256) {
         uint256 deadline;
         uint256[] memory taskIds = this.getMissionTaskIds(missionId);
 
         uint256 _deadline;
-        for (uint256 i = 0; i < taskIds.length;) {
+        for (uint256 i = 0; i < taskIds.length; ++i) {
             _deadline = this.getTaskDeadline(taskIds[i]);
             if (_deadline > deadline) deadline = _deadline;
-            unchecked {
-                ++i;
-            }
         }
 
-        // emit Deadlines(_deadline, deadline);
-        _setUint(keccak256(abi.encode(address(this), ".missions.", missionId, ".deadline")), deadline);
+        __setMissionDeadline(missionId, deadline);
         return deadline;
+    }
+
+    function __setMissionDeadline(uint256 missionId, uint256 deadline) internal {
+        _setUint(keccak256(abi.encode(address(this), ".missions.", missionId, ".deadline")), deadline);
     }
 
     /// @notice Increment number of mission starts by mission id by authorized Quest contracts only.
@@ -371,15 +365,13 @@ contract Mission is Storage {
     }
 
     /// @notice Get all mission ids associated with a given task.
-    function getTaskMissionIds(uint256 taskId) external view returns (uint256[] memory missionIds) {
+    function getTaskMissionIds(uint256 taskId) external view returns (uint256[] memory) {
         uint256 count = this.getTaskMissionCount(taskId);
-        for (uint256 i; i < count;) {
-            missionIds[i] = this.getTaskMissionId(taskId, i);
-
-            unchecked {
-                ++i;
-            }
+        uint256[] memory missionIds = new uint256[](count);
+        for (uint256 i; i < count; ++i) {
+            missionIds[i] = this.getTaskMissionId(taskId, i + 1);
         }
+        return missionIds;
     }
 
     /// -----------------------------------------------------------------------
@@ -435,11 +427,8 @@ contract Mission is Storage {
     function getMissionTaskIds(uint256 missionId) external view returns (uint256[] memory) {
         uint256 count = this.getMissionTaskCount(missionId);
         uint256[] memory taskIds = new uint256[](count);
-        for (uint256 i; i < count;) {
+        for (uint256 i; i < count; ++i) {
             taskIds[i] = this.getMissionTaskId(missionId, i + 1);
-            unchecked {
-                ++i;
-            }
         }
 
         return taskIds;

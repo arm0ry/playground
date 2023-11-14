@@ -235,7 +235,19 @@ contract MissionTest is Test {
         assertEq(mission.getMissionCreator(1), bob);
     }
 
-    function testSetMissionDeadline() public payable {}
+    function testSetMissionTitle() public payable {
+        // Set mission.
+        testSetMission();
+
+        string memory newTitle = "Welcome to first mission!.";
+
+        // Update creator.
+        vm.prank(dao);
+        mission.setMissionTitle(missionId, newTitle);
+
+        // Validate.
+        assertEq(mission.getMissionTitle(1), newTitle);
+    }
 
     function testSetMissionDetail() public payable {
         // Set mission.
@@ -275,6 +287,24 @@ contract MissionTest is Test {
         assertEq(mission.getMissionTaskIds(missionId), taskIds);
     }
 
+    function testSetMission_setTaskDeadline() public payable {
+        // Set mission.
+        testSetMission();
+        vm.warp(block.timestamp + 1000);
+
+        uint256 newDeadline = 10000000;
+        uint256 _taskId = 1;
+        uint256 _missionId = 1;
+
+        // Update task deadline.
+        vm.prank(dao);
+        mission.setTaskDeadline(_taskId, newDeadline);
+
+        // Validate.
+        assertEq(mission.getTaskDeadline(_taskId), newDeadline);
+        assertEq(mission.getMissionDeadline(_missionId), newDeadline);
+    }
+
     function testIncrementMissionStarts() public payable {}
 
     function testIncrementMissionCompletions() public payable {}
@@ -302,12 +332,6 @@ contract MissionTest is Test {
     /// -----------------------------------------------------------------------
     /// Mission Test - Getter
     /// ----------------------------------------------------------------------
-
-    function testGetMissionTaskCount() public payable {}
-
-    function testGetMissionTaskId() public payable {}
-
-    function testGetMissionTaskIds() public payable {}
 
     function testGetMissionStarts() public payable {}
 
@@ -369,11 +393,17 @@ contract MissionTest is Test {
 
         // Validate setup.
         ++missionId;
+        newTaskIds.push(missionId);
         assertEq(mission.getMissionId(), missionId);
         assertEq(mission.getMissionCreator(missionId), creator);
         assertEq(mission.getMissionTitle(missionId), title);
         assertEq(mission.getMissionDetail(missionId), _detail);
         assertEq(mission.getMissionDeadline(missionId), _deadline);
-        assertEq(mission.getMissionTaskCount(missionId), 2);
+        assertEq(mission.getMissionTaskCount(missionId), length);
+        for (uint256 i = 0; i < length; i++) {
+            assertEq(taskIds[i], mission.getMissionTaskId(missionId, i + 1));
+            assertEq(mission.getTaskMissionIds(taskIds[i]), newTaskIds);
+        }
+        assertEq(taskIds, mission.getMissionTaskIds(missionId));
     }
 }
