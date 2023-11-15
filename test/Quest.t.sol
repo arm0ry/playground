@@ -95,6 +95,28 @@ contract QuestTest is Test {
     }
 
     /// -----------------------------------------------------------------------
+    /// User Test
+    /// ----------------------------------------------------------------------
+
+    function testSetProfilePicture() public payable {}
+
+    function testStart() public payable {}
+
+    function testStartBySig() public payable {}
+
+    function testRespond() public payable {}
+
+    /// -----------------------------------------------------------------------
+    /// Review Test
+    /// ----------------------------------------------------------------------
+
+    function testSetReviewer() public payable {}
+
+    function testReview() public payable {}
+
+    function testReviewBySig() public payable {}
+
+    /// -----------------------------------------------------------------------
     /// Internal Functions
     /// -----------------------------------------------------------------------
 
