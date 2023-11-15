@@ -163,7 +163,7 @@ contract SupportToken is ERC1155 {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat("Cooldown: ", SVG._uint2str(IQuest(quest).getCoolDown()))
+                string.concat("Cooldown: ", SVG._uint2str(IQuest(quest).getCooldown()))
             ),
             SVG._text(
                 string.concat(

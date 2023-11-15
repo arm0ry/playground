@@ -183,8 +183,6 @@ contract MissionTest is Test {
 
         // Validate.
         assertEq(mission.getTaskDeadline(taskId), newDeadline);
-
-        // TODO: Check if associated mission is updated
     }
 
     function testSetTaskDetail() public payable {
@@ -285,6 +283,27 @@ contract MissionTest is Test {
 
         // Validate.
         assertEq(mission.getMissionTaskIds(missionId), taskIds);
+    }
+
+    function testSetMissionTaskId() public payable {
+        // Set mission.
+        testSetMission();
+
+        uint256 order = 2;
+        uint256 newTaskId = 3;
+
+        // Add taskIds.
+        vm.prank(dao);
+        mission.setMissionTaskId(missionId, order, newTaskId);
+
+        // Reset and update taskIds to validate.
+        delete taskIds;
+        taskIds.push(1);
+        taskIds.push(3);
+
+        // Validate.
+        assertEq(mission.getMissionTaskIds(missionId), taskIds);
+        assertEq(mission.getMissionDeadline(missionId), mission.getTaskDeadline(3));
     }
 
     function testSetMission_setTaskDeadline() public payable {

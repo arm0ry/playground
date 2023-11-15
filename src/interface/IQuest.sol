@@ -4,8 +4,8 @@ pragma solidity ^0.8.17;
 interface IQuest {
     /// @notice DAO logic.
     function initialize(address dao) external payable;
-    function setCoolDown(uint40 cd) external payable;
-    function getCoolDown() external view returns (uint256);
+    function setCooldown(uint40 cd) external payable;
+    function getCooldown() external view returns (uint256);
 
     /// @notice User logic.
     function setProfilePicture(string calldata url) external payable;
