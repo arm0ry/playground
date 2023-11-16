@@ -171,18 +171,43 @@ contract MissionTest is Test {
         assertEq(mission.getTaskCreator(2), newCreator);
     }
 
+    function testSetTaskCreator_InvalidTask(address newCreator) public payable {
+        delete newCreator;
+
+        // Set mission.
+        testSetTask();
+
+        // Update creator.
+        vm.expectRevert(Mission.InvalidTask.selector);
+        vm.prank(dao);
+        mission.setTaskCreator(taskId, newCreator);
+    }
+
     function testSetTaskDeadline(uint256 newDeadline) public payable {
         // Set tasks.
         testSetTasks();
         vm.warp(block.timestamp + 1000);
         vm.assume(newDeadline > block.timestamp + 1000);
 
-        // Update creator.
+        // Update deadline.
         vm.prank(dao);
         mission.setTaskDeadline(taskId, newDeadline);
 
         // Validate.
         assertEq(mission.getTaskDeadline(taskId), newDeadline);
+    }
+
+    function testSetTaskDeadline_InvalidTask(uint256 newDeadline) public payable {
+        delete newDeadline;
+
+        // Set tasks.
+        testSetTasks();
+        vm.warp(block.timestamp + 1000);
+
+        // Update deadline.
+        vm.expectRevert(Mission.InvalidTask.selector);
+        vm.prank(dao);
+        mission.setTaskDeadline(taskId, newDeadline);
     }
 
     function testSetTaskDetail(string calldata newDetail) public payable {
@@ -228,6 +253,18 @@ contract MissionTest is Test {
 
         // Validate.
         assertEq(mission.getMissionCreator(missionId), newCreator);
+    }
+
+    function testSetMissionCreator_InvalidMission(address newCreator) public payable {
+        delete newCreator;
+
+        // Set mission.
+        testSetMission();
+
+        // Update creator.
+        vm.expectRevert(Mission.InvalidMission.selector);
+        vm.prank(dao);
+        mission.setMissionCreator(missionId, newCreator);
     }
 
     function testSetMissionTitle(string calldata newTitle) public payable {

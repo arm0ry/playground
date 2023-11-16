@@ -10,8 +10,6 @@ import {IMission} from "src/interface/IMission.sol";
 import {Quest} from "src/Quest.sol";
 import {IQuest} from "src/interface/IQuest.sol";
 
-import {MissionTest} from "test/Mission.t.sol";
-
 /// @dev Mocks.
 import {MockERC721} from "../lib/solbase/test/utils/mocks/MockERC721.sol";
 
@@ -22,6 +20,12 @@ import {MockERC721} from "../lib/solbase/test/utils/mocks/MockERC721.sol";
 contract QuestTest is Test {
     Quest quest;
     Mission mission;
+
+    address[] creators;
+    uint256[] deadlines;
+    string[] detail;
+    uint256[] taskIds;
+    uint256[] newTaskIds;
 
     /// @dev Users.
     address[] reviewers;
@@ -104,11 +108,44 @@ contract QuestTest is Test {
         assertEq(quest.getProfilePicture(alice), url);
     }
 
-    function testStart() public payable {}
+    function testStart() public payable {
+        // Initialize.
+        initialize(dao);
+
+        setupTasks();
+        vm.prank(dao);
+        mission.setTasks(creators, deadlines, detail);
+
+        taskIds.push(1);
+        taskIds.push(2);
+        taskIds.push(3);
+        taskIds.push(4);
+
+        vm.prank(dao);
+        mission.setMission(alice, "Welcome to your first mission!", "It's so fun~", taskIds);
+
+        // Start.
+        vm.prank(bob);
+        quest.start(address(mission), 1);
+
+        // Validate.
+        assertEq(quest.getNumOfMissionsStartedByUser(bob, address(mission), 1), 1);
+        assertEq(quest.getNumOfMissionsStarted(), 1);
+    }
 
     function testStartBySig() public payable {}
 
-    function testRespond() public payable {}
+    function testRespond() public payable {
+        testStart();
+
+        // Start.
+        vm.prank(bob);
+        quest.respond(address(mission), 1, 1, 3, "This is my response.");
+
+        // Validate.
+        (uint256 count,) = quest.getResponseCountByUser(bob, address(mission), 1, 1);
+        assertEq(count, 1);
+    }
 
     /// -----------------------------------------------------------------------
     /// Review Test
@@ -126,5 +163,27 @@ contract QuestTest is Test {
 
     function initialize(address _dao) internal {
         quest.initialize(_dao);
+        mission.initialize(_dao);
+    }
+
+    function setupTasks() internal {
+        creators.push(alice);
+        creators.push(bob);
+        creators.push(charlie);
+        creators.push(david);
+        creators.push(eric);
+        creators.push(fred);
+        deadlines.push(2);
+        deadlines.push(10);
+        deadlines.push(100);
+        deadlines.push(1000);
+        deadlines.push(10000);
+        deadlines.push(100000);
+        detail.push("TEST 1");
+        detail.push("TEST 2");
+        detail.push("TEST 3");
+        detail.push("TEST 4");
+        detail.push("TEST 5");
+        detail.push("TEST 6");
     }
 }

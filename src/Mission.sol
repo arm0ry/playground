@@ -105,9 +105,8 @@ contract Mission is Storage {
 
     /// @notice Internal function to set creator of a task.
     function _setTaskCreator(uint256 taskId, address creator) internal {
-        if (creator != address(0)) {
-            _setAddress(keccak256(abi.encode(address(this), ".tasks.", taskId, ".creator")), creator);
-        }
+        if (creator == address(0)) revert InvalidTask();
+        _setAddress(keccak256(abi.encode(address(this), ".tasks.", taskId, ".creator")), creator);
     }
 
     /// @notice Internal function to set deadline of a task.
