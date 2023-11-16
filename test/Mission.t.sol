@@ -65,25 +65,25 @@ contract MissionTest is Test {
     /// DAO Test
     /// ----------------------------------------------------------------------
 
-    function testAuthorizeQuest() public payable {
+    function testAuthorizeQuest(bool authorization) public payable {
         // Initialize.
         initialize(dao);
 
         // Authorize quest contract.
         vm.prank(dao);
-        mission.authorizeQuest(address(quest), true);
+        mission.authorizeQuest(address(quest), authorization);
 
         // Validate.
-        assertEq(mission.isQuestAuthorized(address(quest)), true);
+        assertEq(mission.isQuestAuthorized(address(quest)), authorization);
     }
 
-    function testAuthorizeQuest_NotOperator() public payable {
+    function testAuthorizeQuest_NotOperator(bool authorization) public payable {
         // Initialize.
         initialize(dao);
 
         // Authorize quest contract.
         vm.expectRevert(Storage.NotOperator.selector);
-        mission.authorizeQuest(address(quest), true);
+        mission.authorizeQuest(address(quest), authorization);
     }
 
     /// -----------------------------------------------------------------------
@@ -157,25 +157,25 @@ contract MissionTest is Test {
         setTasks();
     }
 
-    function testSetTaskCreator() public payable {
+    function testSetTaskCreator(address newCreator) public payable {
         // Set tasks.
         testSetTasks();
         vm.warp(block.timestamp + 1000);
+        vm.assume(newCreator != address(0));
 
         // Update creator.
         vm.prank(dao);
-        mission.setTaskCreator(2, alice);
+        mission.setTaskCreator(2, newCreator);
 
         // Validate.
-        assertEq(mission.getTaskCreator(2), alice);
+        assertEq(mission.getTaskCreator(2), newCreator);
     }
 
-    function testSetTaskDeadline() public payable {
+    function testSetTaskDeadline(uint256 newDeadline) public payable {
         // Set tasks.
         testSetTasks();
         vm.warp(block.timestamp + 1000);
-
-        uint256 newDeadline = 10000000;
+        vm.assume(newDeadline > block.timestamp + 1000);
 
         // Update creator.
         vm.prank(dao);
@@ -185,12 +185,10 @@ contract MissionTest is Test {
         assertEq(mission.getTaskDeadline(taskId), newDeadline);
     }
 
-    function testSetTaskDetail() public payable {
+    function testSetTaskDetail(string calldata newDetail) public payable {
         // Set tasks.
         testSetTasks();
         vm.warp(block.timestamp + 1000);
-
-        string memory newDetail = "HELLO";
 
         // Update creator.
         vm.prank(dao);
@@ -215,50 +213,60 @@ contract MissionTest is Test {
         taskIds.push(1);
         taskIds.push(2);
 
-        emit log_uint(mission.getMissionDeadline(1));
-
         // Create new mission
         setMission(alice, "Welcome to your first mission!", "For more, check here.");
     }
 
-    function testSetMissionCreator() public payable {
+    function testSetMissionCreator(address newCreator) public payable {
         // Set mission.
         testSetMission();
+        vm.assume(newCreator != address(0));
 
         // Update creator.
         vm.prank(dao);
-        mission.setMissionCreator(1, bob);
+        mission.setMissionCreator(missionId, newCreator);
 
         // Validate.
-        assertEq(mission.getMissionCreator(1), bob);
+        assertEq(mission.getMissionCreator(missionId), newCreator);
     }
 
-    function testSetMissionTitle() public payable {
+    function testSetMissionTitle(string calldata newTitle) public payable {
+        vm.assume(bytes(newTitle).length > 0);
+
         // Set mission.
         testSetMission();
-
-        string memory newTitle = "Welcome to first mission!.";
 
         // Update creator.
         vm.prank(dao);
         mission.setMissionTitle(missionId, newTitle);
 
         // Validate.
-        assertEq(mission.getMissionTitle(1), newTitle);
+        assertEq(mission.getMissionTitle(missionId), newTitle);
     }
 
-    function testSetMissionDetail() public payable {
+    function testSetMissionTitle_InvalidMission(string memory newTitle) public payable {
+        // Empty title.
+        delete newTitle;
+
         // Set mission.
         testSetMission();
 
-        string memory newDetail = "Updating link to here.";
+        // Update creator.
+        vm.expectRevert(Mission.InvalidMission.selector);
+        vm.prank(dao);
+        mission.setMissionTitle(missionId, newTitle);
+    }
+
+    function testSetMissionDetail(string calldata newDetail) public payable {
+        // Set mission.
+        testSetMission();
 
         // Update creator.
         vm.prank(dao);
         mission.setMissionDetail(missionId, newDetail);
 
         // Validate.
-        assertEq(mission.getMissionDetail(1), newDetail);
+        assertEq(mission.getMissionDetail(missionId), newDetail);
     }
 
     function testAddMissionTasks() public payable {
@@ -306,12 +314,12 @@ contract MissionTest is Test {
         assertEq(mission.getMissionDeadline(missionId), mission.getTaskDeadline(3));
     }
 
-    function testSetMission_setTaskDeadline() public payable {
+    function testSetMission_setTaskDeadline(uint256 newDeadline) public payable {
         // Set mission.
         testSetMission();
         vm.warp(block.timestamp + 1000);
+        vm.assume(newDeadline > block.timestamp + 1000);
 
-        uint256 newDeadline = 10000000;
         uint256 _taskId = 1;
         uint256 _missionId = 1;
 

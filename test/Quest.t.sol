@@ -10,6 +10,8 @@ import {IMission} from "src/interface/IMission.sol";
 import {Quest} from "src/Quest.sol";
 import {IQuest} from "src/interface/IQuest.sol";
 
+import {MissionTest} from "test/Mission.t.sol";
+
 /// @dev Mocks.
 import {MockERC721} from "../lib/solbase/test/utils/mocks/MockERC721.sol";
 
@@ -34,8 +36,6 @@ contract QuestTest is Test {
     /// @dev Helpers.
     uint256 taskId;
     uint256 missionId;
-    uint256 cd = 100;
-    bool reviewStatus = true;
 
     /// -----------------------------------------------------------------------
     /// Setup Tests
@@ -52,28 +52,28 @@ contract QuestTest is Test {
     /// DAO Test
     /// ----------------------------------------------------------------------
 
-    function testSetCooldown() public payable {
+    function testSetCooldown(uint40 cd) public payable {
         // Initialize.
         initialize(dao);
 
         // Authorize quest contract.
         vm.prank(dao);
-        quest.setCooldown(uint40(cd));
+        quest.setCooldown(cd);
 
         // Validate.
         assertEq(quest.getCooldown(), cd);
     }
 
-    function testSetCooldown_NotOperator() public payable {
+    function testSetCooldown_NotOperator(uint40 cd) public payable {
         // Initialize.
         initialize(dao);
 
         // Authorize quest contract.
         vm.expectRevert(Storage.NotOperator.selector);
-        quest.setCooldown(uint40(cd));
+        quest.setCooldown(cd);
     }
 
-    function testSetReviewStatus() public payable {
+    function testSetReviewStatus(bool reviewStatus) public payable {
         // Initialize.
         initialize(dao);
 
@@ -85,7 +85,7 @@ contract QuestTest is Test {
         assertEq(quest.getReviewStatus(), reviewStatus);
     }
 
-    function testSetReviewStatus_NotOperator() public payable {
+    function testSetReviewStatus_NotOperator(bool reviewStatus) public payable {
         // Initialize.
         initialize(dao);
 
@@ -98,7 +98,11 @@ contract QuestTest is Test {
     /// User Test
     /// ----------------------------------------------------------------------
 
-    function testSetProfilePicture() public payable {}
+    function testSetProfilePicture(string memory url) public payable {
+        vm.prank(alice);
+        quest.setProfilePicture(url);
+        assertEq(quest.getProfilePicture(alice), url);
+    }
 
     function testStart() public payable {}
 
