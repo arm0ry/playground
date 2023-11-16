@@ -114,7 +114,8 @@ contract Quest is Storage {
 
     /// @notice Set profile picture.
     function setProfilePicture(string calldata url) external payable {
-        if (bytes(url).length > 0) _setString(keccak256(abi.encode(msg.sender, ".profile")), url);
+        if (bytes(url).length == 0) deleteString(keccak256(abi.encode(msg.sender, ".profile")));
+        _setString(keccak256(abi.encode(msg.sender, ".profile")), url);
     }
 
     /// @notice Start a quest.

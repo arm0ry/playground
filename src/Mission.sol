@@ -112,14 +112,14 @@ contract Mission is Storage {
 
     /// @notice Internal function to set deadline of a task.
     function _setTaskDeadline(uint256 taskId, uint256 deadline) internal {
-        if (deadline > 0) _setUint(keccak256(abi.encode(address(this), ".tasks.", taskId, ".deadline")), deadline);
+        if (deadline == 0) revert InvalidTask();
+        _setUint(keccak256(abi.encode(address(this), ".tasks.", taskId, ".deadline")), deadline);
     }
 
     /// @notice Internal function to set detail of a task.
     function _setTaskDetail(uint256 taskId, string calldata detail) internal {
-        if (bytes(detail).length > 0) {
-            _setString(keccak256(abi.encode(address(this), ".tasks.", taskId, ".detail")), detail);
-        }
+        if (bytes(detail).length == 0) deleteString(keccak256(abi.encode(address(this), ".tasks.", taskId, ".detail")));
+        _setString(keccak256(abi.encode(address(this), ".tasks.", taskId, ".detail")), detail);
     }
 
     /// @notice Increment and return task id.
@@ -161,17 +161,17 @@ contract Mission is Storage {
 
     /// @notice Update creator of a mission.
     function setMissionCreator(uint256 missionId, address creator) external payable onlyOperator {
-        if (creator != address(0)) _setMissionCreator(missionId, creator);
+        _setMissionCreator(missionId, creator);
     }
 
     /// @notice Update title of a mission.
     function setMissionTitle(uint256 missionId, string calldata title) external payable onlyOperator {
-        if (bytes(title).length > 0) _setMissionTitle(missionId, title);
+        _setMissionTitle(missionId, title);
     }
 
     /// @notice Update detail of a mission.
     function setMissionDetail(uint256 missionId, string calldata detail) external payable onlyOperator {
-        if (bytes(detail).length > 0) _setMissionDetail(missionId, detail);
+        _setMissionDetail(missionId, detail);
     }
 
     /// @notice Add tasks to a mission.
@@ -257,23 +257,22 @@ contract Mission is Storage {
 
     /// @notice Internal function to set creator of a mission.
     function _setMissionCreator(uint256 missionId, address creator) internal {
-        if (creator != address(0)) {
-            _setAddress(keccak256(abi.encode(address(this), ".missions.", missionId, ".creator")), creator);
-        }
+        if (creator == address(0)) revert InvalidMission();
+        _setAddress(keccak256(abi.encode(address(this), ".missions.", missionId, ".creator")), creator);
     }
 
     /// @notice Internal function to set detail of a mission.
     function _setMissionDetail(uint256 missionId, string calldata detail) internal {
-        if (bytes(detail).length > 0) {
-            _setString(keccak256(abi.encode(address(this), ".missions.", missionId, ".detail")), detail);
+        if (bytes(detail).length == 0) {
+            deleteString(keccak256(abi.encode(address(this), ".missions.", missionId, ".detail")));
         }
+        _setString(keccak256(abi.encode(address(this), ".missions.", missionId, ".detail")), detail);
     }
 
     /// @notice Internal function to set title of a mission.
     function _setMissionTitle(uint256 missionId, string calldata title) internal {
-        if (bytes(title).length > 0) {
-            _setString(keccak256(abi.encode(address(this), ".missions.", missionId, ".title")), title);
-        }
+        if (bytes(title).length == 0) revert InvalidMission();
+        _setString(keccak256(abi.encode(address(this), ".missions.", missionId, ".title")), title);
     }
 
     /// @notice Set mission deadline.
