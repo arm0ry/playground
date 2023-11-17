@@ -40,6 +40,7 @@ contract QuestTest is Test {
     /// @dev Helpers.
     uint256 taskId;
     uint256 missionId;
+    string testString = "TEST";
 
     /// -----------------------------------------------------------------------
     /// Setup Tests
@@ -50,6 +51,8 @@ contract QuestTest is Test {
         // Deploy contract
         mission = new Mission();
         quest = new Quest();
+
+        initialize(dao);
     }
 
     /// -----------------------------------------------------------------------
@@ -57,9 +60,6 @@ contract QuestTest is Test {
     /// ----------------------------------------------------------------------
 
     function testSetCooldown(uint40 cd) public payable {
-        // Initialize.
-        initialize(dao);
-
         // Authorize quest contract.
         vm.prank(dao);
         quest.setCooldown(cd);
@@ -69,18 +69,12 @@ contract QuestTest is Test {
     }
 
     function testSetCooldown_NotOperator(uint40 cd) public payable {
-        // Initialize.
-        initialize(dao);
-
         // Authorize quest contract.
         vm.expectRevert(Storage.NotOperator.selector);
         quest.setCooldown(cd);
     }
 
     function testSetReviewStatus(bool reviewStatus) public payable {
-        // Initialize.
-        initialize(dao);
-
         // Authorize quest contract.
         vm.prank(dao);
         quest.setReviewStatus(reviewStatus);
@@ -102,16 +96,13 @@ contract QuestTest is Test {
     /// User Test
     /// ----------------------------------------------------------------------
 
-    function testSetProfilePicture(string memory url) public payable {
+    function testSetProfilePicture(string calldata image) public payable {
         vm.prank(alice);
-        quest.setProfilePicture(url);
-        assertEq(quest.getProfilePicture(alice), url);
+        quest.setProfilePicture(image);
+        assertEq(quest.getProfilePicture(alice), image);
     }
 
     function testStart() public payable {
-        // Initialize.
-        initialize(dao);
-
         setupTasks();
         vm.prank(dao);
         mission.setTasks(creators, deadlines, detail);
@@ -135,25 +126,63 @@ contract QuestTest is Test {
 
     function testStartBySig() public payable {}
 
-    function testRespond() public payable {
+    function testRespond(uint256 response, string calldata feedback) public payable {
         testStart();
 
-        // Start.
+        // Respond.
         vm.prank(bob);
-        quest.respond(address(mission), 1, 1, 3, "This is my response.");
+        quest.respond(address(mission), 1, 1, response, feedback);
 
         // Validate.
         (uint256 count,) = quest.getResponseCountByUser(bob, address(mission), 1, 1);
         assertEq(count, 1);
+        assertEq(quest.getUserResponse(bob, 0, address(mission), 1, 1), response);
+        assertEq(quest.getUserFeedback(bob, 0, address(mission), 1, 1), feedback);
     }
 
     /// -----------------------------------------------------------------------
     /// Review Test
     /// ----------------------------------------------------------------------
 
-    function testSetReviewer() public payable {}
+    function testSetReviewer(address reviewer, bool status) public payable {
+        // Initialize.
+        initialize(dao);
 
-    function testReview() public payable {}
+        // Authorize quest contract.
+        vm.prank(dao);
+        quest.setReviewer(reviewer, status);
+
+        // Validate.
+        assertEq(quest.isReviewer(reviewer), status);
+    }
+
+    function testSetReviewStatus_NotOperator(address reviewer, bool status) public payable {
+        // Initialize.
+        initialize(dao);
+
+        // Authorize quest contract.
+        vm.expectRevert(Storage.NotOperator.selector);
+        quest.setReviewer(reviewer, status);
+    }
+
+    function testReview(
+        uint256 response,
+        string calldata feedback,
+        uint256 reviewResponse,
+        string calldata reviewFeedback
+    ) public payable {
+        testSetReviewStatus(true);
+
+        testSetReviewer(dao, true);
+
+        testStart();
+
+        testRespond(response, feedback);
+
+        // Review.
+        vm.prank(dao);
+        quest.respond(address(mission), 1, 1, reviewResponse, reviewFeedback);
+    }
 
     function testReviewBySig() public payable {}
 
