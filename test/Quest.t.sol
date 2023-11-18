@@ -177,6 +177,7 @@ contract QuestTest is Test {
 
         testStart();
 
+        // TODO: Reorg bc testRespond includes testStart
         testRespond(response, feedback);
 
         // Review.
