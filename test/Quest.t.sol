@@ -97,6 +97,8 @@ contract QuestTest is Test {
     /// User Test
     /// ----------------------------------------------------------------------
 
+    // TODO: Test scenarios with multiple users and reviewers starting, responding, and reviewing tasks
+
     function testSetProfilePicture(string memory image) public payable {
         vm.prank(alice);
         quest.setProfilePicture(image);
@@ -133,14 +135,35 @@ contract QuestTest is Test {
         vm.warp(block.timestamp + 10);
 
         // Respond.
+        uint256 completedCount = quest.getCompletedTaskCount(bob, address(mission), 1);
+
         uint256 count = respond(bob, address(mission), 1, 1, response, testString);
         assertEq(count, 1);
+        assertEq(quest.getCompletedTaskCount(bob, address(mission), 1), completedCount + 1);
     }
 
+    // TODO: Review
     function testRespond_QuestInactive(uint256 response) public payable {
-        testSetReviewStatus(true);
-        testSetReviewer(dao, true);
+        testRespond(response);
 
+        //
+        vm.expectRevert(Quest.QuestInactive.selector);
+        vm.prank(dao);
+        quest.respond(address(mission), 1, 1, response, testString);
+    }
+
+    // TODO: Review
+    function testRespond_InvalidMission(uint256 response) public payable {
+        testRespond(response);
+
+        //
+        vm.expectRevert(Quest.QuestInactive.selector);
+        vm.prank(dao);
+        quest.respond(address(mission), 1, 1, response, testString);
+    }
+
+    // TODO: Review
+    function testRespond_Cooldown(uint256 response) public payable {
         testRespond(response);
 
         //
@@ -172,7 +195,9 @@ contract QuestTest is Test {
         testSetReviewStatus(true);
         testSetReviewer(dao, true);
 
-        testRespond(response);
+        start(bob, address(mission), 1);
+        vm.warp(block.timestamp + 10);
+        respond(bob, address(mission), 1, 1, response, testString);
 
         // Review.
         uint256 count = review(dao, address(mission), 1, 1, reviewResponse, testString);
