@@ -106,6 +106,15 @@ contract QuestTest is Test {
     function testStart() public payable {
         // Start.
         start(bob, address(mission), 1);
+
+        // Validate.
+        assertEq(quest.getQuestCountByUser(bob), 1);
+        assertEq(quest.getNumOfMissionsStartedByUser(bob, address(mission), 1), 1);
+        assertEq(quest.getNumOfMissionsStarted(), 1);
+
+        (uint256 missionIdCount, uint256 missionsCount) = quest.getNumOfMissionQuested(address(mission), 1);
+        assertEq(missionIdCount, 1);
+        assertEq(missionsCount, 1);
     }
 
     function testStart_QuestInProgress() public payable {
@@ -124,19 +133,8 @@ contract QuestTest is Test {
         vm.warp(block.timestamp + 10);
 
         // Respond.
-        vm.prank(bob);
-        quest.respond(address(mission), 1, 1, response, testString);
-
-        // Validate.
-        uint256 count = quest.getNumOfResponseByUser(bob);
+        uint256 count = respond(bob, address(mission), 1, 1, response, testString);
         assertEq(count, 1);
-        assertEq(quest.getUserResponse(bob, count), response);
-        assertEq(quest.getUserFeedback(bob, count), testString);
-
-        (address mission, uint256 missionId, uint256 taskId) = quest.getUserTask(bob, 1);
-        assertEq(mission, address(mission));
-        assertEq(missionId, 1);
-        assertEq(taskId, 1);
     }
 
     function testRespond_QuestInactive(uint256 response) public payable {
@@ -177,14 +175,8 @@ contract QuestTest is Test {
         testRespond(response);
 
         // Review.
-        vm.prank(dao);
-        quest.review(bob, address(mission), 1, 1, reviewResponse, testString);
-
-        // Validate.
-        uint256 count = quest.getNumOfReviewByReviewer(dao);
+        uint256 count = review(dao, address(mission), 1, 1, reviewResponse, testString);
         assertEq(count, 1);
-        assertEq(quest.getReviewResponse(dao, count), reviewResponse);
-        assertEq(quest.getReviewFeedback(dao, count), testString);
     }
 
     function testReviewBySig() public payable {}
@@ -238,19 +230,55 @@ contract QuestTest is Test {
         quest.start(mission, missionId);
 
         // Validate.
-        assertEq(quest.isQuestActive(user, mission, missionId), true);
-        assertEq(quest.getQuestCountByUser(user), 1);
-
-        assertEq(quest.getNumOfMissionsStartedByUser(user, mission, missionId), 1);
-        assertEq(quest.getNumOfMissionsStarted(), 1);
-
-        (uint256 missionIdCount, uint256 missionsCount) = quest.getNumOfMissionQuested(mission, missionId);
-        assertEq(missionIdCount, 1);
-        assertEq(missionsCount, 1);
-
         (address _user, address _mission, uint256 _missionId) = quest.getQuest(quest.getQuestCount());
         assertEq(_user, user);
         assertEq(_mission, mission);
         assertEq(_missionId, missionId);
+        assertEq(quest.isQuestActive(user, mission, missionId), true);
+    }
+
+    function respond(
+        address user,
+        address mission,
+        uint256 missionId,
+        uint256 taskId,
+        uint256 response,
+        string memory feedback
+    ) internal returns (uint256) {
+        // Respond.
+        vm.prank(user);
+        quest.respond(mission, missionId, taskId, response, feedback);
+
+        // Validate.
+        uint256 count = quest.getNumOfResponseByUser(user);
+        assertEq(quest.getUserResponse(user, count), response);
+        assertEq(quest.getUserFeedback(user, count), feedback);
+
+        (address _mission, uint256 _missionId, uint256 _taskId) = quest.getUserTask(user, count);
+        assertEq(_mission, mission);
+        assertEq(_missionId, missionId);
+        assertEq(_taskId, taskId);
+
+        return count;
+    }
+
+    function review(
+        address reviewer,
+        address mission,
+        uint256 missionId,
+        uint256 taskId,
+        uint256 reviewResponse,
+        string memory reviewFeedback
+    ) internal returns (uint256) {
+        // Review.
+        vm.prank(reviewer);
+        quest.review(bob, address(mission), 1, 1, reviewResponse, reviewFeedback);
+
+        // Validate.
+        uint256 count = quest.getNumOfReviewByReviewer(reviewer);
+        assertEq(quest.getReviewResponse(reviewer, count), reviewResponse);
+        assertEq(quest.getReviewFeedback(reviewer, count), reviewFeedback);
+
+        return count;
     }
 }
