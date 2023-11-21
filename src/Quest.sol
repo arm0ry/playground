@@ -4,11 +4,11 @@ pragma solidity >=0.8.4;
 import {IERC721} from "forge-std/interfaces/IERC721.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {IKaliTokenManager} from "kali-markets/interface/IKaliTokenManager.sol";
+import {IStorage} from "kali-markets/interface/IStorage.sol";
+import {Storage} from "kali-markets/Storage.sol";
 
 import {IMission} from "./interface/IMission.sol";
 import {Mission} from "./Mission.sol";
-import {IStorage} from "kali-markets/interface/IStorage.sol";
-import {Storage} from "kali-markets/Storage.sol";
 
 /// @title An interface between physical and digital operation.
 /// @author audsssy.eth
@@ -232,29 +232,43 @@ contract Quest is Storage {
     /// -----------------------------------------------------------------------
 
     function getReviewFeedback(address reviewer, uint256 order) external view returns (string memory) {
-        if (order > 0) {
+        if (order == 0) {
             return this.getString(
-                keccak256(abi.encode(address(this), ".reviewers.", reviewer, ".reviewId.", order, ".feedback"))
-            );
-        } else {
-            order = this.getNumOfReviewByReviewer(reviewer);
-            return this.getString(
-                keccak256(abi.encode(address(this), ".reviewers.", reviewer, ".reviewId.", order, ".feedback"))
+                keccak256(
+                    abi.encode(
+                        address(this),
+                        ".reviewers.",
+                        reviewer,
+                        ".reviewId.",
+                        this.getNumOfReviewByReviewer(reviewer),
+                        ".feedback"
+                    )
+                )
             );
         }
+        return this.getString(
+            keccak256(abi.encode(address(this), ".reviewers.", reviewer, ".reviewId.", order, ".feedback"))
+        );
     }
 
     function getReviewResponse(address reviewer, uint256 order) external view returns (uint256) {
-        if (order > 0) {
+        if (order == 0) {
             return this.getUint(
-                keccak256(abi.encode(address(this), ".reviewers.", reviewer, ".reviewId.", order, ".response"))
-            );
-        } else {
-            order = this.getNumOfReviewByReviewer(reviewer);
-            return this.getUint(
-                keccak256(abi.encode(address(this), ".reviewers.", reviewer, ".reviewId.", order, ".response"))
+                keccak256(
+                    abi.encode(
+                        address(this),
+                        ".reviewers.",
+                        reviewer,
+                        ".reviewId.",
+                        this.getNumOfReviewByReviewer(reviewer),
+                        ".response"
+                    )
+                )
             );
         }
+        return this.getUint(
+            keccak256(abi.encode(address(this), ".reviewers.", reviewer, ".reviewId.", order, ".response"))
+        );
     }
 
     /// -----------------------------------------------------------------------
@@ -315,46 +329,41 @@ contract Quest is Storage {
         return (block.timestamp >= this.getTimeLastTaskCompleted(user) + this.getCooldown()) ? true : false;
     }
 
-    function getUserFeedback(address user, uint256 order, address missions, uint256 missionId, uint256 taskId)
+    function getUserTask(address user, uint256 order)
         external
         view
-        returns (string memory)
+        returns (address mission, uint256 missionId, uint256 taskId)
     {
-        if (order > 0) {
-            return this.getString(
-                keccak256(abi.encode(address(this), ".responses.", user, ".responseId.", order, ".feedback"))
-            );
-        } else {
-            order = this.getUint(
-                keccak256(
-                    abi.encode(address(this), ".responses.", user, ".quests.", missions, missionId, taskId, ".count")
-                )
-            );
-            return this.getString(
-                keccak256(abi.encode(address(this), ".responses.", user, ".responseId.", order, ".feedback"))
-            );
-        }
+        // Using number of responds by a user as respond id, establish link between task id to user's respond id.
+        (mission, missionId, taskId) = this.decodeTaskKey(
+            this.getUint(keccak256(abi.encode(address(this), ".users.", user, ".responseId.", order, ".task")))
+        );
     }
 
-    function getUserResponse(address user, uint256 order, address missions, uint256 missionId, uint256 taskId)
-        external
-        view
-        returns (uint256)
-    {
-        if (order > 0) {
-            return this.getUint(
-                keccak256(abi.encode(address(this), ".responses.", user, ".responseId.", order, ".response"))
-            );
-        } else {
-            order = this.getUint(
+    function getUserFeedback(address user, uint256 order) external view returns (string memory) {
+        if (order == 0) {
+            return this.getString(
                 keccak256(
-                    abi.encode(address(this), ".responses.", user, ".quests.", missions, missionId, taskId, ".count")
+                    abi.encode(
+                        address(this), ".users.", user, ".responseId.", this.getNumOfResponseByUser(user), ".feedback"
+                    )
                 )
             );
+        }
+        return this.getString(keccak256(abi.encode(address(this), ".users.", user, ".responseId.", order, ".feedback")));
+    }
+
+    function getUserResponse(address user, uint256 order) external view returns (uint256) {
+        if (order == 0) {
             return this.getUint(
-                keccak256(abi.encode(address(this), ".responses.", user, ".responseId.", order, ".response"))
+                keccak256(
+                    abi.encode(
+                        address(this), ".users.", user, ".responseId.", this.getNumOfResponseByUser(user), ".response"
+                    )
+                )
             );
         }
+        return this.getUint(keccak256(abi.encode(address(this), ".users.", user, ".responseId.", order, ".response")));
     }
 
     /// -----------------------------------------------------------------------
@@ -382,15 +391,15 @@ contract Quest is Storage {
     /// -----------------------------------------------------------------------
 
     function incrementNumOfMissionsStarted() internal {
-        addUint(keccak256(abi.encode(address(this), ".stats.missionStarts")), 1);
+        addUint(keccak256(abi.encode(address(this), ".stats.mission.starts")), 1);
     }
 
     function incrementNumOfMissionsCompleted() internal {
-        addUint(keccak256(abi.encode(address(this), ".stats.missionCompletions")), 1);
+        addUint(keccak256(abi.encode(address(this), ".stats.mission.completions")), 1);
     }
 
     function incrementNumOfTaskCompleted() internal {
-        addUint(keccak256(abi.encode(address(this), ".stats.taskCompletions")), 1);
+        addUint(keccak256(abi.encode(address(this), ".stats.task.completions")), 1);
     }
 
     function incrementNumOfMissionsStartedByUser(address user, address missions, uint256 missionId) internal {
@@ -428,7 +437,7 @@ contract Quest is Storage {
     /// -----------------------------------------------------------------------
 
     function getNumOfMissionsStarted() external view returns (uint256) {
-        return this.getUint(keccak256(abi.encode(address(this), ".stats.missionStarts")));
+        return this.getUint(keccak256(abi.encode(address(this), ".stats.mission.starts")));
     }
 
     function getNumOfMissionsCompleted() external view returns (uint256) {
@@ -436,7 +445,7 @@ contract Quest is Storage {
     }
 
     function getNumOfTaskCompleted() external view returns (uint256) {
-        return this.getUint(keccak256(abi.encode(address(this), ".stats.taskCompletions")));
+        return this.getUint(keccak256(abi.encode(address(this), ".stats.task.completions")));
     }
 
     function getNumOfMissionsStartedByUser(address user, address missions, uint256 missionId)
@@ -476,18 +485,29 @@ contract Quest is Storage {
     /// -----------------------------------------------------------------------
 
     function incrementQuestCountByUser(address user) internal returns (uint256) {
-        return addUint(keccak256(abi.encode(address(this), ".users.", user, ".count")), 1);
+        return addUint(keccak256(abi.encode(address(this), ".users.", user, ".quests.count")), 1);
     }
 
-    function incrementMissionQuested(address missions, uint256 missionId) internal returns (uint256, uint256) {
+    function getQuestCountByUser(address user) external view returns (uint256) {
+        return this.getUint(keccak256(abi.encode(address(this), ".users.", user, ".quests.count")));
+    }
+
+    function incrementNumOfMissionQuested(address missions, uint256 missionId) internal returns (uint256, uint256) {
         return (
             addUint(keccak256(abi.encode(address(this), ".quests.", missions, missionId, ".count")), 1),
             addUint(keccak256(abi.encode(address(this), ".quests.", missions, ".count")), 1)
         );
     }
 
+    function getNumOfMissionQuested(address missions, uint256 missionId) external view returns (uint256, uint256) {
+        return (
+            this.getUint(keccak256(abi.encode(address(this), ".quests.", missions, missionId, ".count"))),
+            this.getUint(keccak256(abi.encode(address(this), ".quests.", missions, ".count")))
+        );
+    }
+
     function incrementNumOfResponseByUser(address user) internal returns (uint256) {
-        return addUint(keccak256(abi.encode(address(this), ".users.", user, "responses.count")), 1);
+        return addUint(keccak256(abi.encode(address(this), ".users.", user, ".responses.count")), 1);
     }
 
     function getNumOfResponseByUser(address user) external view returns (uint256) {
@@ -503,43 +523,6 @@ contract Quest is Storage {
     }
 
     /// -----------------------------------------------------------------------
-    /// Quest Logic - Counter Getter
-    /// -----------------------------------------------------------------------
-
-    function getMissionQuestedCount(address missions, uint256 missionId) external view returns (uint256, uint256) {
-        return (
-            this.getUint(keccak256(abi.encode(address(this), ".quests.", missions, missionId, ".count"))),
-            this.getUint(keccak256(abi.encode(address(this), ".quests.", missions, ".count")))
-        );
-    }
-
-    function getResponseCountByUser(address user, address missions, uint256 missionId, uint256 taskId)
-        external
-        view
-        returns (uint256, uint256)
-    {
-        return (
-            this.getUint(
-                keccak256(
-                    abi.encode(address(this), ".responses.", user, ".quests.", missions, missionId, taskId, ".count")
-                )
-                ),
-            this.getUint(keccak256(abi.encode(address(this), ".users.", user, "responses.count")))
-        );
-    }
-
-    function getReviewCountByReviewer(address reviewer, address missions, uint256 missionId, uint256 taskId)
-        external
-        view
-        returns (uint256, uint256)
-    {
-        return (
-            this.getUint(keccak256(abi.encode(address(this), ".reviews.", missions, missionId, taskId, ".count"))),
-            this.getUint(keccak256(abi.encode(address(this), reviewer, "review.count")))
-        );
-    }
-
-    /// -----------------------------------------------------------------------
     /// Quest Logic - Internal
     /// -----------------------------------------------------------------------
 
@@ -549,7 +532,7 @@ contract Quest is Storage {
         if (this.isQuestActive(user, missions, missionId)) revert QuestInProgress();
 
         // Set quest status to active.
-        setQuestActivity(user, missions, missionId, true);
+        setQuestActive(user, missions, missionId);
 
         // Update mission-related stats.
         updateMissionStartStats(user, missions, missionId);
@@ -560,12 +543,12 @@ contract Quest is Storage {
 
         // Increment Quest-related counter.
         incrementQuestCountByUser(user);
-        incrementMissionQuested(missions, missionId);
+        incrementNumOfMissionQuested(missions, missionId);
     }
 
-    function setQuestActivity(address user, address missions, uint256 missionId, bool status) internal virtual {
+    function setQuestActive(address user, address missions, uint256 missionId) internal virtual {
         _setBool(
-            keccak256(abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, ".active")), status
+            keccak256(abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, ".active")), true
         );
     }
 
@@ -630,23 +613,32 @@ contract Quest is Storage {
         // Retrieve number of responses as response id.
         uint256 count = incrementNumOfResponseByUser(user);
 
-        // Use response count as response id to associate with Task.
-        _setUint(
-            keccak256(
-                abi.encode(address(this), ".responses.", user, ".responseId.", count, ".task.", missions, missionId)
-            ),
-            taskId
-        );
+        setRespondTask(user, count, missions, missionId, taskId);
+        setRespondResponse(user, count, response);
+        setRespondFeedback(user, count, feedback);
+    }
 
-        // Set response content.
+    function setRespondTask(address user, uint256 order, address missions, uint256 missionId, uint256 taskId)
+        internal
+        virtual
+    {
+        // Using number of responds by a user as respond id, establish link between task id to user's respond id.
         _setUint(
-            keccak256(abi.encode(address(this), ".responses.", user, ".responseId.", count, ".response")), response
+            keccak256(abi.encode(address(this), ".users.", user, ".responseId.", order, ".task")),
+            this.getTaskKey(missions, missionId, taskId)
         );
+    }
 
-        // Set any response feedback.
+    function setRespondResponse(address user, uint256 order, uint256 response) internal virtual {
+        // Set respond content.
+        _setUint(keccak256(abi.encode(address(this), ".users.", user, ".responseId.", order, ".response")), response);
+    }
+
+    function setRespondFeedback(address user, uint256 order, string calldata feedback) internal virtual {
+        // Set any respond feedback.
         if (bytes(feedback).length > 0) {
             _setString(
-                keccak256(abi.encode(address(this), ".responses.", user, ".responseId.", count, ".feedback")), feedback
+                keccak256(abi.encode(address(this), ".users.", user, ".responseId.", order, ".feedback")), feedback
             );
         }
     }
@@ -686,23 +678,34 @@ contract Quest is Storage {
         // Retrieve number of responses as review id.
         uint256 count = incrementNumOfReviewByReviewer(reviewer);
 
+        setReviewTaskId(reviewer, count, missions, missionId, taskId);
+        setReviewResponse(reviewer, count, response);
+        setReviewFeedback(reviewer, count, feedback);
+    }
+
+    function setReviewTaskId(address reviewer, uint256 order, address missions, uint256 missionId, uint256 taskId)
+        internal
+        virtual
+    {
         // Using number of reviews by a reviewer as review id, establish link between task id to reviewer's review id.
         _setUint(
-            keccak256(
-                abi.encode(address(this), ".reviewers.", reviewer, ".reviewId.", count, ".task.", missions, missionId)
-            ),
-            taskId
+            keccak256(abi.encode(address(this), ".reviewers.", reviewer, ".reviewId.", order, ".task")),
+            this.getTaskKey(missions, missionId, taskId)
         );
+    }
 
+    function setReviewResponse(address reviewer, uint256 order, uint256 response) internal virtual {
         // Set review content.
         _setUint(
-            keccak256(abi.encode(address(this), ".reviewers.", reviewer, ".reviewId.", count, ".response")), response
+            keccak256(abi.encode(address(this), ".reviewers.", reviewer, ".reviewId.", order, ".response")), response
         );
+    }
 
+    function setReviewFeedback(address reviewer, uint256 order, string calldata feedback) internal virtual {
         // Set any review feedback.
         if (bytes(feedback).length > 0) {
             _setString(
-                keccak256(abi.encode(address(this), ".reviewers.", reviewer, ".reviewId.", count, ".feedback")),
+                keccak256(abi.encode(address(this), ".reviewers.", reviewer, ".reviewId.", order, ".feedback")),
                 feedback
             );
         }
@@ -763,26 +766,26 @@ contract Quest is Storage {
         if (block.timestamp > deadline) revert InvalidMission();
     }
 
-    function getTokenId(address user, uint256 missionId, uint256 curveId) external pure returns (uint256) {
-        return uint256(bytes32(abi.encodePacked(user, uint48(missionId), uint48(curveId))));
+    function getTaskKey(address mission, uint256 missionId, uint256 taskId) external pure returns (uint256) {
+        return uint256(bytes32(abi.encodePacked(mission, uint48(missionId), uint48(taskId))));
     }
 
-    function decodeTokenId(uint256 tokenId) external pure returns (address, uint256, uint256) {
+    function decodeTaskKey(uint256 tokenId) external pure returns (address, uint256, uint256) {
         // Convert tokenId from type uint256 to bytes32.
         bytes32 key = bytes32(tokenId);
 
         // Declare variables to return later.
-        uint48 curveId;
+        uint48 taskId;
         uint48 missionId;
-        address user;
+        address mission;
 
         // Parse data via assembly.
         assembly {
-            curveId := key
+            taskId := key
             missionId := shr(48, key)
-            user := shr(96, key)
+            mission := shr(96, key)
         }
 
-        return (user, uint256(missionId), uint256(curveId));
+        return (mission, uint256(missionId), uint256(taskId));
     }
 }

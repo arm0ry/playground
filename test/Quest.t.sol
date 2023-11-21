@@ -25,7 +25,6 @@ contract QuestTest is Test {
     uint256[] deadlines;
     string[] detail;
     uint256[] taskIds;
-    uint256[] newTaskIds;
 
     /// @dev Users.
     address[] reviewers;
@@ -53,6 +52,8 @@ contract QuestTest is Test {
         quest = new Quest();
 
         initialize(dao);
+        setupTasks(dao);
+        setupMission(dao, alice, testString, testString);
     }
 
     /// -----------------------------------------------------------------------
@@ -96,48 +97,58 @@ contract QuestTest is Test {
     /// User Test
     /// ----------------------------------------------------------------------
 
-    function testSetProfilePicture(string calldata image) public payable {
+    function testSetProfilePicture(string memory image) public payable {
         vm.prank(alice);
         quest.setProfilePicture(image);
         assertEq(quest.getProfilePicture(alice), image);
     }
 
     function testStart() public payable {
-        setupTasks();
-        vm.prank(dao);
-        mission.setTasks(creators, deadlines, detail);
+        // Start.
+        start(bob, address(mission), 1);
+    }
 
-        taskIds.push(1);
-        taskIds.push(2);
-        taskIds.push(3);
-        taskIds.push(4);
-
-        vm.prank(dao);
-        mission.setMission(alice, "Welcome to your first mission!", "It's so fun~", taskIds);
+    function testStart_QuestInProgress() public payable {
+        testStart();
 
         // Start.
+        vm.expectRevert(Quest.QuestInProgress.selector);
         vm.prank(bob);
         quest.start(address(mission), 1);
-
-        // Validate.
-        assertEq(quest.getNumOfMissionsStartedByUser(bob, address(mission), 1), 1);
-        assertEq(quest.getNumOfMissionsStarted(), 1);
     }
 
     function testStartBySig() public payable {}
 
-    function testRespond(uint256 response, string calldata feedback) public payable {
+    function testRespond(uint256 response) public payable {
         testStart();
+        vm.warp(block.timestamp + 10);
 
         // Respond.
         vm.prank(bob);
-        quest.respond(address(mission), 1, 1, response, feedback);
+        quest.respond(address(mission), 1, 1, response, testString);
 
         // Validate.
-        (uint256 count,) = quest.getResponseCountByUser(bob, address(mission), 1, 1);
+        uint256 count = quest.getNumOfResponseByUser(bob);
         assertEq(count, 1);
-        assertEq(quest.getUserResponse(bob, 0, address(mission), 1, 1), response);
-        assertEq(quest.getUserFeedback(bob, 0, address(mission), 1, 1), feedback);
+        assertEq(quest.getUserResponse(bob, count), response);
+        assertEq(quest.getUserFeedback(bob, count), testString);
+
+        (address mission, uint256 missionId, uint256 taskId) = quest.getUserTask(bob, 1);
+        assertEq(mission, address(mission));
+        assertEq(missionId, 1);
+        assertEq(taskId, 1);
+    }
+
+    function testRespond_QuestInactive(uint256 response) public payable {
+        testSetReviewStatus(true);
+        testSetReviewer(dao, true);
+
+        testRespond(response);
+
+        //
+        vm.expectRevert(Quest.QuestInactive.selector);
+        vm.prank(dao);
+        quest.respond(address(mission), 1, 1, response, testString);
     }
 
     /// -----------------------------------------------------------------------
@@ -145,9 +156,6 @@ contract QuestTest is Test {
     /// ----------------------------------------------------------------------
 
     function testSetReviewer(address reviewer, bool status) public payable {
-        // Initialize.
-        initialize(dao);
-
         // Authorize quest contract.
         vm.prank(dao);
         quest.setReviewer(reviewer, status);
@@ -157,32 +165,26 @@ contract QuestTest is Test {
     }
 
     function testSetReviewStatus_NotOperator(address reviewer, bool status) public payable {
-        // Initialize.
-        initialize(dao);
-
         // Authorize quest contract.
         vm.expectRevert(Storage.NotOperator.selector);
         quest.setReviewer(reviewer, status);
     }
 
-    function testReview(
-        uint256 response,
-        string calldata feedback,
-        uint256 reviewResponse,
-        string calldata reviewFeedback
-    ) public payable {
+    function testReview(uint256 response, uint256 reviewResponse) public payable {
         testSetReviewStatus(true);
-
         testSetReviewer(dao, true);
 
-        testStart();
-
-        // TODO: Reorg bc testRespond includes testStart
-        testRespond(response, feedback);
+        testRespond(response);
 
         // Review.
         vm.prank(dao);
-        quest.respond(address(mission), 1, 1, reviewResponse, reviewFeedback);
+        quest.review(bob, address(mission), 1, 1, reviewResponse, testString);
+
+        // Validate.
+        uint256 count = quest.getNumOfReviewByReviewer(dao);
+        assertEq(count, 1);
+        assertEq(quest.getReviewResponse(dao, count), reviewResponse);
+        assertEq(quest.getReviewFeedback(dao, count), testString);
     }
 
     function testReviewBySig() public payable {}
@@ -196,7 +198,7 @@ contract QuestTest is Test {
         mission.initialize(_dao);
     }
 
-    function setupTasks() internal {
+    function setupTasks(address _dao) internal {
         creators.push(alice);
         creators.push(bob);
         creators.push(charlie);
@@ -205,15 +207,50 @@ contract QuestTest is Test {
         creators.push(fred);
         deadlines.push(2);
         deadlines.push(10);
-        deadlines.push(100);
         deadlines.push(1000);
         deadlines.push(10000);
         deadlines.push(100000);
+        deadlines.push(1000000);
         detail.push("TEST 1");
         detail.push("TEST 2");
         detail.push("TEST 3");
         detail.push("TEST 4");
         detail.push("TEST 5");
         detail.push("TEST 6");
+
+        vm.prank(_dao);
+        mission.setTasks(creators, deadlines, detail);
+    }
+
+    function setupMission(address _dao, address creator, string memory _title, string memory _description) internal {
+        taskIds.push(1);
+        taskIds.push(2);
+        taskIds.push(3);
+        taskIds.push(4);
+
+        vm.prank(_dao);
+        mission.setMission(creator, _title, _description, taskIds);
+    }
+
+    function start(address user, address mission, uint256 missionId) public payable {
+        // Start.
+        vm.prank(user);
+        quest.start(mission, missionId);
+
+        // Validate.
+        assertEq(quest.isQuestActive(user, mission, missionId), true);
+        assertEq(quest.getQuestCountByUser(user), 1);
+
+        assertEq(quest.getNumOfMissionsStartedByUser(user, mission, missionId), 1);
+        assertEq(quest.getNumOfMissionsStarted(), 1);
+
+        (uint256 missionIdCount, uint256 missionsCount) = quest.getNumOfMissionQuested(mission, missionId);
+        assertEq(missionIdCount, 1);
+        assertEq(missionsCount, 1);
+
+        (address _user, address _mission, uint256 _missionId) = quest.getQuest(quest.getQuestCount());
+        assertEq(_user, user);
+        assertEq(_mission, mission);
+        assertEq(_missionId, missionId);
     }
 }
