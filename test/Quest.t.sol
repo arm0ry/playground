@@ -142,6 +142,8 @@ contract QuestTest is Test {
         assertEq(quest.getNumOfMissionsCompletedByUser(bob, address(mission), 1), numOfMissionCompletedByUser + 1);
         assertEq(quest.getUserResponse(bob, 0), response);
         assertEq(quest.getUserFeedback(bob, 0), testString);
+        assertEq(mission.getMissionCompletions(1), 1);
+        assertEq(mission.getTaskCompletions(1), 1);
         emit log_uint(quest.getQuestProgress(bob, address(mission), 1));
     }
 

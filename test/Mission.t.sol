@@ -242,6 +242,17 @@ contract MissionTest is Test {
         setMission(alice, "Welcome to your first mission!", "For more, check here.");
     }
 
+    function testSetMission_InvalidMission() public payable {
+        // Set tasks.
+        testSetTasks();
+        vm.warp(block.timestamp + 1000);
+
+        // Create new mission
+        vm.expectRevert(Mission.InvalidMission.selector);
+        vm.prank(dao);
+        mission.setMission(alice, "Welcome to your first mission!", "For more, check here.", taskIds);
+    }
+
     function testSetMissionCreator(address newCreator) public payable {
         // Set mission.
         testSetMission();
@@ -349,6 +360,19 @@ contract MissionTest is Test {
         // Validate.
         assertEq(mission.getMissionTaskIds(missionId), taskIds);
         assertEq(mission.getMissionDeadline(missionId), mission.getTaskDeadline(3));
+    }
+
+    function testSetMissionTaskId_InvalidTask() public payable {
+        // Set mission.
+        testSetMission();
+
+        uint256 order = 2;
+        uint256 newTaskId = 8;
+
+        // Add taskIds.
+        vm.expectRevert(Mission.InvalidTask.selector);
+        vm.prank(dao);
+        mission.setMissionTaskId(missionId, order, newTaskId);
     }
 
     function testSetMission_setTaskDeadline(uint256 newDeadline) public payable {

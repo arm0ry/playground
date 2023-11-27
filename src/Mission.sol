@@ -175,7 +175,7 @@ contract Mission is Storage {
 
     /// @notice Add tasks to a mission.
     function addMissionTasks(uint256 missionId, uint256[] calldata taskIds) external payable onlyOperator {
-        _addMissionTasks(missionId, taskIds);
+        if (taskIds.length > 0) _addMissionTasks(missionId, taskIds);
     }
 
     /// @notice Update a task by its order in a given mission.
@@ -207,7 +207,6 @@ contract Mission is Storage {
     /// @notice Add tasks to a mission.
     function _addMissionTasks(uint256 missionId, uint256[] calldata taskIds) internal {
         uint256 length = taskIds.length;
-        if (length == 0) revert InvalidMission();
         for (uint256 i = 0; i < length; ++i) {
             if (!this.isTaskInMission(missionId, taskIds[i])) {
                 // Add task.
