@@ -33,19 +33,17 @@ contract Quest is Storage {
     uint256 internal INITIAL_CHAIN_ID;
     bytes32 internal INITIAL_DOMAIN_SEPARATOR;
     bytes32 public constant START_TYPEHASH = keccak256("Start(address signer, address missions, uint256 missionId)");
-    bytes32 public constant RESPOND_TYPEHASH = keccak256(
-        "Respond(address signer, address missions, uint256 missionId, uint256 taskId, uint256 response, string feedback)"
-    );
-    bytes32 public constant REVIEW_TYPEHASH = keccak256(
-        "Review(address signer, address user, address missions, uint256 missionId, uint256 taskId, uint256 response, string feedback)"
-    );
+    bytes32 public constant RESPOND_TYPEHASH =
+        keccak256("Respond(address signer, bytes32 taskKey, uint256 response, string feedback)");
+    bytes32 public constant REVIEW_TYPEHASH =
+        keccak256("Review(address signer, address user, bytes32 taskKey, uint256 response, string feedback)");
 
     /// -----------------------------------------------------------------------
     /// Modifier
     /// -----------------------------------------------------------------------
 
-    modifier onlyReviewer() {
-        if (!this.isReviewer(msg.sender)) revert InvalidReviewer();
+    modifier onlyReviewer(address reviewer) {
+        if (!this.isReviewer((reviewer == address(0)) ? msg.sender : reviewer)) revert InvalidReviewer();
         _;
     }
 
@@ -165,6 +163,37 @@ contract Quest is Storage {
         _respond(msg.sender, missions, missionId, taskId, response, feedback);
     }
 
+    /// @notice Start a quest (gasless).
+    /// @param signer .
+    /// @param missions .
+    /// @param missionId .
+    /// @dev
+    function respondBySig(
+        address signer,
+        address missions,
+        uint256 missionId,
+        uint256 taskId,
+        uint256 response,
+        string calldata feedback,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external payable virtual hasExpired(missions, missionId) {
+        uint256 taskKey = this.getTaskKey(missions, missionId, taskId);
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(RESPOND_TYPEHASH, signer, taskKey, response, feedback))
+            )
+        );
+
+        address recoveredAddress = ecrecover(digest, v, r, s);
+        if (recoveredAddress == address(0) || recoveredAddress != signer) revert InvalidUser();
+
+        _respond(signer, missions, missionId, taskId, response, feedback);
+    }
+
     /// -----------------------------------------------------------------------
     /// Review Logic
     /// -----------------------------------------------------------------------
@@ -177,36 +206,37 @@ contract Quest is Storage {
         uint256 taskId,
         uint256 response,
         string calldata feedback
-    ) external payable onlyReviewer hasExpired(missions, missionId) {
+    ) external payable onlyReviewer(address(0)) hasExpired(missions, missionId) {
         _review(msg.sender, user, missions, missionId, taskId, response, feedback);
     }
 
     /// @notice Review a task (gasless).
-    function reviewBySig(
-        address signer,
-        address user,
-        address missions,
-        uint256 missionId,
-        uint256 taskId,
-        uint256 response,
-        string calldata feedback,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external payable virtual onlyReviewer hasExpired(missions, missionId) {
-        bytes32 digest = keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                DOMAIN_SEPARATOR(),
-                keccak256(abi.encode(REVIEW_TYPEHASH, signer, user, missions, missionId, taskId, response, feedback))
-            )
-        );
+    // function reviewBySig(
+    //     address reviewer,
+    //     address user,
+    //     address missions,
+    //     uint256 missionId,
+    //     uint256 taskId,
+    //     uint256 response,
+    //     string calldata feedback,
+    //     uint8 v,
+    //     bytes32 r,
+    //     bytes32 s
+    // ) external payable virtual onlyReviewer(reviewer) hasExpired(missions, missionId) {
+    //     uint256 taskKey = this.getTaskKey(missions, missionId, taskId);
+    //     bytes32 digest = keccak256(
+    //         abi.encodePacked(
+    //             "\x19\x01",
+    //             DOMAIN_SEPARATOR(),
+    //             keccak256(abi.encode(REVIEW_TYPEHASH, reviewer, user, taskKey, response, feedback))
+    //         )
+    //     );
 
-        address recoveredAddress = ecrecover(digest, v, r, s);
-        if (recoveredAddress == address(0) || recoveredAddress != msg.sender) revert InvalidUser();
+    //     address recoveredAddress = ecrecover(digest, v, r, s);
+    //     if (recoveredAddress == address(0) || recoveredAddress != reviewer) revert InvalidUser();
 
-        _review(signer, user, missions, missionId, taskId, response, feedback);
-    }
+    //     _review(reviewer, user, missions, missionId, taskId, response, feedback);
+    // }
 
     /// -----------------------------------------------------------------------
     /// Reviewer Logic - Setter
@@ -232,8 +262,8 @@ contract Quest is Storage {
     /// -----------------------------------------------------------------------
 
     function getReviewFeedback(address reviewer, uint256 order) external view returns (string memory) {
-        if (order == 0) {
-            return this.getString(
+        return (order == 0)
+            ? this.getString(
                 keccak256(
                     abi.encode(
                         address(this),
@@ -244,16 +274,15 @@ contract Quest is Storage {
                         ".feedback"
                     )
                 )
+            )
+            : this.getString(
+                keccak256(abi.encode(address(this), ".reviewers.", reviewer, ".reviewId.", order, ".feedback"))
             );
-        }
-        return this.getString(
-            keccak256(abi.encode(address(this), ".reviewers.", reviewer, ".reviewId.", order, ".feedback"))
-        );
     }
 
     function getReviewResponse(address reviewer, uint256 order) external view returns (uint256) {
-        if (order == 0) {
-            return this.getUint(
+        return (order == 0)
+            ? this.getUint(
                 keccak256(
                     abi.encode(
                         address(this),
@@ -264,11 +293,8 @@ contract Quest is Storage {
                         ".response"
                     )
                 )
-            );
-        }
-        return this.getUint(
-            keccak256(abi.encode(address(this), ".reviewers.", reviewer, ".reviewId.", order, ".response"))
-        );
+            )
+            : this.getUint(keccak256(abi.encode(address(this), ".reviewers.", reviewer, ".reviewId.", order, ".response")));
     }
 
     /// -----------------------------------------------------------------------
@@ -285,7 +311,6 @@ contract Quest is Storage {
         returns (uint256)
     {
         uint256 count = IMission(missions).getMissionTaskCount(missionId);
-        if (count == 0) revert NotInitialized();
         uint256 progress = completed * 100 / count;
         _setUint(
             keccak256(abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, ".progress")),
@@ -341,29 +366,27 @@ contract Quest is Storage {
     }
 
     function getUserFeedback(address user, uint256 order) external view returns (string memory) {
-        if (order == 0) {
-            return this.getString(
+        return (order == 0)
+            ? this.getString(
                 keccak256(
                     abi.encode(
                         address(this), ".users.", user, ".responseId.", this.getNumOfResponseByUser(user), ".feedback"
                     )
                 )
-            );
-        }
-        return this.getString(keccak256(abi.encode(address(this), ".users.", user, ".responseId.", order, ".feedback")));
+            )
+            : this.getString(keccak256(abi.encode(address(this), ".users.", user, ".responseId.", order, ".feedback")));
     }
 
     function getUserResponse(address user, uint256 order) external view returns (uint256) {
-        if (order == 0) {
-            return this.getUint(
+        return (order == 0)
+            ? this.getUint(
                 keccak256(
                     abi.encode(
                         address(this), ".users.", user, ".responseId.", this.getNumOfResponseByUser(user), ".response"
                     )
                 )
-            );
-        }
-        return this.getUint(keccak256(abi.encode(address(this), ".users.", user, ".responseId.", order, ".response")));
+            )
+            : this.getUint(keccak256(abi.encode(address(this), ".users.", user, ".responseId.", order, ".response")));
     }
 
     /// -----------------------------------------------------------------------
