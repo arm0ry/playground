@@ -15,7 +15,7 @@ import {IKaliTokenManager} from "kali-markets/interface/IKaliTokenManager.sol";
 
 /// @title Support SVG NFTs.
 /// @notice SVG NFTs displaying impact generated from quests.
-contract SupportToken is ERC1155 {
+contract QuestSupportToken is ERC1155 {
     /// -----------------------------------------------------------------------
     /// Custom Error
     /// -----------------------------------------------------------------------

@@ -10,13 +10,13 @@ import {Quest} from "src/Quest.sol";
 import {IQuest} from "src/interface/IQuest.sol";
 import {Storage} from "kali-markets/Storage.sol";
 import {IStorage} from "kali-markets/interface/IStorage.sol";
-import {SupportToken} from "src/tokens/SupportToken.sol";
+import {QuestSupportToken} from "src/tokens/QuestSupportToken.sol";
 
-contract SupportTokenTest is Test {
+contract QuestSupportTokenTest is Test {
     Quest quest;
     Mission mission;
     Storage stor;
-    SupportToken support;
+    QuestSupportToken support;
 
     IQuest iQuest;
     IStorage iStorage;
@@ -49,7 +49,7 @@ contract SupportTokenTest is Test {
 
     function setUp() public payable {
         // Deploy contract
-        support = new SupportToken(alice, alice, alice);
+        support = new QuestSupportToken(alice, alice, alice);
     }
 
     function testReceiveETH() public payable {
