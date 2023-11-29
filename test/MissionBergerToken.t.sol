@@ -33,7 +33,6 @@ contract MissionBergerTokenTest is Test {
     address public immutable bob = makeAddr("bob");
     address public immutable charlie = makeAddr("charlie");
     address public immutable dummy = makeAddr("dummy");
-    address payable public immutable arm0ry = payable(makeAddr("arm0ry"));
 
     /// @dev Helpers.
 
@@ -51,7 +50,7 @@ contract MissionBergerTokenTest is Test {
 
     function setUp() public payable {
         // Deploy contract
-        mbt = new MissionBergerToken();
+        mbt = new MissionBergerToken(dummy, dummy, "Mission Berger Token", "MBT");
     }
 
     function testReceiveETH() public payable {

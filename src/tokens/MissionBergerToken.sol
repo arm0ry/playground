@@ -36,9 +36,7 @@ contract MissionBergerToken is ERC721 {
     /// Constructor
     /// -----------------------------------------------------------------------
 
-    constructor() ERC721("Mission Berger Token", "MBT") {}
-
-    function initialize(address _dao, address _kaliBerger) external payable {
+    constructor(address _dao, address _kaliBerger, string memory name, string memory symbol) ERC721(name, symbol) {
         dao = _dao;
         kaliBerger = _kaliBerger;
     }
@@ -147,7 +145,6 @@ contract MissionBergerToken is ERC721 {
     function buildTreeRing(address missions, uint256 missionId) public view returns (string memory str) {
         uint256 baseRadius = 500;
         uint256[] memory taskIds = IMission(missions).getMissionTaskIds(missionId);
-        string[] memory strArray;
 
         for (uint256 i = 0; i < taskIds.length;) {
             uint256 completions = IMission(missions).getTaskCompletions(taskIds[i]);
@@ -156,18 +153,21 @@ contract MissionBergerToken is ERC721 {
             uint256 radius = completions * 500 / 100;
             baseRadius += radius / 10;
 
-            strArray[i] = SVG._circle(
-                string.concat(
-                    SVG._prop("cx", "265"),
-                    SVG._prop("cy", "265"),
-                    SVG._prop("r", SVG._uint2str(baseRadius / 10)),
-                    SVG._prop("stroke", "#A1662F"),
-                    SVG._prop("stroke-opacity", "0.1"),
-                    SVG._prop("stroke-width", "3"),
-                    SVG._prop("fill", "#FFBE0B"),
-                    SVG._prop("fill-opacity", "0.1")
-                ),
-                ""
+            str = string.concat(
+                str,
+                SVG._circle(
+                    string.concat(
+                        SVG._prop("cx", "265"),
+                        SVG._prop("cy", "265"),
+                        SVG._prop("r", SVG._uint2str(baseRadius / 10)),
+                        SVG._prop("stroke", "#A1662F"),
+                        SVG._prop("stroke-opacity", "0.1"),
+                        SVG._prop("stroke-width", "3"),
+                        SVG._prop("fill", "#FFBE0B"),
+                        SVG._prop("fill-opacity", "0.1")
+                    ),
+                    ""
+                )
             );
 
             unchecked {
