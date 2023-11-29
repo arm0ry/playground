@@ -51,7 +51,7 @@ contract MissionBergerTokenTest is Test {
 
     function setUp() public payable {
         // Deploy contract
-        mbt = new MissionBergerToken(alice, alice);
+        mbt = new MissionBergerToken();
     }
 
     function testReceiveETH() public payable {

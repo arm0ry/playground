@@ -36,7 +36,9 @@ contract MissionBergerToken is ERC721 {
     /// Constructor
     /// -----------------------------------------------------------------------
 
-    constructor(address _dao, address _kaliBerger) ERC721("Mission Berger Token", "MBT") {
+    constructor() ERC721("Mission Berger Token", "MBT") {}
+
+    function initialize(address _dao, address _kaliBerger) external payable {
         dao = _dao;
         kaliBerger = _kaliBerger;
     }

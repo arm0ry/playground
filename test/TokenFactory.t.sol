@@ -27,7 +27,7 @@ contract TokenFactoryTest is Test {
     /// @notice Set up the testing suite.
     function setUp() public payable {
         // Deploy contracts
-        mbt = new MissionBergerToken(dao, dao);
+        mbt = new MissionBergerToken();
         mst = new MissionSupportToken(dao);
         qst = new QuestSupportToken(dao, dao, dao);
         factory = new TokenFactory();
