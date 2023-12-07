@@ -6,16 +6,17 @@ import {JSON} from "../utils/JSON.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {ERC1155} from "solbase/tokens/ERC1155/ERC1155.sol";
 
-import {Mission} from "../Mission.sol";
-import {IMission} from "../interface/IMission.sol";
-import {IQuest} from "../interface/IQuest.sol";
-import {IQuest} from "../interface/IQuest.sol";
 import {IKaliCurve, CurveType} from "kali-markets/interface/IKaliCurve.sol";
 import {IStorage} from "kali-markets/interface/IStorage.sol";
 import {IKaliTokenManager} from "kali-markets/interface/IKaliTokenManager.sol";
 
-/// @title Support SVG NFTs for Mission.
-/// @notice SVG NFTs displaying impact generated from quests.
+import {Mission} from "../Mission.sol";
+import {IMission} from "../interface/IMission.sol";
+import {IQuest} from "../interface/IQuest.sol";
+import {IQuest} from "../interface/IQuest.sol";
+
+/// @title SVG NFTs that display Quest progression.
+/// @notice SVG NFTs displaying impact generated from progressing quests.
 contract MissionSupportToken is ERC1155 {
     /// -----------------------------------------------------------------------
     /// Custom Error
@@ -116,16 +117,7 @@ contract MissionSupportToken is ERC1155 {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat("Mint Price: ", SVG._uint2str(IKaliCurve(curve).getMintPrice(curveId)))
-            ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "210"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat("# of completions: ", SVG._uint2str(IMission(missions).getMissionCompletions(missionId)))
+                string.concat("Mint Price: ", SVG._uint2str(IKaliCurve(curve).getPrice(true, curveId)))
             ),
             SVG._text(
                 string.concat(
@@ -134,7 +126,25 @@ contract MissionSupportToken is ERC1155 {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
+                string.concat("Mint Price: ", SVG._uint2str(IKaliCurve(curve).getPrice(false, curveId)))
+            ),
+            SVG._text(
+                string.concat(
+                    SVG._prop("x", "20"),
+                    SVG._prop("y", "210"),
+                    SVG._prop("font-size", "12"),
+                    SVG._prop("fill", "#00040a")
+                ),
                 string.concat("Complete by: ", SVG._uint2str(IMission(missions).getMissionDeadline(missionId)))
+            ),
+            SVG._text(
+                string.concat(
+                    SVG._prop("x", "20"),
+                    SVG._prop("y", "230"),
+                    SVG._prop("font-size", "12"),
+                    SVG._prop("fill", "#00040a")
+                ),
+                string.concat("# of completions: ", SVG._uint2str(IMission(missions).getMissionCompletions(missionId)))
             )
         );
     }
@@ -196,7 +206,6 @@ contract MissionSupportToken is ERC1155 {
     /// Patron Logic
     /// -----------------------------------------------------------------------
 
-    ///
     function redeem(address user, address missions, uint256 missionId, uint256 curveId)
         external
         payable

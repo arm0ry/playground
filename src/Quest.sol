@@ -14,6 +14,24 @@ import {Mission} from "./Mission.sol";
 /// @author audsssy.eth
 contract Quest is Storage {
     /// -----------------------------------------------------------------------
+    /// Events
+    /// -----------------------------------------------------------------------
+
+    event Started(address user, address missions, uint256 missionId);
+    event Responded(
+        address user, address missions, uint256 missionId, uint256 taskId, uint256 response, string feedback
+    );
+    event Reviewed(
+        address reviewer,
+        address user,
+        address missions,
+        uint256 missionId,
+        uint256 taskId,
+        uint256 response,
+        string feedback
+    );
+
+    /// -----------------------------------------------------------------------
     /// Custom Errors
     /// -----------------------------------------------------------------------
 
@@ -567,6 +585,8 @@ contract Quest is Storage {
         // Increment Quest-related counter.
         incrementQuestCountByUser(user);
         incrementNumOfMissionQuested(missions, missionId);
+
+        emit Started(user, missions, missionId);
     }
 
     function setQuestActive(address user, address missions, uint256 missionId) internal virtual {
@@ -623,6 +643,8 @@ contract Quest is Storage {
         if (!this.getReviewStatus()) {
             updateQuestAndStats(user, missions, missionId, taskId);
         }
+
+        emit Responded(user, missions, missionId, taskId, response, feedback);
     }
 
     function setResponse(
@@ -687,6 +709,8 @@ contract Quest is Storage {
 
         // Update quest detail.
         updateQuestAndStats(user, missions, missionId, taskId);
+
+        emit Reviewed(reviewer, user, missions, missionId, taskId, response, feedback);
     }
 
     /// @notice Add a review.

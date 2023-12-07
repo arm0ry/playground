@@ -154,12 +154,21 @@ contract QuestSupportToken is ERC1155 {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat("Mint Price: ", SVG._uint2str(IKaliCurve(curve).getMintPrice(curveId)))
+                string.concat("Mint Price: ", SVG._uint2str(IKaliCurve(curve).getPrice(true, curveId)))
             ),
             SVG._text(
                 string.concat(
                     SVG._prop("x", "20"),
                     SVG._prop("y", "240"),
+                    SVG._prop("font-size", "12"),
+                    SVG._prop("fill", "#00040a")
+                ),
+                string.concat("Mint Price: ", SVG._uint2str(IKaliCurve(curve).getPrice(false, curveId)))
+            ),
+            SVG._text(
+                string.concat(
+                    SVG._prop("x", "20"),
+                    SVG._prop("y", "260"),
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
@@ -179,7 +188,7 @@ contract QuestSupportToken is ERC1155 {
             SVG._text(
                 string.concat(
                     SVG._prop("x", "20"),
-                    SVG._prop("y", "260"),
+                    SVG._prop("y", "300"),
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
