@@ -3,19 +3,17 @@ pragma solidity >=0.8.4;
 
 import {SVG} from "../utils/SVG.sol";
 import {JSON} from "../utils/JSON.sol";
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
-import {ERC1155} from "solbase/tokens/ERC1155/ERC1155.sol";
+import {ERC721} from "solbase/tokens/ERC721/ERC721.sol";
 
 import {Mission} from "../Mission.sol";
 import {IMission} from "../interface/IMission.sol";
 import {IQuest} from "../interface/IQuest.sol";
-import {IKaliCurve, CurveType} from "kali-markets/interface/IKaliCurve.sol";
+import {ImpactCurve} from "../ImpactCurve.sol";
 import {IStorage} from "kali-markets/interface/IStorage.sol";
-import {IKaliTokenManager} from "kali-markets/interface/IKaliTokenManager.sol";
 
 /// @title Support SVG NFTs.
 /// @notice SVG NFTs displaying impact generated from quests.
-contract QuestSupportToken is ERC1155 {
+contract QuestSupportToken is ERC721 {
     /// -----------------------------------------------------------------------
     /// Custom Error
     /// -----------------------------------------------------------------------
@@ -53,7 +51,7 @@ contract QuestSupportToken is ERC1155 {
     /// Metadata Storage & Logic
     /// -----------------------------------------------------------------------
 
-    function uri(uint256 id) public view override returns (string memory) {
+    function tokenURI(uint256 id) public view override returns (string memory) {
         return _buildURI(id);
     }
 
@@ -154,7 +152,7 @@ contract QuestSupportToken is ERC1155 {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat("Mint Price: ", SVG._uint2str(IKaliCurve(curve).getPrice(true, curveId)))
+                string.concat("Mint Price: ", SVG._uint2str(ImpactCurve(curve).getPrice(true, curveId)))
             ),
             SVG._text(
                 string.concat(
@@ -163,7 +161,7 @@ contract QuestSupportToken is ERC1155 {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat("Mint Price: ", SVG._uint2str(IKaliCurve(curve).getPrice(false, curveId)))
+                string.concat("Mint Price: ", SVG._uint2str(ImpactCurve(curve).getPrice(false, curveId)))
             ),
             SVG._text(
                 string.concat(
@@ -201,65 +199,6 @@ contract QuestSupportToken is ERC1155 {
         return string.concat(
             SVG._image(url, string.concat(SVG._prop("x", "220"), SVG._prop("y", "230"), SVG._prop("width", "50")))
         );
-    }
-
-    /// -----------------------------------------------------------------------
-    /// DAO Logic
-    /// -----------------------------------------------------------------------
-
-    /// -----------------------------------------------------------------------
-    /// User Logic
-    /// -----------------------------------------------------------------------
-
-    /// @notice Claim unsuccessful transfers.
-    function claim() external payable {
-        uint256 amount = unclaimed[msg.sender];
-        if (amount == 0) revert InvalidAmount();
-
-        delete unclaimed[msg.sender];
-
-        (bool success,) = msg.sender.call{value: amount}("");
-        if (!success) revert TransferFailed();
-    }
-
-    /// -----------------------------------------------------------------------
-    /// Patron Logic
-    /// -----------------------------------------------------------------------
-
-    ///
-    function redeem(address user, uint256 missionId, uint256 curveId)
-        external
-        payable
-        onlyActive(user, mission, missionId)
-    {
-        // Confirm user is a patron.
-        if (IKaliTokenManager(IKaliCurve(curve).getImpactDao(curveId)).balanceOf(user) == 0) revert NotAuthorized();
-
-        // Mint support tokens.
-        _mint(msg.sender, this.getTokenId(user, missionId, curveId), 1, "");
-    }
-
-    function support(address user, uint256 missionId, uint256 curveId, uint256 amount)
-        external
-        payable
-        onlyActive(user, mission, missionId)
-    {
-        // Retrieve price to support.
-        uint256 diff = IKaliCurve(curve).getMintBurnDifference(curveId);
-
-        // Confirm msg.value is valid.
-        if (diff * amount != msg.value) revert InvalidAmount();
-
-        // Mint support tokens.
-        _mint(msg.sender, this.getTokenId(user, missionId, curveId), amount, "");
-
-        // Confirm impactDAO exists.
-        address impactDao = IKaliCurve(curve).getImpactDao(curveId);
-        if (impactDao == address(0)) revert NotActive();
-
-        // Transfer funds to impactDAO.
-        (bool success,) = impactDao.call{value: diff}("");
-        if (!success) unclaimed[impactDao] = diff;
     }
 
     /// -----------------------------------------------------------------------
