@@ -2,4 +2,35 @@
 pragma solidity ^0.8.17;
 
 /// @notice Interface to Harberger tax tokens.
-interface ISupportToken {}
+interface ISupportToken {
+    /// @notice Initialization logic.
+    /// @notice Quest SupportToken.
+    function init(
+        string memory _name,
+        string memory _symbol,
+        address _owner,
+        address _quest,
+        address _mission,
+        uint256 _missionId,
+        address _curve,
+        uint256 _curveId
+    ) external payable;
+    /// @notice Mission SupportToken.
+    function init(
+        string memory _name,
+        string memory _symbol,
+        address _owner,
+        address _mission,
+        uint256 _missionId,
+        address _curve,
+        uint256 _curveId
+    ) external payable;
+
+    /// @notice Patron logic.
+    function mint(address to, uint256 id) external payable;
+    function burn(uint256 id) external payable;
+
+    /// @notice Getter logic.
+    function totalSupply() external view returns (uint256);
+    function ownerOf(uint256 id) external view returns (address);
+}

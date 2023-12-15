@@ -5,11 +5,13 @@ import "forge-std/Test.sol";
 import "forge-std/console2.sol";
 
 import {ImpactCurve, CurveType} from "src/ImpactCurve.sol";
-import {MockERC721} from "lib/solbase/test/utils/mocks/MockERC721.sol";
+import {qSupportToken} from "src/tokens/qSupportToken.sol";
+import {mSupportToken} from "src/tokens/mSupportToken.sol";
 
-contract QuestSupportTokenTest is Test {
+contract ImpactCurveTest is Test {
     ImpactCurve ic;
-    MockERC721 token;
+    qSupportToken qst;
+    mSupportToken mst;
 
     /// @dev Users.
     address public immutable alice = makeAddr("alice");
@@ -22,27 +24,37 @@ contract QuestSupportTokenTest is Test {
     string internal constant testString = "TEST";
 
     /// -----------------------------------------------------------------------
-    /// Kali Setup Tests
+    /// Setup Test
     /// -----------------------------------------------------------------------
 
     /// @notice Set up the testing suite.
 
     function setUp() public payable {
-        // Deploy contract
+        // Deploy contract.
         ic = new ImpactCurve();
-        token = new MockERC721(testString, testString);
+        qst = new qSupportToken();
+        mst = new mSupportToken();
 
-        setupCurve(
-            CurveType.NA, address(token), alice, uint96(0.0001 ether), uint16(10), uint48(2), uint48(2), uint48(2)
-        );
+        setupCurve(CurveType.NA, address(qst), alice, uint96(0.0001 ether), uint16(10), uint48(2), uint48(2), uint48(2));
     }
 
-    function testMint() public payable {}
+    /// -----------------------------------------------------------------------
+    /// Setup Test
+    /// -----------------------------------------------------------------------
+
+    function testMint() public payable {
+        vm.prank(bob);
+        ic.support(1, ic.getPrice(true, 1));
+    }
 
     function testReceiveETH() public payable {
         (bool sent,) = address(ic).call{value: 5 ether}("");
-        assert(!sent);
+        assert(sent);
     }
+
+    /// -----------------------------------------------------------------------
+    /// Internal Functions
+    /// -----------------------------------------------------------------------
 
     function initializeIC(address _dao) internal {
         ic.initialize(_dao);
@@ -51,7 +63,7 @@ contract QuestSupportTokenTest is Test {
     /// @notice Set up a curve.
     function setupCurve(
         CurveType curveType,
-        address nft,
+        address supportToken,
         address user,
         uint96 scale,
         uint16 burnRatio,
@@ -61,6 +73,6 @@ contract QuestSupportTokenTest is Test {
     ) internal {
         // Set up curve.
         vm.prank(user);
-        ic.curve(curveType, nft, user, scale, burnRatio, constant_a, constant_b, constant_c);
+        ic.curve(curveType, supportToken, user, scale, burnRatio, constant_a, constant_b, constant_c);
     }
 }

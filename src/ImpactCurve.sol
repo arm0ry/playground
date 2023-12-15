@@ -1,19 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.4;
 
-import {IERC721Enumerable} from "forge-std/interfaces/IERC721.sol";
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
-
-import {ERC721} from "solbase/tokens/ERC721/ERC721.sol";
-
-import {IStorage} from "kali-markets/interface/IStorage.sol";
 import {Storage} from "kali-markets/Storage.sol";
 
-enum CurveType {
-    NA,
-    LINEAR,
-    POLY
-}
+import {IImpactCurve, CurveType} from "./interface/IImpactCurve.sol";
+import {ISupportToken} from "./interface/ISupportToken.sol";
 
 /// @notice .
 /// @author audsssy.eth
@@ -22,7 +13,6 @@ contract ImpactCurve is Storage {
     /// Events
     /// -----------------------------------------------------------------------
 
-    event Left(uint256 curveId, address patron, uint256 curveSupply);
     event CurveCreated(
         uint256 curveId,
         CurveType curveType,
@@ -80,7 +70,7 @@ contract ImpactCurve is Storage {
         uint48 constant_b,
         uint48 constant_c
     ) external payable returns (uint256 curveId) {
-        if (IERC721Enumerable(token).totalSupply() > 0) revert InvalidCurve();
+        if (ISupportToken(token).totalSupply() > 0) revert InvalidCurve();
 
         // Increment and assign curveId.
         curveId = incrementCurveId();
@@ -131,19 +121,27 @@ contract ImpactCurve is Storage {
         addUnclaimed(this.getCurveOwner(curveId), price - this.getPrice(false, curveId));
 
         // Mint.
-        ERC721(this.getCurveToken(curveId))._safeMint(msg.sender, incrementCurveSupply(curveId));
+        address curveToken = this.getCurveToken(curveId);
+        if (curveToken != address(0) && !this.getCurveBurned(curveId, msg.sender)) {
+            setCurveBurned(curveId, msg.sender, true);
+            ISupportToken(curveToken).mint(msg.sender, 0);
+        }
     }
 
     /// @notice Burn curve token to receive ether.
-    function burn(uint256 curveId, address patron) external payable initialized {
+    function burn(uint256 curveId, address patron, uint256 id) external payable initialized {
         // Validate mint conditions.
-        if (this.getCurveBurned(curveId, patron)) revert NotAuthorized();
-        setCurveBurned(curveId, patron, true);
+        if (!this.getCurveBurned(curveId, patron)) revert NotAuthorized();
+        deleteCurveBurned(curveId, patron);
+
+        if (ISupportToken(this.getCurveToken(curveId)).ownerOf(id) != msg.sender) revert NotAuthorized();
 
         // Distribute burn to patron.
         uint256 amount = this.getPrice(false, curveId);
         (bool success,) = patron.call{value: amount}("");
         if (!success) addUnclaimed(patron, amount);
+
+        ISupportToken(this.getCurveToken(curveId)).burn(id);
     }
 
     /// @notice Internal function to add to unclaimed amount.
@@ -157,7 +155,6 @@ contract ImpactCurve is Storage {
 
     /// @notice .
     function setCurveToken(uint256 curveId, address token) internal {
-        if (token == address(0)) revert NotAuthorized();
         _setAddress(keccak256(abi.encode(curveId, ".token")), token);
     }
 
@@ -182,6 +179,11 @@ contract ImpactCurve is Storage {
         _setBool(keccak256(abi.encode(curveId, ".patrons.", patron, ".burned")), burned);
     }
 
+    /// @notice .
+    function deleteCurveBurned(uint256 curveId, address patron) internal {
+        deleteBool(keccak256(abi.encode(curveId, ".patrons.", patron, ".burned")));
+    }
+
     /// -----------------------------------------------------------------------
     /// Curve Getter Logic
     /// -----------------------------------------------------------------------
@@ -197,9 +199,9 @@ contract ImpactCurve is Storage {
     }
 
     /// @notice Return current supply of a curve.
-    function getCurveSupply(uint256 curveId) external view returns (uint256) {
-        return this.getUint(keccak256(abi.encode(curveId, ".supply")));
-    }
+    // function getCurveSupply(uint256 curveId) external view returns (uint256) {
+    //     return this.getUint(keccak256(abi.encode(curveId, ".supply")));
+    // }
 
     /// @notice Return type of a curve.
     function getCurveType(uint256 curveId) external view returns (CurveType) {
@@ -212,15 +214,15 @@ contract ImpactCurve is Storage {
     }
 
     /// @notice .
-    function getCurveBurned(uint256 curveId, address patron, bool burned) external view returns (bool) {
-        return this.getBool(keccak256(abi.encode(curveId, ".patrons.", patron, ".burned")), burned);
+    function getCurveBurned(uint256 curveId, address patron) external view returns (bool) {
+        return this.getBool(keccak256(abi.encode(curveId, ".patrons.", patron, ".burned")));
     }
 
     /// @notice Calculate mint and burn price.
     function getPrice(bool _mint, uint256 curveId) external view virtual returns (uint256) {
         // Retrieve curve data.
         CurveType curveType = this.getCurveType(curveId);
-        uint256 supply = this.getCurveSupply(curveId);
+        uint256 supply = ISupportToken(this.getCurveToken(curveId)).totalSupply();
         (uint256 scale, uint256 burnRatio, uint256 constant_a, uint256 constant_b, uint256 constant_c) =
             this.getCurveFormula(curveId);
 
@@ -260,14 +262,14 @@ contract ImpactCurve is Storage {
     }
 
     /// @notice Internal function to increment supply of a curve.
-    function incrementCurveSupply(uint256 curveId) internal returns (uint256) {
-        return addUint(keccak256(abi.encode(curveId, ".supply")), 1);
-    }
+    // function incrementCurveSupply(uint256 curveId) internal returns (uint256) {
+    //     return addUint(keccak256(abi.encode(curveId, ".supply")), 1);
+    // }
 
     /// @notice Internal function to decrement supply of a curve.
-    function decrementCurveSupply(uint256 curveId) internal returns (uint256) {
-        return subUint(keccak256(abi.encode(curveId, ".supply")), 1);
-    }
+    // function decrementCurveSupply(uint256 curveId) internal returns (uint256) {
+    //     return subUint(keccak256(abi.encode(curveId, ".supply")), 1);
+    // }
 
     /// -----------------------------------------------------------------------
     /// Delete Logic
