@@ -51,12 +51,12 @@ contract qSupportToken is SupportToken {
     }
 
     modifier onlyDeployer() {
-        if (msg.sender != owner || msg.sender != curve) revert Unauthorized();
+        if (msg.sender != owner && msg.sender != curve) revert Unauthorized();
         _;
     }
 
     modifier onlyCurve() {
-        if (msg.sender != owner || msg.sender != curve) revert Unauthorized();
+        if (msg.sender != curve) revert Unauthorized();
         _;
     }
 

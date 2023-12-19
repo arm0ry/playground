@@ -18,7 +18,7 @@ contract ImpactCurveTest is Test {
     address public immutable bob = makeAddr("bob");
     address public immutable charlie = makeAddr("charlie");
     address public immutable dummy = makeAddr("dummy");
-    address payable public immutable arm0ry = payable(makeAddr("arm0ry"));
+    address payable public immutable user = payable(makeAddr("user"));
 
     /// @dev Helpers.
     string internal constant testString = "TEST";
@@ -28,14 +28,26 @@ contract ImpactCurveTest is Test {
     /// -----------------------------------------------------------------------
 
     /// @notice Set up the testing suite.
-
     function setUp() public payable {
         // Deploy contract.
         ic = new ImpactCurve();
         qst = new qSupportToken();
+        qst.init("Support Token", "ST", user, user, user, 1, address(ic), 1);
         mst = new mSupportToken();
 
-        setupCurve(CurveType.NA, address(qst), alice, uint96(0.0001 ether), uint16(10), uint48(2), uint48(2), uint48(2));
+        initializeIC(user);
+        setupCurve(
+            CurveType.LINEAR,
+            address(qst),
+            alice,
+            uint64(0.0001 ether),
+            uint32(2),
+            uint32(2),
+            uint32(2),
+            uint32(1),
+            uint32(1),
+            uint32(1)
+        );
     }
 
     /// -----------------------------------------------------------------------
@@ -43,8 +55,11 @@ contract ImpactCurveTest is Test {
     /// -----------------------------------------------------------------------
 
     function testMint() public payable {
+        emit log_uint(ic.getPrice(true, 1));
+
+        vm.deal(bob, 10 ether);
         vm.prank(bob);
-        ic.support(1, ic.getPrice(true, 1));
+        ic.support{value: ic.getPrice(true, 1)}(1, bob, ic.getPrice(true, 1));
     }
 
     function testReceiveETH() public payable {
@@ -56,23 +71,25 @@ contract ImpactCurveTest is Test {
     /// Internal Functions
     /// -----------------------------------------------------------------------
 
-    function initializeIC(address _dao) internal {
-        ic.initialize(_dao);
+    function initializeIC(address _user) internal {
+        ic.initialize(_user);
     }
 
     /// @notice Set up a curve.
     function setupCurve(
         CurveType curveType,
         address supportToken,
-        address user,
-        uint96 scale,
-        uint16 burnRatio,
-        uint48 constant_a,
-        uint48 constant_b,
-        uint48 constant_c
+        address _user,
+        uint64 scale,
+        uint32 mint_a,
+        uint32 mint_b,
+        uint32 mint_c,
+        uint32 burn_a,
+        uint32 burn_b,
+        uint32 burn_c
     ) internal {
         // Set up curve.
-        vm.prank(user);
-        ic.curve(curveType, supportToken, user, scale, burnRatio, constant_a, constant_b, constant_c);
+        vm.prank(_user);
+        ic.curve(curveType, supportToken, _user, scale, mint_a, mint_b, mint_c, mint_a, mint_b, mint_c);
     }
 }
