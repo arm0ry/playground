@@ -125,12 +125,12 @@ contract ImpactCurve is Storage {
     function support(uint256 curveId, address patron, uint256 price) external payable initialized {
         // Validate mint conditions.
         if (patron == this.getCurveOwner(curveId)) revert NotAuthorized();
-        if (price != this.getPrice(true, curveId) || price != msg.value) {
+        if (price != this.getPrice(true, curveId, 0) || price != msg.value) {
             revert InvalidAmount();
         }
 
         // Distribute support to curve owner.
-        uint256 burnPrice = this.getPrice(false, curveId);
+        uint256 burnPrice = this.getPrice(false, curveId, 0);
         addUnclaimed(this.getCurveOwner(curveId), price - burnPrice);
         addCurvePool(curveId, burnPrice);
 
@@ -151,7 +151,7 @@ contract ImpactCurve is Storage {
         ISupportToken(curveToken).burn(id);
 
         // Reduce curve pool by burn price.
-        uint256 burnPrice = this.getPrice(false, curveId);
+        uint256 burnPrice = this.getPrice(false, curveId, 0);
         subCurvePool(curveId, burnPrice);
 
         // Distribute burn to patron.
@@ -195,7 +195,9 @@ contract ImpactCurve is Storage {
         uint32 burn_b,
         uint32 burn_c
     ) internal {
-        //TODO: Check overflow of the equation before setting formula
+        // To prevent future calculation errors, such as arithmetic overflow/underflow.
+        if (burn_a >= mint_a || burn_b >= mint_b || burn_c >= mint_c) revert InvalidCurve();
+
         uint256 key = this.encodeCurveData(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
         _setUint(keccak256(abi.encode(address(this), ".curves", curveId, ".formula")), key);
     }
@@ -229,11 +231,6 @@ contract ImpactCurve is Storage {
         return this.getAddress(keccak256(abi.encode(address(this), ".curves", curveId, ".token")));
     }
 
-    /// @notice Return current supply of a curve.
-    // function getCurveSupply(uint256 curveId) external view returns (uint256) {
-    //     return this.getUint(keccak256(abi.encode(curveId, ".supply")));
-    // }
-
     /// @notice Return type of a curve.
     function getCurveType(uint256 curveId) external view returns (CurveType) {
         return CurveType(this.getUint(keccak256(abi.encode(address(this), ".curves", curveId, ".curveType"))));
@@ -258,33 +255,53 @@ contract ImpactCurve is Storage {
         return this.getBool(keccak256(abi.encode(address(this), ".curves", curveId, ".patrons.", patron, ".burned")));
     }
 
-    // TODO: Update price based on updated formula
     /// @notice Calculate mint and burn price.
-    function getPrice(bool _mint, uint256 curveId) external view virtual returns (uint256) {
+    function getPrice(bool _mint, uint256 curveId, uint256 _supply) external view virtual returns (uint256) {
         // Retrieve curve data.
         CurveType curveType = this.getCurveType(curveId);
-        uint256 supply = ISupportToken(this.getCurveToken(curveId)).totalSupply();
+        uint256 supply = _supply == 0 ? ISupportToken(this.getCurveToken(curveId)).totalSupply() : _supply;
         (uint256 scale, uint256 mint_a, uint256 mint_b, uint256 mint_c, uint256 burn_a, uint256 burn_b, uint256 burn_c)
         = this.getCurveFormula(curveId);
 
-        // Update curve data based on request for mint or burn price.
+        // Use next available supply when mint, current supply when burn.
         supply = _mint ? supply + 1 : supply;
-        // burnRatio = _mint ? 10000 : uint256(10000) - burnRatio;
 
-        if (curveType == CurveType.LINEAR) {
-            // Return linear pricing based on, a * b * x + b.
-            return mint_a * supply * scale + mint_b * scale;
-        } else if (curveType == CurveType.POLY) {
-            // Return curve pricing based on, a * c * x^2 + b * c * x + c.
-            return mint_a * (supply ** 2) * scale + mint_b * supply * scale + mint_c * scale;
+        if (_mint) {
+            // Calculate mint price.
+            if (curveType == CurveType.LINEAR) {
+                // Return linear pricing based on, a * b * x + b.
+                return this.calculatePrice(supply, scale, 0, mint_b, mint_c);
+            } else if (curveType == CurveType.POLY) {
+                // Return curve pricing based on, a * c * x^2 + b * c * x + c.
+                return this.calculatePrice(supply, scale, mint_a, mint_b, mint_c);
+            } else {
+                return 0;
+            }
         } else {
-            return 0;
+            // Calculate burn price.
+            if (curveType == CurveType.LINEAR) {
+                // Return linear pricing based on, a * b * x + b.
+                return this.calculatePrice(supply, scale, 0, burn_b, burn_c);
+            } else if (curveType == CurveType.POLY) {
+                // Return curve pricing based on, a * c * x^2 + b * c * x + c.
+                return this.calculatePrice(supply, scale, burn_a, burn_b, burn_c);
+            } else {
+                return 0;
+            }
         }
+    }
+
+    function calculatePrice(uint256 supply, uint256 scale, uint256 constant_a, uint256 constant_b, uint256 constant_c)
+        external
+        pure
+        returns (uint256)
+    {
+        return constant_a * (supply ** 2) * scale + constant_b * supply * scale + constant_c * scale;
     }
 
     /// @notice Return mint and burn price difference of a curve.
     function getMintBurnDifference(uint256 curveId) external view returns (uint256) {
-        return this.getPrice(true, curveId) - this.getPrice(false, curveId);
+        return this.getPrice(true, curveId, 0) - this.getPrice(false, curveId, 0);
     }
 
     /// @notice Return unclaimed amount by a user.
@@ -299,6 +316,11 @@ contract ImpactCurve is Storage {
     /// @notice Internal function to increment number of total curves.
     function incrementCurveId() internal returns (uint256) {
         return addUint(keccak256(abi.encode("curves.count")), 1);
+    }
+
+    /// @notice Internal function to increment number of total curves.
+    function getCurveId() external view returns (uint256) {
+        return this.getUint(keccak256(abi.encode("curves.count")));
     }
 
     /// -----------------------------------------------------------------------

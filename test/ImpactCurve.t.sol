@@ -36,6 +36,13 @@ contract ImpactCurveTest is Test {
         mst = new mSupportToken();
 
         initializeIC(user);
+    }
+
+    /// -----------------------------------------------------------------------
+    /// Linear Test
+    /// -----------------------------------------------------------------------
+
+    function testLinearCurve() public payable {
         setupCurve(
             CurveType.LINEAR,
             address(qst),
@@ -50,16 +57,12 @@ contract ImpactCurveTest is Test {
         );
     }
 
-    /// -----------------------------------------------------------------------
-    /// Setup Test
-    /// -----------------------------------------------------------------------
-
-    function testMint() public payable {
-        emit log_uint(ic.getPrice(true, 1));
+    function testLinearCurve_testMint() public payable {
+        testLinearCurve();
 
         vm.deal(bob, 10 ether);
         vm.prank(bob);
-        ic.support{value: ic.getPrice(true, 1)}(1, bob, ic.getPrice(true, 1));
+        ic.support{value: ic.getPrice(true, 1, 0)}(1, bob, ic.getPrice(true, 1, 0));
     }
 
     function testReceiveETH() public payable {
@@ -90,6 +93,23 @@ contract ImpactCurveTest is Test {
     ) internal {
         // Set up curve.
         vm.prank(_user);
-        ic.curve(curveType, supportToken, _user, scale, mint_a, mint_b, mint_c, mint_a, mint_b, mint_c);
+        ic.curve(curveType, supportToken, _user, scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
+
+        (
+            uint256 _scale,
+            uint256 _mint_a,
+            uint256 _mint_b,
+            uint256 _mint_c,
+            uint256 _burn_a,
+            uint256 _burn_b,
+            uint256 _burn_c
+        ) = ic.getCurveFormula(ic.getCurveId());
+        assertEq(scale, _scale);
+        assertEq(mint_a, _mint_a);
+        assertEq(mint_b, _mint_b);
+        assertEq(mint_c, _mint_c);
+        assertEq(burn_a, _burn_a);
+        assertEq(burn_b, _burn_b);
+        assertEq(burn_c, _burn_c);
     }
 }

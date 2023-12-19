@@ -29,13 +29,14 @@ interface IImpactCurve {
     function burn(uint256 curveId, address patron, uint256 id) external payable;
 
     /// @notice Getter logic.
+    function getCurveId() external view returns (uint256);
     function getCurveOwner(uint256 curveId) external view returns (address);
     function getCurveToken(uint256 curveId) external view returns (address);
     function getCurveSupply(uint256 curveId) external view returns (uint256);
     function getCurveType(uint256 curveId) external view returns (CurveType);
     function getCurveFormula(uint256 curveId) external view returns (uint256, uint256, uint256, uint256, uint256);
     function getCurveBurned(uint256 curveId, address patron, bool burned) external view returns (bool);
-    function getPrice(bool _mint, uint256 curveId) external view returns (uint256);
+    function getPrice(bool mint, uint256 curveId, uint256 supply) external view returns (uint256);
     function getMintBurnDifference(uint256 curveId) external view returns (uint256);
     function getUnclaimed(address user) external view returns (uint256);
 
