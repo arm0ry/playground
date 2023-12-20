@@ -140,15 +140,15 @@ contract ImpactCurve is Storage {
     }
 
     /// @notice Burn curve token to receive ether.
-    function burn(uint256 curveId, address patron, uint256 id) external payable initialized {
+    function burn(uint256 curveId, address patron, uint256 tokenId) external payable initialized {
         // Validate mint conditions.
         address curveToken = this.getCurveToken(curveId);
-        if (ISupportToken(curveToken).ownerOf(id) != msg.sender) revert NotAuthorized();
+        if (ISupportToken(curveToken).ownerOf(tokenId) != msg.sender) revert NotAuthorized();
         if (this.getCurveBurned(curveId, patron)) revert NotAuthorized();
         setCurveBurned(curveId, patron, true);
 
         // Burn SupportToken.
-        ISupportToken(curveToken).burn(id);
+        ISupportToken(curveToken).burn(tokenId);
 
         // Reduce curve pool by burn price.
         uint256 burnPrice = this.getPrice(false, curveId, 0);
@@ -161,7 +161,7 @@ contract ImpactCurve is Storage {
 
     /// @notice Internal function to add to unclaimed amount.
     function addUnclaimed(address user, uint256 amount) internal {
-        addUint(keccak256(abi.encode(user, ".unclaimed")), amount);
+        addUint(keccak256(abi.encode(address(this), ".users.", user, ".unclaimed")), amount);
     }
 
     /// -----------------------------------------------------------------------
@@ -300,13 +300,13 @@ contract ImpactCurve is Storage {
     }
 
     /// @notice Return mint and burn price difference of a curve.
-    function getMintBurnDifference(uint256 curveId) external view returns (uint256) {
-        return this.getPrice(true, curveId, 0) - this.getPrice(false, curveId, 0);
+    function getMintBurnDifference(uint256 curveId, uint256 supply) external view returns (uint256) {
+        return this.getPrice(true, curveId, supply) - this.getPrice(false, curveId, supply);
     }
 
     /// @notice Return unclaimed amount by a user.
     function getUnclaimed(address user) external view returns (uint256) {
-        return this.getUint(keccak256(abi.encode(user, ".unclaimed")));
+        return this.getUint(keccak256(abi.encode(address(this), ".users.", user, ".unclaimed")));
     }
 
     /// -----------------------------------------------------------------------
@@ -315,12 +315,12 @@ contract ImpactCurve is Storage {
 
     /// @notice Internal function to increment number of total curves.
     function incrementCurveId() internal returns (uint256) {
-        return addUint(keccak256(abi.encode("curves.count")), 1);
+        return addUint(keccak256(abi.encode(address(this), ".curves.count")), 1);
     }
 
     /// @notice Internal function to increment number of total curves.
     function getCurveId() external view returns (uint256) {
-        return this.getUint(keccak256(abi.encode("curves.count")));
+        return this.getUint(keccak256(abi.encode(address(this), ".curves.count")));
     }
 
     /// -----------------------------------------------------------------------
@@ -329,7 +329,7 @@ contract ImpactCurve is Storage {
 
     /// @notice Internal function to delete unclaimed amount.
     function deleteUnclaimed(address user) internal {
-        deleteUint(keccak256(abi.encode(user, ".unclaimed")));
+        deleteUint(keccak256(abi.encode(address(this), ".users.", user, ".unclaimed")));
     }
 
     /// -----------------------------------------------------------------------

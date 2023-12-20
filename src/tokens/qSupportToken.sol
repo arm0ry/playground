@@ -69,14 +69,14 @@ contract qSupportToken is SupportToken {
             ++totalSupply;
         }
 
-        if (id == 0) {
-            _safeMint(to, totalSupply);
-        } else {
-            _safeMint(to, id);
-        }
+        _safeMint(to, totalSupply);
     }
 
     function burn(uint256 id) external payable onlyCurve {
+        unchecked {
+            --totalSupply;
+        }
+
         _burn(id);
     }
 

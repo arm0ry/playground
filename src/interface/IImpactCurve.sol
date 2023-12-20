@@ -26,7 +26,7 @@ interface IImpactCurve {
     /// @notice Patron logic.
     function claim() external payable;
     function support(uint256 curveId, uint256 price) external payable;
-    function burn(uint256 curveId, address patron, uint256 id) external payable;
+    function burn(uint256 curveId, address patron, uint256 tokenId) external payable;
 
     /// @notice Getter logic.
     function getCurveId() external view returns (uint256);
