@@ -129,14 +129,14 @@ contract ImpactCurve is Storage {
             revert InvalidAmount();
         }
 
+        // Mint.
+        address curveToken = this.getCurveToken(curveId);
+        ISupportToken(curveToken).mint(patron, 0);
+
         // Distribute support to curve owner.
         uint256 burnPrice = this.getPrice(false, curveId, 0);
         addUnclaimed(this.getCurveOwner(curveId), price - burnPrice);
         addCurvePool(curveId, burnPrice);
-
-        // Mint.
-        address curveToken = this.getCurveToken(curveId);
-        ISupportToken(curveToken).mint(patron, 0);
     }
 
     /// @notice Burn curve token to receive ether.
@@ -147,9 +147,6 @@ contract ImpactCurve is Storage {
         if (this.getCurveBurned(curveId, patron)) revert NotAuthorized();
         setCurveBurned(curveId, patron, true);
 
-        // Burn SupportToken.
-        ISupportToken(curveToken).burn(tokenId);
-
         // Reduce curve pool by burn price.
         uint256 burnPrice = this.getPrice(false, curveId, 0);
         subCurvePool(curveId, burnPrice);
@@ -157,6 +154,9 @@ contract ImpactCurve is Storage {
         // Distribute burn to patron.
         (bool success,) = patron.call{value: burnPrice}("");
         if (!success) addUnclaimed(patron, burnPrice);
+
+        // Burn SupportToken.
+        ISupportToken(curveToken).burn(tokenId);
     }
 
     /// @notice Internal function to add to unclaimed amount.
