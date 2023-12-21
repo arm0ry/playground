@@ -50,13 +50,14 @@ contract qSupportToken is SupportToken {
         curveId = _curveId;
     }
 
-    modifier onlyDeployer() {
-        if (msg.sender != owner && msg.sender != curve) revert Unauthorized();
+    modifier onlyCurve() {
+        if (msg.sender != curve) revert Unauthorized();
         _;
     }
 
-    modifier onlyCurve() {
-        if (msg.sender != curve) revert Unauthorized();
+    modifier onlyOwnerOrCurve(uint256 id) {
+        if (msg.sender != ownerOf(id) && msg.sender != curve) revert Unauthorized();
+
         _;
     }
 
@@ -64,7 +65,7 @@ contract qSupportToken is SupportToken {
     /// Mint / Burn Logic
     /// -----------------------------------------------------------------------
 
-    function mint(address to, uint256 id) external payable onlyDeployer {
+    function mint(address to) external payable onlyCurve {
         unchecked {
             ++totalSupply;
         }
@@ -72,7 +73,7 @@ contract qSupportToken is SupportToken {
         _safeMint(to, totalSupply);
     }
 
-    function burn(uint256 id) external payable onlyCurve {
+    function burn(uint256 id) external payable onlyOwnerOrCurve(id) {
         unchecked {
             --totalSupply;
         }

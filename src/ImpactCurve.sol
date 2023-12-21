@@ -73,7 +73,7 @@ contract ImpactCurve is Storage {
         uint32 burn_a,
         uint32 burn_b,
         uint32 burn_c
-    ) external payable returns (uint256 curveId) {
+    ) external payable initialized returns (uint256 curveId) {
         if (ISupportToken(token).totalSupply() > 0) revert InvalidCurve();
 
         // Increment and assign curveId.
@@ -131,7 +131,7 @@ contract ImpactCurve is Storage {
 
         // Mint.
         address curveToken = this.getCurveToken(curveId);
-        ISupportToken(curveToken).mint(patron, 0);
+        ISupportToken(curveToken).mint(patron);
 
         // Distribute support to curve owner.
         uint256 burnPrice = this.getPrice(false, curveId, 0);
@@ -140,7 +140,7 @@ contract ImpactCurve is Storage {
     }
 
     /// @notice Burn curve token to receive ether.
-    function burn(uint256 curveId, address patron, uint256 tokenId) external payable initialized {
+    function burn(uint256 curveId, address patron, uint256 tokenId) external payable {
         // Validate mint conditions.
         address curveToken = this.getCurveToken(curveId);
         if (ISupportToken(curveToken).ownerOf(tokenId) != msg.sender) revert NotAuthorized();

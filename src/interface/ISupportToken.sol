@@ -27,7 +27,7 @@ interface ISupportToken {
     ) external payable;
 
     /// @notice Patron logic.
-    function mint(address to, uint256 id) external payable;
+    function mint(address to) external payable;
     function burn(uint256 id) external payable;
 
     /// @notice Getter logic.
