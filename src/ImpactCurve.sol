@@ -114,6 +114,8 @@ contract ImpactCurve is Storage {
         if (ISupportToken(this.getCurveToken(curveId)).totalSupply() == 0 && this.getCurvePool(curveId) > 0) {
             (bool success,) = msg.sender.call{value: this.getCurvePool(curveId)}("");
             if (!success) revert TransferFailed();
+        } else {
+            revert NotAuthorized();
         }
     }
 
@@ -124,7 +126,8 @@ contract ImpactCurve is Storage {
     /// @notice Pay ether to mint curve token.
     function support(uint256 curveId, address patron, uint256 price) external payable initialized {
         // Validate mint conditions.
-        if (patron == this.getCurveOwner(curveId)) revert NotAuthorized();
+        address owner = this.getCurveOwner(curveId);
+        if (patron == owner) revert NotAuthorized();
         if (price != this.getPrice(true, curveId, 0) || price != msg.value) {
             revert InvalidAmount();
         }
@@ -135,7 +138,7 @@ contract ImpactCurve is Storage {
 
         // Distribute support to curve owner.
         uint256 burnPrice = this.getPrice(false, curveId, 0);
-        addUnclaimed(this.getCurveOwner(curveId), price - burnPrice);
+        addUnclaimed(owner, price - burnPrice);
         addCurvePool(curveId, burnPrice);
     }
 
@@ -153,7 +156,7 @@ contract ImpactCurve is Storage {
 
         // Distribute burn to patron.
         (bool success,) = patron.call{value: burnPrice}("");
-        if (!success) addUnclaimed(patron, burnPrice);
+        if (!success) revert TransferFailed();
 
         // Burn SupportToken.
         ISupportToken(curveToken).burn(tokenId);
