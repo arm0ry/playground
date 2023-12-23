@@ -75,6 +75,8 @@ contract ImpactCurve is Storage {
         uint32 burn_c
     ) external payable initialized returns (uint256 curveId) {
         if (ISupportToken(token).totalSupply() > 0) revert InvalidCurve();
+        if (curveType == CurveType.NA) revert InvalidCurve();
+        if (scale == 0) revert InvalidCurve();
 
         // Increment and assign curveId.
         curveId = incrementCurveId();
@@ -89,7 +91,11 @@ contract ImpactCurve is Storage {
         setCurveType(curveId, curveType);
 
         // Initialize curve data.
-        setCurveFormula(curveId, scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
+        if (curveType == CurveType.LINEAR) {
+            setCurveFormula(curveId, scale, 0, mint_b, mint_c, 0, burn_b, burn_c);
+        } else if (curveType == CurveType.POLY) {
+            setCurveFormula(curveId, scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
+        }
 
         emit CurveCreated(curveId, curveType, token, owner, scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
     }
@@ -127,6 +133,7 @@ contract ImpactCurve is Storage {
     function support(uint256 curveId, address patron, uint256 price) external payable initialized {
         // Validate mint conditions.
         address owner = this.getCurveOwner(curveId);
+        if (owner == address(0)) revert NotInitialized();
         if (patron == owner) revert NotAuthorized();
         if (price != this.getPrice(true, curveId, 0) || price != msg.value) {
             revert InvalidAmount();
@@ -199,7 +206,7 @@ contract ImpactCurve is Storage {
         uint32 burn_c
     ) internal {
         // To prevent future calculation errors, such as arithmetic overflow/underflow.
-        if (burn_a >= mint_a || burn_b >= mint_b || burn_c >= mint_c) revert InvalidCurve();
+        if (burn_a > mint_a || burn_b > mint_b || burn_c > mint_c) revert InvalidCurve();
 
         uint256 key = this.encodeCurveData(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
         _setUint(keccak256(abi.encode(address(this), ".curves", curveId, ".formula")), key);

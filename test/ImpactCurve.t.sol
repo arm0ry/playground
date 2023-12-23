@@ -61,11 +61,12 @@ contract ImpactCurveTest is Test {
         ic.support(1, bob, 1 ether);
     }
 
-    function testZeroCurve() public payable {
+    function testCurve_InvalidCurve() public payable {
         initializeIC(user);
         initializeQst(user);
 
-        uint256 id = setupCurve(
+        vm.expectRevert(ImpactCurve.InvalidCurve.selector);
+        uint256 id = ic.curve(
             CurveType.NA,
             address(qst),
             alice,
@@ -77,33 +78,14 @@ contract ImpactCurveTest is Test {
             uint32(1),
             uint32(1)
         );
-        validateCurve(id, ic.getCurveType(id));
     }
 
     /// -----------------------------------------------------------------------
     /// Linear Test
     /// -----------------------------------------------------------------------
 
-    function testLinearCurve() public payable {
-        initializeIC(user);
-        initializeQst(user);
-
-        uint256 id = setupCurve(
-            CurveType.LINEAR,
-            address(qst),
-            alice,
-            uint64(0.0001 ether),
-            uint32(2),
-            uint32(2),
-            uint32(2),
-            uint32(1),
-            uint32(1),
-            uint32(1)
-        );
-        validateCurve(id, ic.getCurveType(id));
-    }
-
-    function testLinearCurve_InvalidCurve(
+    function testLinearCurve(
+        uint64 scale,
         uint32 mint_a,
         uint32 mint_b,
         uint32 mint_c,
@@ -111,21 +93,41 @@ contract ImpactCurveTest is Test {
         uint32 burn_b,
         uint32 burn_c
     ) public payable {
-        vm.assume(burn_a > mint_a || burn_b > mint_b || burn_c > mint_c);
-        // vm.assume(burn_b > mint_b);
-        // vm.assume(burn_c > mint_c);
+        vm.assume(burn_a < mint_a && burn_b < mint_b && burn_c < mint_c);
+        vm.assume(scale > 0);
+
         initializeIC(user);
         initializeQst(user);
+        vm.warp(block.timestamp + 100);
+
+        uint256 id =
+            setupCurve(CurveType.LINEAR, address(qst), alice, scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
+        validateCurve(id, ic.getCurveType(id));
+    }
+
+    function testLinearCurve_InvalidCurve(
+        uint64 scale,
+        uint32 mint_a,
+        uint32 mint_b,
+        uint32 mint_c,
+        uint32 burn_a,
+        uint32 burn_b,
+        uint32 burn_c
+    ) public payable {
+        vm.assume(burn_a >= mint_a && burn_b >= mint_b && burn_c >= mint_c);
+        initializeIC(user);
+        initializeQst(user);
+        vm.warp(block.timestamp + 100);
 
         vm.expectRevert(ImpactCurve.InvalidCurve.selector);
-        uint256 id = ic.curve(
-            CurveType.LINEAR, address(qst), alice, uint64(0.0001 ether), mint_a, mint_b, mint_c, burn_a, burn_b, burn_c
-        );
+        uint256 id =
+            ic.curve(CurveType.LINEAR, address(qst), alice, scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
     }
 
     function testLinearCurve_NotAuthorized() public payable {
         initializeIC(user);
         initializeQst(user);
+        vm.warp(block.timestamp + 100);
 
         vm.expectRevert(ImpactCurve.NotAuthorized.selector);
         vm.prank(alice);
@@ -143,19 +145,30 @@ contract ImpactCurveTest is Test {
         );
     }
 
-    function testLinearCurve_support() public payable {
+    function testLinearCurve_support(
+        uint64 scale,
+        uint32 mint_a,
+        uint32 mint_b,
+        uint32 mint_c,
+        uint32 burn_a,
+        uint32 burn_b,
+        uint32 burn_c
+    ) public payable {
+        vm.assume(scale > 0);
+
         // Set up.
-        testLinearCurve();
+        testLinearCurve(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
+        vm.warp(block.timestamp + 100);
 
         // Retrieve for validation.
         uint256 mintPrice = ic.getPrice(true, 1, 0);
 
         // Deal.
-        vm.deal(bob, 10 ether);
+        vm.deal(bob, 10000000000000 ether);
 
         // Support.
         vm.prank(bob);
-        ic.support{value: ic.getPrice(true, 1, 0)}(1, bob, ic.getPrice(true, 1, 0));
+        ic.support{value: mintPrice}(1, bob, mintPrice);
 
         uint256 burnPrice = ic.getPrice(false, 1, 0);
 
@@ -167,15 +180,23 @@ contract ImpactCurveTest is Test {
         assertEq(ic.getPrice(true, 1, 1000) - ic.getPrice(false, 1, 1000), ic.getMintBurnDifference(1, 1000));
     }
 
-    function testLinearCurve_support_NotAuthorized() public payable {
+    function testLinearCurve_support_NotAuthorized(
+        uint64 scale,
+        uint32 mint_a,
+        uint32 mint_b,
+        uint32 mint_c,
+        uint32 burn_a,
+        uint32 burn_b,
+        uint32 burn_c
+    ) public payable {
         // Set up.
-        testLinearCurve_support();
+        testLinearCurve_support(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
 
         // Retrieve for validation.
         uint256 mintPrice = ic.getPrice(true, 1, 0);
 
         // Deal.
-        vm.deal(alice, 10 ether);
+        vm.deal(alice, 10000000000000 ether);
 
         // Support.
         vm.expectRevert(ImpactCurve.NotAuthorized.selector);
@@ -183,8 +204,16 @@ contract ImpactCurveTest is Test {
         ic.support{value: mintPrice}(1, alice, mintPrice);
     }
 
-    function testLinearCurve_support_InvalidCurve() public payable {
-        testLinearCurve_support();
+    function testLinearCurve_support_InvalidCurve(
+        uint64 scale,
+        uint32 mint_a,
+        uint32 mint_b,
+        uint32 mint_c,
+        uint32 burn_a,
+        uint32 burn_b,
+        uint32 burn_c
+    ) public payable {
+        testLinearCurve_support(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
 
         vm.expectRevert(ImpactCurve.InvalidCurve.selector);
         vm.prank(alice);
@@ -202,15 +231,23 @@ contract ImpactCurveTest is Test {
         );
     }
 
-    function testLinearCurve_support_InvalidAmount_InvalidMsgValue() public payable {
+    function testLinearCurve_support_InvalidAmount_InvalidMsgValue(
+        uint64 scale,
+        uint32 mint_a,
+        uint32 mint_b,
+        uint32 mint_c,
+        uint32 burn_a,
+        uint32 burn_b,
+        uint32 burn_c
+    ) public payable {
         // Set up.
-        testLinearCurve();
+        testLinearCurve(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
 
         // Retrieve for validation.
         uint256 mintPrice = ic.getPrice(true, 1, 0);
 
         // Deal.
-        vm.deal(bob, 10 ether);
+        vm.deal(bob, 10000000000000 ether);
 
         // Support.
         vm.expectRevert(ImpactCurve.InvalidAmount.selector);
@@ -218,15 +255,23 @@ contract ImpactCurveTest is Test {
         ic.support{value: 1 ether}(1, bob, mintPrice);
     }
 
-    function testLinearCurve_support_InvalidAmount_InvalidParam() public payable {
+    function testLinearCurve_support_InvalidAmount_InvalidParam(
+        uint64 scale,
+        uint32 mint_a,
+        uint32 mint_b,
+        uint32 mint_c,
+        uint32 burn_a,
+        uint32 burn_b,
+        uint32 burn_c
+    ) public payable {
         // Set up.
-        testLinearCurve();
+        testLinearCurve(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
 
         // Retrieve for validation.
         uint256 mintPrice = ic.getPrice(true, 1, 0);
 
         // Deal.
-        vm.deal(bob, 10 ether);
+        vm.deal(bob, 10000000000000 ether);
 
         // Support.
         vm.expectRevert(ImpactCurve.InvalidAmount.selector);
@@ -234,9 +279,19 @@ contract ImpactCurveTest is Test {
         ic.support{value: mintPrice}(1, bob, 1 ether);
     }
 
-    function testLinearCurve_burn() public payable {
+    function testLinearCurve_burn(
+        uint64 scale,
+        uint32 mint_a,
+        uint32 mint_b,
+        uint32 mint_c,
+        uint32 burn_a,
+        uint32 burn_b,
+        uint32 burn_c
+    ) public payable {
+        vm.assume(scale > 0);
+
         // Set up.
-        testLinearCurve_support();
+        testLinearCurve_support(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
 
         // Retrieve for validation.
         bool burned = ic.getCurveBurned(1, bob);
@@ -253,9 +308,17 @@ contract ImpactCurveTest is Test {
         assertEq(!burned, true);
     }
 
-    function testLinearCurve_burn_NotAuthorized() public payable {
+    function testLinearCurve_burn_NotAuthorized(
+        uint64 scale,
+        uint32 mint_a,
+        uint32 mint_b,
+        uint32 mint_c,
+        uint32 burn_a,
+        uint32 burn_b,
+        uint32 burn_c
+    ) public payable {
         // Set up.
-        testLinearCurve_support();
+        testLinearCurve_support(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
 
         // Burn.
         vm.expectRevert(ImpactCurve.NotAuthorized.selector);
@@ -263,9 +326,17 @@ contract ImpactCurveTest is Test {
         ic.burn(1, charlie, 1);
     }
 
-    function testLinearCurve_burn_AlreadyBurned() public payable {
+    function testLinearCurve_burn_AlreadyBurned(
+        uint64 scale,
+        uint32 mint_a,
+        uint32 mint_b,
+        uint32 mint_c,
+        uint32 burn_a,
+        uint32 burn_b,
+        uint32 burn_c
+    ) public payable {
         // Set up.
-        testLinearCurve_support();
+        testLinearCurve_support(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
 
         uint256 mintPrice = ic.getPrice(true, 1, 0);
 
@@ -289,9 +360,27 @@ contract ImpactCurveTest is Test {
         emit log_uint(qst.balanceOf(bob));
     }
 
-    function testLinearCurve_claim() public payable {
+    function testLinearCurve_claim(
+        uint64 scale,
+        uint32 mint_a,
+        uint32 mint_b,
+        uint32 mint_c,
+        uint32 burn_a,
+        uint32 burn_b,
+        uint32 burn_c
+    ) public payable {
+        vm.assume(scale > 0);
+
         // Set up.
-        testLinearCurve_burn();
+        testLinearCurve_burn(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
+        vm.warp(block.timestamp + 100);
+
+        // Retrieve for validation.
+        uint256 mintPrice = ic.getPrice(true, 1, 0);
+
+        vm.prank(bob);
+        ic.support{value: mintPrice}(1, bob, mintPrice);
+        vm.warp(block.timestamp + 100);
 
         // Retrieve for validation.
         uint256 prevUnclaimed = ic.getUnclaimed(alice);
@@ -306,9 +395,36 @@ contract ImpactCurveTest is Test {
         assertEq(prevBalance + prevUnclaimed, address(alice).balance);
     }
 
-    function testLinearCurve_claim_NotAuthorized() public payable {
+    // function testLinearCurve_claim_NotAuthorized_nothingToWithdraw(
+    //     uint64 scale,
+    //     uint32 mint_a,
+    //     uint32 mint_b,
+    //     uint32 mint_c,
+    //     uint32 burn_a,
+    //     uint32 burn_b,
+    //     uint32 burn_c
+    // ) public payable {
+    //     // Set up.
+    //     testLinearCurve_burn(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
+
+    //     // Claim.
+    //     vm.expectRevert(ImpactCurve.NotAuthorized.selector);
+    //     vm.prank(alice);
+    //     ic.claim();
+    // }
+
+    function testLinearCurve_claim_NotAuthorized_notOwner(
+        uint64 scale,
+        uint32 mint_a,
+        uint32 mint_b,
+        uint32 mint_c,
+        uint32 burn_a,
+        uint32 burn_b,
+        uint32 burn_c
+    ) public payable {
         // Set up.
-        testLinearCurve_burn();
+        testLinearCurve_burn(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
+        vm.warp(block.timestamp + 100);
 
         // Claim.
         vm.expectRevert(ImpactCurve.NotAuthorized.selector);
@@ -316,9 +432,20 @@ contract ImpactCurveTest is Test {
         ic.claim();
     }
 
-    function testLinearCurve_zeroClaim() public payable {
+    function testLinearCurve_zeroClaim(
+        uint64 scale,
+        uint32 mint_a,
+        uint32 mint_b,
+        uint32 mint_c,
+        uint32 burn_a,
+        uint32 burn_b,
+        uint32 burn_c
+    ) public payable {
+        vm.assume(scale > 0);
+
         // Set up.
-        testLinearCurve_support();
+        testLinearCurve_support(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
+        vm.warp(block.timestamp + 100);
 
         // Support once more.
         uint256 mintPrice = ic.getPrice(true, 1, 0);
@@ -363,9 +490,19 @@ contract ImpactCurveTest is Test {
         assertEq(prevBalance + prevPool, address(alice).balance);
     }
 
-    function testLinearCurve_zeroClaim_branch() public payable {
+    function testLinearCurve_zeroClaim_branch(
+        uint64 scale,
+        uint32 mint_a,
+        uint32 mint_b,
+        uint32 mint_c,
+        uint32 burn_a,
+        uint32 burn_b,
+        uint32 burn_c
+    ) public payable {
+        vm.assume(scale > 0);
+
         // Set up.
-        testLinearCurve_support();
+        testLinearCurve_support(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
 
         // Support once more.
         uint256 mintPrice = ic.getPrice(true, 1, 0);
@@ -406,9 +543,19 @@ contract ImpactCurveTest is Test {
         ic.zeroClaim(1);
     }
 
-    function testLinearCurve_zeroClaim_NotAuthorized() public payable {
+    function testLinearCurve_zeroClaim_NotAuthorized(
+        uint64 scale,
+        uint32 mint_a,
+        uint32 mint_b,
+        uint32 mint_c,
+        uint32 burn_a,
+        uint32 burn_b,
+        uint32 burn_c
+    ) public payable {
+        vm.assume(scale > 0);
+
         // Set up.
-        testLinearCurve_support();
+        testLinearCurve_support(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
 
         vm.expectRevert(ImpactCurve.NotAuthorized.selector);
         vm.prank(bob);
@@ -419,31 +566,59 @@ contract ImpactCurveTest is Test {
     /// Poly Test
     /// -----------------------------------------------------------------------
 
-    function testPolyCurve() public payable {
+    function testPolyCurve(
+        uint64 scale,
+        uint32 mint_a,
+        uint32 mint_b,
+        uint32 mint_c,
+        uint32 burn_a,
+        uint32 burn_b,
+        uint32 burn_c
+    ) public payable {
+        vm.assume(scale > 0);
+        vm.assume(burn_a < mint_a && burn_b < mint_b && burn_c < mint_c);
+
         initializeIC(user);
         initializeQst(user);
 
-        uint256 id = setupCurve(
-            CurveType.POLY,
-            address(qst),
-            alice,
-            uint64(0.0001 ether),
-            uint32(2),
-            uint32(2),
-            uint32(2),
-            uint32(1),
-            uint32(1),
-            uint32(1)
-        );
+        uint256 id =
+            setupCurve(CurveType.POLY, address(qst), alice, scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
         validateCurve(id, ic.getCurveType(id));
     }
 
-    function testPolyCurve_support() public payable {
-        testPolyCurve();
+    function testPolyCurve_InvalidCurve(
+        uint64 scale,
+        uint32 mint_a,
+        uint32 mint_b,
+        uint32 mint_c,
+        uint32 burn_a,
+        uint32 burn_b,
+        uint32 burn_c
+    ) public payable {
+        vm.assume(burn_a > mint_a || burn_b > mint_b || burn_c > mint_c);
+        initializeIC(user);
+        initializeQst(user);
+
+        vm.expectRevert(ImpactCurve.InvalidCurve.selector);
+        uint256 id =
+            ic.curve(CurveType.POLY, address(qst), alice, scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
+    }
+
+    function testPolyCurve_support(
+        uint64 scale,
+        uint32 mint_a,
+        uint32 mint_b,
+        uint32 mint_c,
+        uint32 burn_a,
+        uint32 burn_b,
+        uint32 burn_c
+    ) public payable {
+        vm.assume(scale > 0);
+        testPolyCurve(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
 
         uint256 mintPrice = ic.getPrice(true, 1, 0);
 
-        vm.deal(bob, 10 ether);
+        vm.deal(bob, 1000000000000000000 ether);
         vm.prank(bob);
         ic.support{value: mintPrice}(1, bob, mintPrice);
 
@@ -455,9 +630,19 @@ contract ImpactCurveTest is Test {
         assertEq(ic.getCurvePool(1), burnPrice);
     }
 
-    function testPolyCurve_burn() public payable {
+    function testPolyCurve_burn(
+        uint64 scale,
+        uint32 mint_a,
+        uint32 mint_b,
+        uint32 mint_c,
+        uint32 burn_a,
+        uint32 burn_b,
+        uint32 burn_c
+    ) public payable {
+        vm.assume(scale > 0);
+
         // Set up.
-        testPolyCurve_support();
+        testPolyCurve_support(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
 
         // Retrieve for validation.
         uint256 burnPrice = ic.getPrice(false, 1, 0);
