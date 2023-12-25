@@ -167,6 +167,31 @@ contract Quest is Storage {
         _start(signer, missions, missionId);
     }
 
+    /// @notice Start a quest (gasless) with a username.
+    /// @param username .
+    /// @param missions .
+    /// @param missionId .
+    /// @dev
+    function startBySig(string calldata username, address missions, uint256 missionId, uint8 v, bytes32 r, bytes32 s)
+        external
+        payable
+        virtual
+        hasExpired(missions, missionId)
+    {
+        address user = usernameToAddress(username);
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01", DOMAIN_SEPARATOR(), keccak256(abi.encode(START_TYPEHASH, user, missions, missionId))
+            )
+        );
+
+        address recoveredAddress = ecrecover(digest, v, r, s);
+        if (recoveredAddress == address(0) || recoveredAddress != user) revert InvalidUser();
+
+        _start(user, missions, missionId);
+        setPublicRegistry(username, missions, missionId);
+    }
+
     /// @notice Respond to a task.
     /// @notice User to respond to Task in order to progress Quest.
     /// @param missionId .
@@ -210,6 +235,38 @@ contract Quest is Storage {
         if (recoveredAddress == address(0) || recoveredAddress != signer) revert InvalidUser();
 
         _respond(signer, missions, missionId, taskId, response, feedback);
+    }
+
+    /// @notice Respond to a task (gasless) with a username.
+    /// @param username .
+    /// @param missions .
+    /// @param missionId .
+    /// @dev
+    function respondBySig(
+        string calldata username,
+        address missions,
+        uint256 missionId,
+        uint256 taskId,
+        uint256 response,
+        string calldata feedback,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external payable virtual hasExpired(missions, missionId) {
+        address user = usernameToAddress(username);
+        uint256 taskKey = this.getTaskKey(missions, missionId, taskId);
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(RESPOND_TYPEHASH, user, taskKey, response, feedback))
+            )
+        );
+
+        address recoveredAddress = ecrecover(digest, v, r, s);
+        if (recoveredAddress == address(0) || recoveredAddress != user) revert InvalidUser();
+
+        _respond(user, missions, missionId, taskId, response, feedback);
     }
 
     /// -----------------------------------------------------------------------
@@ -410,6 +467,33 @@ contract Quest is Storage {
     /// -----------------------------------------------------------------------
     /// Quest Logic - Records
     /// -----------------------------------------------------------------------
+
+    function incrementPublicCount() internal returns (uint256) {
+        return addUint(keccak256(abi.encode(address(this), ".public.count")), 1);
+    }
+
+    function setPublicRegistry(string calldata username, address missions, uint256 missionId) internal {
+        uint256 count = incrementPublicCount();
+        address user = usernameToAddress(username);
+
+        // Register user.
+        _setAddress(keccak256(abi.encode(address(this), ".public.", count, ".user")), user);
+
+        // Register user existance.
+        _setBool(keccak256(abi.encode(address(this), ".users.", user, ".exists")), true);
+    }
+
+    function isPublicUser(string calldata username) external view returns (bool) {
+        return this.getBool(keccak256(abi.encode(address(this), ".users.", usernameToAddress(username), ".exists")));
+    }
+
+    function getPublicUser(uint256 count) external view returns (address) {
+        return this.getAddress(keccak256(abi.encode(address(this), ".public.", count, ".user")));
+    }
+
+    function getPublicCount() external view returns (uint256) {
+        return this.getUint(keccak256(abi.encode(address(this), ".public.count")));
+    }
 
     function getQuest(uint256 questId) external view returns (address, address, uint256) {
         return (
@@ -834,5 +918,9 @@ contract Quest is Storage {
         }
 
         return (mission, uint256(missionId), uint256(taskId));
+    }
+
+    function usernameToAddress(string calldata username) internal pure returns (address) {
+        return address(uint160(uint256(keccak256(abi.encode(username)))));
     }
 }
