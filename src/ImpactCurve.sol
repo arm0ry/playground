@@ -74,6 +74,7 @@ contract ImpactCurve is Storage {
         uint32 burn_b,
         uint32 burn_c
     ) external payable initialized returns (uint256 curveId) {
+        // Validate curve conditions.
         if (ISupportToken(token).totalSupply() > 0) revert InvalidCurve();
         if (curveType == CurveType.NA) revert InvalidCurve();
         if (scale == 0) revert InvalidCurve();
@@ -211,8 +212,8 @@ contract ImpactCurve is Storage {
         uint256 key = this.encodeCurveData(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
         _setUint(keccak256(abi.encode(address(this), ".curves", curveId, ".formula")), key);
     }
-    /// @notice .
 
+    /// @notice .
     function addCurvePool(uint256 curveId, uint256 amount) internal {
         addUint(keccak256(abi.encode(address(this), ".curves", curveId, ".pool")), amount);
     }

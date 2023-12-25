@@ -114,7 +114,7 @@ contract ImpactCurveTest is Test {
         uint32 burn_b,
         uint32 burn_c
     ) public payable {
-        vm.assume(burn_a >= mint_a && burn_b >= mint_b && burn_c >= mint_c);
+        vm.assume(burn_a > mint_a && burn_b > mint_b && burn_c > mint_c);
         initializeIC(user);
         initializeQst(user);
         vm.warp(block.timestamp + 100);
@@ -432,7 +432,7 @@ contract ImpactCurveTest is Test {
         ic.claim();
     }
 
-    function testLinearCurve_zeroClaim(
+    function testLinearCurve_zeroClaim2(
         uint64 scale,
         uint32 mint_a,
         uint32 mint_b,
@@ -442,6 +442,7 @@ contract ImpactCurveTest is Test {
         uint32 burn_c
     ) public payable {
         vm.assume(scale > 0);
+        vm.assume(burn_a > 0 && burn_b > 0 && burn_c > 0);
 
         // Set up.
         testLinearCurve_support(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
@@ -462,8 +463,6 @@ contract ImpactCurveTest is Test {
         vm.prank(bob);
         ic.support{value: mintPrice}(1, bob, mintPrice);
 
-        emit log_uint(qst.balanceOf(bob));
-
         // First burn.
         vm.prank(bob);
         ic.burn(1, bob, 4);
@@ -478,19 +477,45 @@ contract ImpactCurveTest is Test {
         uint256 prevPool = ic.getCurvePool(1);
         uint256 prevBalance = address(alice).balance;
 
-        emit log_uint(prevPool);
-        emit log_uint(prevBalance);
-        emit log_uint(qst.balanceOf(bob));
-
         // Claim.
         vm.prank(alice);
         ic.zeroClaim(1);
 
         // Validate.
         assertEq(prevBalance + prevPool, address(alice).balance);
+        emit log_uint(address(alice).balance);
     }
 
-    function testLinearCurve_zeroClaim_branch(
+    function testLinearCurve_zeroClaim_zeroBurn(uint64 scale, uint32 mint_a, uint32 mint_b, uint32 mint_c)
+        public
+        payable
+    {
+        vm.assume(scale > 0);
+
+        // Set up.
+        testLinearCurve_support(scale, mint_a, mint_b, mint_c, 0, 0, 0);
+        vm.warp(block.timestamp + 100);
+
+        // Support once more.
+        uint256 mintPrice = ic.getPrice(true, 1, 0);
+        vm.prank(bob);
+        ic.support{value: mintPrice}(1, bob, mintPrice);
+
+        // Impact burn.
+        vm.prank(bob);
+        ic.burn(1, bob, 2);
+
+        // Token burn.
+        vm.prank(bob);
+        qst.burn(1);
+
+        // Claim.
+        vm.expectRevert(ImpactCurve.NotAuthorized.selector);
+        vm.prank(alice);
+        ic.zeroClaim(1);
+    }
+
+    function testLinearCurve_zeroClaim_NotAuthorized_nonzeroSupply(
         uint64 scale,
         uint32 mint_a,
         uint32 mint_b,
@@ -519,8 +544,6 @@ contract ImpactCurveTest is Test {
         vm.prank(bob);
         ic.support{value: mintPrice}(1, bob, mintPrice);
 
-        emit log_uint(qst.balanceOf(bob));
-
         // First burn.
         vm.prank(bob);
         ic.burn(1, bob, 4);
@@ -533,17 +556,13 @@ contract ImpactCurveTest is Test {
         uint256 prevPool = ic.getCurvePool(1);
         uint256 prevBalance = address(alice).balance;
 
-        emit log_uint(prevPool);
-        emit log_uint(prevBalance);
-        emit log_uint(qst.balanceOf(bob));
-
         // Claim.
         vm.expectRevert(ImpactCurve.NotAuthorized.selector);
         vm.prank(alice);
         ic.zeroClaim(1);
     }
 
-    function testLinearCurve_zeroClaim_NotAuthorized(
+    function testLinearCurve_zeroClaim_NotAuthorized_notOwner(
         uint64 scale,
         uint32 mint_a,
         uint32 mint_b,
