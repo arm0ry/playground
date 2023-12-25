@@ -51,7 +51,6 @@ contract Mission is Storage {
     /// -----------------------------------------------------------------------
     /// Task Logic - Setter
     /// -----------------------------------------------------------------------
-
     /// @notice  Create task.
     function setTasks(address[] calldata creators, uint256[] calldata deadlines, string[] calldata detail)
         external
@@ -223,12 +222,12 @@ contract Mission is Storage {
 
     /// @notice Set whether a task is part of a mission.
     function setIsTaskInMission(uint256 missionId, uint256 taskId, bool status) internal {
-        _setBool(keccak256(abi.encode(address(this), ".missions.", missionId, taskId)), status);
+        _setBool(keccak256(abi.encode(address(this), ".missions.", missionId, ".taskIds.", taskId, ".exists")), status);
     }
 
     /// @notice Set whether a task is part of a mission.
     function deleteIsTaskInMission(uint256 missionId, uint256 taskId) internal {
-        deleteBool(keccak256(abi.encode(address(this), ".missions.", missionId, taskId)));
+        deleteBool(keccak256(abi.encode(address(this), ".missions.", missionId, ".taskIds.", taskId, ".exists")));
     }
 
     /// @notice Associate a task with a given mission.
@@ -320,6 +319,11 @@ contract Mission is Storage {
         addUint(keccak256(abi.encode(address(this), ".missions.", missionId, ".completions")), 1);
     }
 
+    /// @notice Increment number of task completions by task id by authorized Quest contracts only.
+    function incrementTaskCompletionsInMission(uint256 missionId, uint256 taskId) external payable onlyQuest {
+        addUint(keccak256(abi.encode(address(this), ".missions.", missionId, ".taskIds.", taskId, ".completions")), 1);
+    }
+
     /// -----------------------------------------------------------------------
     /// Task Logic - Getter
     /// -----------------------------------------------------------------------
@@ -346,12 +350,21 @@ contract Mission is Storage {
 
     /// @notice Returns whether a task is part of a mission.
     function isTaskInMission(uint256 missionId, uint256 taskId) external view returns (bool) {
-        return this.getBool(keccak256(abi.encode(address(this), ".missions.", missionId, taskId)));
+        return this.getBool(
+            keccak256(abi.encode(address(this), ".missions.", missionId, ".taskIds.", taskId, ".exists"))
+        );
     }
 
     /// @notice Get number of task completions by task id.
     function getTaskCompletions(uint256 taskId) external view returns (uint256) {
         return this.getUint(keccak256(abi.encode(address(this), ".tasks.", taskId, ".completions")));
+    }
+
+    /// @notice Get number of task completions by task id.
+    function getTaskCompletionsInMission(uint256 missionId, uint256 taskId) external view returns (uint256) {
+        return this.getUint(
+            keccak256(abi.encode(address(this), ".missions.", missionId, ".taskIds.", taskId, ".completions"))
+        );
     }
 
     /// @notice Get number of missions that are associated with a task.

@@ -20,6 +20,7 @@ interface IMission {
     /// @dev Task get methods
     function getTaskId() external view returns (uint256);
     function getTaskCompletions(uint256 taskId) external view returns (uint256);
+    function getTaskCompletionsInMission(uint256 taskId) external view returns (uint256);
     function getTaskCreator(uint256 taskId) external view returns (address);
     function getTaskDeadline(uint256 taskId) external view returns (uint256);
     function getTaskDetail(uint256 taskId) external view returns (string memory);
@@ -48,6 +49,7 @@ interface IMission {
 
     /// @dev Mission set methods
     function incrementTaskCompletions(uint256 taskId) external payable;
+    function incrementTaskCompletionsInMission(uint256 missionId, uint256 taskId) external payable;
     function incrementMissionStarts(uint256 missionId) external payable;
     function incrementMissionCompletions(uint256 missionId) external payable;
 }
