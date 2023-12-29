@@ -21,6 +21,8 @@ contract QuestTest is Test {
     Quest quest;
     Mission mission;
 
+    address user;
+    uint256 userPK;
     address[] creators;
     uint256[] deadlines;
     string[] detail;
@@ -40,11 +42,14 @@ contract QuestTest is Test {
     uint256 taskId;
     uint256 missionId;
     string testString = "TEST";
-    bytes32 public constant START_TYPEHASH = keccak256("Start(address signer, address missions, uint256 missionId)");
-    bytes32 public constant RESPOND_TYPEHASH =
-        keccak256("Respond(address signer, bytes32 taskKey, uint256 response, string feedback)");
+
+    bytes32 public constant START_TYPEHASH = keccak256("Start(address signer,address missions,uint256 missionId)");
+    bytes32 public constant RESPOND_TYPEHASH = keccak256(
+        "Respond(address signer,address missions,uint256 missionId,uint256 taskId,uint256 response,string feedback)"
+    );
     bytes32 public constant REVIEW_TYPEHASH =
-        keccak256("Review(address signer, address user, bytes32 taskKey, uint256 response, string feedback)");
+        keccak256("Review(address signer,address user,bytes32 taskKey,uint256 response,string feedback)");
+
     /// -----------------------------------------------------------------------
     /// Setup Tests
     /// -----------------------------------------------------------------------
@@ -56,6 +61,9 @@ contract QuestTest is Test {
         quest = new Quest();
 
         initialize(dao);
+
+        // Initialize user.
+        (user, userPK) = makeAddrAndKey(testString);
     }
 
     /// -----------------------------------------------------------------------
@@ -174,27 +182,24 @@ contract QuestTest is Test {
     }
 
     function testStartBySig() public payable {
-        // Initialize George.
-        (address george, uint256 georgePK) = makeAddrAndKey("george");
-
         // Prepare message.
         bytes32 message = keccak256(
             abi.encodePacked(
-                "\x19\x01", quest.DOMAIN_SEPARATOR(), keccak256(abi.encode(START_TYPEHASH, george, address(mission), 1))
+                "\x19\x01", quest.DOMAIN_SEPARATOR(), keccak256(abi.encode(START_TYPEHASH, user, address(mission), 1))
             )
         );
 
         // George signs message.
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(georgePK, message);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(userPK, message);
 
         setupTasksAndMission(dao);
 
         // Anyone can take George's signature and start quest on behalf of George.
-        quest.startBySig(george, address(mission), 1, v, r, s);
+        quest.startBySig(user, address(mission), 1, v, r, s);
 
         // Validate.
-        assertEq(quest.getQuestCountByUser(george), 1);
-        assertEq(quest.getNumOfMissionsStartedByUser(george, address(mission), 1), 1);
+        assertEq(quest.getQuestCountByUser(user), 1);
+        assertEq(quest.getNumOfMissionsStartedByUser(user, address(mission), 1), 1);
         assertEq(quest.getNumOfMissionsStarted(), 1);
 
         (uint256 missionIdCount, uint256 missionsCount) = quest.getNumOfMissionQuested(address(mission), 1);
@@ -203,24 +208,21 @@ contract QuestTest is Test {
     }
 
     function testStartBySig_InvalidUser() public payable {
-        // Initialize George.
-        (address george, uint256 georgePK) = makeAddrAndKey("george");
-
         // Prepare message.
         bytes32 message = keccak256(
             abi.encodePacked(
-                "\x19\x01", quest.DOMAIN_SEPARATOR(), keccak256(abi.encode(START_TYPEHASH, george, address(mission), 2))
+                "\x19\x01", quest.DOMAIN_SEPARATOR(), keccak256(abi.encode(START_TYPEHASH, alice, address(mission), 1))
             )
         );
 
-        // George signs message.
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(georgePK, message);
+        // User signs message.
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(userPK, message);
 
         setupTasksAndMission(dao);
 
-        // Anyone can take George's signature and start quest on behalf of George.
+        // Anyone can take user's signature and start quest on behalf of user.
         vm.expectRevert(Quest.InvalidUser.selector);
-        quest.startBySig(george, address(mission), 1, v, r, s);
+        quest.startBySig(user, address(mission), 1, v, r, s);
     }
 
     function testRespond(uint256 response) public payable {
@@ -241,9 +243,6 @@ contract QuestTest is Test {
     }
 
     function testRespondBySig(uint256 response) public payable {
-        // Initialize George.
-        (address george, uint256 georgePK) = makeAddrAndKey("george");
-
         testStartBySig();
         vm.warp(block.timestamp + 10);
 
@@ -252,37 +251,32 @@ contract QuestTest is Test {
             abi.encodePacked(
                 "\x19\x01",
                 quest.DOMAIN_SEPARATOR(),
-                keccak256(
-                    abi.encode(RESPOND_TYPEHASH, george, quest.getTaskKey(address(mission), 1, 1), response, testString)
-                )
+                keccak256(abi.encode(RESPOND_TYPEHASH, user, address(mission), 1, 1, response, testString))
             )
         );
 
-        // George signs message.
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(georgePK, message);
+        // User signs message.
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(userPK, message);
 
-        // Respond.
-        uint256 completedCount = quest.getCompletedTaskCount(george, address(mission), 1);
+        // Retrieve for validation later.
+        uint256 completedCount = quest.getCompletedTaskCount(user, address(mission), 1);
 
-        // Anyone can take George's signature and respond to a task on behalf of George.
-        quest.respondBySig(george, address(mission), 1, 1, response, testString, v, r, s);
+        // Respond by sig.
+        quest.respondBySig(user, address(mission), 1, 1, response, testString, v, r, s);
 
         // Validate.
-        uint256 count = quest.getNumOfResponseByUser(george);
-        assertEq(quest.getUserResponse(george, count), response);
-        assertEq(quest.getUserFeedback(george, count), testString);
+        uint256 count = quest.getNumOfResponseByUser(user);
+        assertEq(quest.getUserResponse(user, count), response);
+        assertEq(quest.getUserFeedback(user, count), testString);
 
-        (address __mission, uint256 __missionId, uint256 __taskId) = quest.getUserTask(george, count);
+        (address __mission, uint256 __missionId, uint256 __taskId) = quest.getUserTask(user, count);
         assertEq(__mission, address(mission));
         assertEq(__missionId, 1);
         assertEq(__taskId, 1);
-        assertEq(quest.getCompletedTaskCount(george, address(mission), 1), completedCount + 1);
+        assertEq(quest.getCompletedTaskCount(user, address(mission), 1), completedCount + 1);
     }
 
     function testRespondBySig_InvalidUser(uint256 response) public payable {
-        // Initialize George.
-        (address george, uint256 georgePK) = makeAddrAndKey("george");
-
         testStartBySig();
         vm.warp(block.timestamp + 10);
 
@@ -291,18 +285,16 @@ contract QuestTest is Test {
             abi.encodePacked(
                 "\x19\x01",
                 quest.DOMAIN_SEPARATOR(),
-                keccak256(
-                    abi.encode(RESPOND_TYPEHASH, george, quest.getTaskKey(address(mission), 1, 2), response, testString)
-                )
+                keccak256(abi.encode(RESPOND_TYPEHASH, alice, address(mission), 1, 1, response, testString))
             )
         );
 
         // George signs message.
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(georgePK, message);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(userPK, message);
 
         // Anyone can take George's signature and respond to a task on behalf of George.
         vm.expectRevert(Quest.InvalidUser.selector);
-        quest.respondBySig(george, address(mission), 1, 1, response, testString, v, r, s);
+        quest.respondBySig(user, address(mission), 1, 1, response, testString, v, r, s);
     }
 
     function testRespond_QuestInactive(uint256 response) public payable {
@@ -398,42 +390,6 @@ contract QuestTest is Test {
         vm.prank(dao);
         quest.review(bob, address(mission), 1, 1, reviewResponse, testString);
     }
-
-    // function testReviewBySig(uint256 response) public payable {
-    //     testRespond(response);
-    //     vm.warp(block.timestamp + 10);
-
-    //     // Initialize George, the reviewer.
-    //     (address george, uint256 georgePK) = makeAddrAndKey("george");
-
-    //     // Update review status.
-    //     testSetReviewStatus(true);
-    //     testSetReviewer(george, true);
-
-    //     // Prepare message.
-    //     bytes32 message = keccak256(
-    //         abi.encodePacked(
-    //             "\x19\x01",
-    //             quest.DOMAIN_SEPARATOR(),
-    //             keccak256(
-    //                 abi.encode(
-    //                     REVIEW_TYPEHASH, george, bob, quest.getTaskKey(address(mission), 1, 1), response, testString
-    //                 )
-    //             )
-    //         )
-    //     );
-
-    //     // George signs message.
-    //     (uint8 v, bytes32 r, bytes32 s) = vm.sign(georgePK, message);
-
-    //     // Anyone can take George's signature and review to a task on behalf of George.
-    //     quest.reviewBySig(george, bob, address(mission), 1, 1, response, testString, v, r, s);
-
-    //     // Validate.
-    //     uint256 count = quest.getNumOfReviewByReviewer(george);
-    //     assertEq(quest.getReviewResponse(george, count), response);
-    //     assertEq(quest.getReviewFeedback(george, count), testString);
-    // }
 
     /// -----------------------------------------------------------------------
     /// Internal Functions
@@ -586,30 +542,30 @@ contract QuestTest is Test {
         mission.setMission(alice, "Four Task Mission", "Four Tasks!", taskIds);
     }
 
-    function setCooldown(address user, uint40 cd) public payable {
+    function setCooldown(address _user, uint40 cd) public payable {
         // Authorize quest contract.
-        vm.prank(user);
+        vm.prank(_user);
         quest.setCooldown(cd);
 
         // Validate.
         assertEq(quest.getCooldown(), cd);
     }
 
-    function start(address user, address _mission, uint256 _missionId) public payable {
+    function start(address _user, address _mission, uint256 _missionId) public payable {
         // Start.
-        vm.prank(user);
+        vm.prank(_user);
         quest.start(_mission, _missionId);
 
         // Validate.
-        (address _user, address __mission, uint256 __missionId) = quest.getQuest(quest.getQuestCount());
-        assertEq(_user, user);
+        (address __user, address __mission, uint256 __missionId) = quest.getQuest(quest.getQuestCount());
+        assertEq(__user, _user);
         assertEq(__mission, _mission);
         assertEq(__missionId, _missionId);
-        assertEq(quest.isQuestActive(user, _mission, _missionId), true);
+        assertEq(quest.isQuestActive(_user, _mission, _missionId), true);
     }
 
     function respond(
-        address user,
+        address _user,
         address _mission,
         uint256 _missionId,
         uint256 _taskId,
@@ -617,15 +573,15 @@ contract QuestTest is Test {
         string memory feedback
     ) internal returns (uint256) {
         // Respond.
-        vm.prank(user);
+        vm.prank(_user);
         quest.respond(_mission, _missionId, _taskId, response, feedback);
 
         // Validate.
-        uint256 count = quest.getNumOfResponseByUser(user);
-        assertEq(quest.getUserResponse(user, count), response);
-        assertEq(quest.getUserFeedback(user, count), feedback);
+        uint256 count = quest.getNumOfResponseByUser(_user);
+        assertEq(quest.getUserResponse(_user, count), response);
+        assertEq(quest.getUserFeedback(_user, count), feedback);
 
-        (address __mission, uint256 __missionId, uint256 __taskId) = quest.getUserTask(user, count);
+        (address __mission, uint256 __missionId, uint256 __taskId) = quest.getUserTask(_user, count);
         assertEq(__mission, _mission);
         assertEq(__missionId, _missionId);
         assertEq(__taskId, _taskId);
@@ -635,7 +591,7 @@ contract QuestTest is Test {
 
     function review(
         address reviewer,
-        address user,
+        address _user,
         address _mission,
         uint256 _missionId,
         uint256 _taskId,
@@ -644,7 +600,7 @@ contract QuestTest is Test {
     ) internal returns (uint256) {
         // Review.
         vm.prank(reviewer);
-        quest.review(user, address(_mission), _missionId, _taskId, reviewResponse, reviewFeedback);
+        quest.review(_user, address(_mission), _missionId, _taskId, reviewResponse, reviewFeedback);
 
         // Validate.
         uint256 count = quest.getNumOfReviewByReviewer(reviewer);
@@ -653,5 +609,9 @@ contract QuestTest is Test {
         assertEq(quest.getReviewResponse(reviewer, 0), reviewResponse);
         assertEq(quest.getReviewFeedback(reviewer, 0), reviewFeedback);
         return count;
+    }
+
+    function getPublicUserAddress(string calldata username, uint256 salt) internal returns (address) {
+        return address(uint160(uint256(keccak256(abi.encode(username, salt)))));
     }
 }
