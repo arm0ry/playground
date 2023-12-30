@@ -131,6 +131,25 @@ contract QuestTest is Test {
         assertEq(quest.getQuestCountByUser(bob), 1);
         assertEq(quest.getNumOfMissionsStartedByUser(bob, address(mission), 1), 1);
         assertEq(quest.getNumOfMissionsStarted(), 1);
+        assertEq(mission.getMissionStarts(1), 1);
+
+        (uint256 missionIdCount, uint256 missionsCount) = quest.getNumOfMissionQuested(address(mission), 1);
+        assertEq(missionIdCount, 1);
+        assertEq(missionsCount, 1);
+    }
+
+    function testSingleTaskMission_Start_UnauthorizedQuest() public payable {
+        vm.prank(dao);
+        mission.authorizeQuest(address(quest), false);
+
+        // Start.
+        start(bob, address(mission), 1);
+
+        // Validate.
+        assertEq(quest.getQuestCountByUser(bob), 1);
+        assertEq(quest.getNumOfMissionsStartedByUser(bob, address(mission), 1), 1);
+        assertEq(quest.getNumOfMissionsStarted(), 1);
+        assertEq(mission.getMissionStarts(1), 0);
 
         (uint256 missionIdCount, uint256 missionsCount) = quest.getNumOfMissionQuested(address(mission), 1);
         assertEq(missionIdCount, 1);
@@ -158,6 +177,30 @@ contract QuestTest is Test {
         assertEq(quest.getUserFeedback(bob, 0), testString);
         assertEq(mission.getMissionCompletions(1), 1);
         assertEq(mission.getTaskCompletions(1), 1);
+        emit log_uint(quest.getQuestProgress(bob, address(mission), 1));
+    }
+
+    function testSingleTaskMission_Respond_UnauthorizedQuest(uint256 response) public payable {
+        testSingleTaskMission_Start_UnauthorizedQuest();
+        vm.warp(block.timestamp + 10);
+
+        // Respond.
+        uint256 completedCount = quest.getCompletedTaskCount(bob, address(mission), 1);
+        uint256 numOfTaskCompleted = quest.getNumOfTaskCompleted();
+        uint256 numOfTaskCompletedByUser = quest.getNumOfTasksCompletedByUser(bob, address(mission), 1, 1);
+        uint256 numOfMissionCompleted = quest.getNumOfMissionsCompleted();
+        uint256 numOfMissionCompletedByUser = quest.getNumOfMissionsCompletedByUser(bob, address(mission), 1);
+
+        respond(bob, address(mission), 1, 1, response, testString);
+        assertEq(quest.getCompletedTaskCount(bob, address(mission), 1), completedCount + 1);
+        assertEq(quest.getNumOfTaskCompleted(), numOfTaskCompleted + 1);
+        assertEq(quest.getNumOfTasksCompletedByUser(bob, address(mission), 1, 1), numOfTaskCompletedByUser + 1);
+        assertEq(quest.getNumOfMissionsCompleted(), numOfMissionCompleted + 1);
+        assertEq(quest.getNumOfMissionsCompletedByUser(bob, address(mission), 1), numOfMissionCompletedByUser + 1);
+        assertEq(quest.getUserResponse(bob, 0), response);
+        assertEq(quest.getUserFeedback(bob, 0), testString);
+        assertEq(mission.getMissionCompletions(1), 0);
+        assertEq(mission.getTaskCompletions(1), 0);
         emit log_uint(quest.getQuestProgress(bob, address(mission), 1));
     }
 
