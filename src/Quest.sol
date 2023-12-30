@@ -40,6 +40,7 @@ contract Quest is Storage {
     error QuestInactive();
     error QuestInProgress();
     error InvalidReview();
+    error InvalidBot();
     error InvalidReviewer();
     error InvalidMission();
     error Cooldown();
@@ -63,6 +64,11 @@ contract Quest is Storage {
 
     modifier onlyReviewer(address reviewer) {
         if (!this.isReviewer((reviewer == address(0)) ? msg.sender : reviewer)) revert InvalidReviewer();
+        _;
+    }
+
+    modifier onlyGasBot() {
+        if (!this.isGasBot(msg.sender)) revert InvalidBot();
         _;
     }
 
@@ -96,12 +102,22 @@ contract Quest is Storage {
 
     /// @notice Update review status.
     function setReviewStatus(bool status) external payable onlyOperator {
-        if (status) _setBool(keccak256(abi.encode(address(this), ".quests.review")), status);
+        _setBool(keccak256(abi.encode(address(this), ".quests.review")), status);
     }
 
     /// @notice Get review status.
     function getReviewStatus() external view returns (bool) {
         return this.getBool(keccak256(abi.encode(address(this), ".quests.review")));
+    }
+
+    /// @notice Get review status.
+    function setGasbot(address bot) external payable onlyOperator {
+        _setAddress(keccak256(abi.encode(address(this), ".gasbot")), bot);
+    }
+
+    /// @notice Get subsiddy status.
+    function isGasBot(address bot) external view returns (bool) {
+        return (this.getAddress(keccak256(abi.encode(address(this), ".gasbot"))) == bot) ? true : false;
     }
 
     /// -----------------------------------------------------------------------
@@ -172,10 +188,12 @@ contract Quest is Storage {
         payable
         virtual
         hasExpired(missions, missionId)
-        onlyOperator
+        onlyGasBot
     {
         // Start by dao.
         _start(getPublicUserAddress(username, salt), missions, missionId);
+
+        setPublicRegistry(username, salt);
     }
 
     /// @notice Respond to a task.
@@ -225,7 +243,7 @@ contract Quest is Storage {
         uint256 taskId,
         uint256 response,
         string calldata feedback
-    ) external payable virtual hasExpired(missions, missionId) onlyOperator {
+    ) external payable virtual hasExpired(missions, missionId) onlyGasBot {
         // Respond by dao.
         _respond(getPublicUserAddress(username, salt), missions, missionId, taskId, response, feedback);
     }
