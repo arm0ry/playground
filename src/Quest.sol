@@ -95,7 +95,7 @@ contract Quest is Storage {
         if (cd > 0) _setUint(keccak256(abi.encode(address(this), ".quests.cd")), cd);
     }
 
-    /// @notice Get global cooldown.
+    /// @notice Retrieve global cooldown.
     function getCooldown() external view returns (uint256) {
         return this.getUint(keccak256(abi.encode(address(this), ".quests.cd")));
     }
@@ -105,17 +105,17 @@ contract Quest is Storage {
         _setBool(keccak256(abi.encode(address(this), ".quests.review")), status);
     }
 
-    /// @notice Get review status.
+    /// @notice Retrieve review status.
     function getReviewStatus() external view returns (bool) {
         return this.getBool(keccak256(abi.encode(address(this), ".quests.review")));
     }
 
-    /// @notice Get review status.
+    /// @notice Update gas bot.
     function setGasbot(address bot) external payable onlyOperator {
         _setAddress(keccak256(abi.encode(address(this), ".gasbot")), bot);
     }
 
-    /// @notice Get subsiddy status.
+    /// @notice Confirm bot status.
     function isGasBot(address bot) external view returns (bool) {
         return (this.getAddress(keccak256(abi.encode(address(this), ".gasbot"))) == bot) ? true : false;
     }
@@ -146,9 +146,6 @@ contract Quest is Storage {
 
     /// @notice Set profile picture.
     function setProfilePicture(string calldata url) external payable {
-        if (bytes(url).length == 0) {
-            deleteString(keccak256(abi.encode(address(this), ".users.", msg.sender, ".profile")));
-        }
         _setString(keccak256(abi.encode(address(this), ".users.", msg.sender, ".profile")), url);
     }
 
@@ -182,8 +179,8 @@ contract Quest is Storage {
         _start(signer, missions, missionId);
     }
 
-    /// @notice Respond to a task (gasless) with a username and salt.
-    function startByDao(string calldata username, uint256 salt, address missions, uint256 missionId)
+    /// @notice Start a quest (gasless) with a username and salt.
+    function sponsoredStart(string calldata username, uint256 salt, address missions, uint256 missionId)
         external
         payable
         virtual
@@ -235,7 +232,7 @@ contract Quest is Storage {
     }
 
     /// @notice Respond to a task (gasless) with a username and salt.
-    function respondByDao(
+    function sponsoredRespond(
         string calldata username,
         uint256 salt,
         address missions,

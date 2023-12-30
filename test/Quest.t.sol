@@ -23,6 +23,8 @@ contract QuestTest is Test {
 
     address user;
     uint256 userPK;
+    address bot;
+    uint256 botPK;
     address[] creators;
     uint256[] deadlines;
     string[] detail;
@@ -42,6 +44,7 @@ contract QuestTest is Test {
     uint256 taskId;
     uint256 missionId;
     string testString = "TEST";
+    string gasbotString = "GASBOT";
 
     bytes32 public constant START_TYPEHASH = keccak256("Start(address signer,address missions,uint256 missionId)");
     bytes32 public constant RESPOND_TYPEHASH = keccak256(
@@ -62,10 +65,11 @@ contract QuestTest is Test {
 
         // Initialize user.
         (user, userPK) = makeAddrAndKey(testString);
+        (bot, botPK) = makeAddrAndKey(gasbotString);
 
         // TODO: Propagate update to test quests without proper mission authorization.
         initialize(dao);
-        // authorizeQuest(dao, address(quest));
+        authorizeQuest(dao, address(quest));
 
         setupSingleTaskMission(dao);
     }
@@ -152,12 +156,16 @@ contract QuestTest is Test {
         assertEq(quest.getNumOfMissionsCompletedByUser(bob, address(mission), 1), numOfMissionCompletedByUser + 1);
         assertEq(quest.getUserResponse(bob, 0), response);
         assertEq(quest.getUserFeedback(bob, 0), testString);
-        assertEq(mission.getMissionCompletions(1), 0);
-        assertEq(mission.getTaskCompletions(1), 0);
+        assertEq(mission.getMissionCompletions(1), 1);
+        assertEq(mission.getTaskCompletions(1), 1);
         emit log_uint(quest.getQuestProgress(bob, address(mission), 1));
     }
 
-    function testStart() public payable {
+    /// -----------------------------------------------------------------------
+    /// Quad-Task Mission Tests
+    /// ----------------------------------------------------------------------
+
+    function testQuadTaskMission_Start() public payable {
         // Initialize tasks and mission.
         setupQuadTaskMission(dao);
 
@@ -168,14 +176,14 @@ contract QuestTest is Test {
         assertEq(quest.getQuestCountByUser(bob), 1);
         assertEq(quest.getNumOfMissionsStartedByUser(bob, address(mission), 1), 1);
         assertEq(quest.getNumOfMissionsStarted(), 1);
-        assertEq(mission.getMissionStarts(1), 0);
+        assertEq(mission.getMissionStarts(1), 1);
 
         (uint256 missionIdCount, uint256 missionsCount) = quest.getNumOfMissionQuested(address(mission), 1);
         assertEq(missionIdCount, 1);
         assertEq(missionsCount, 1);
     }
 
-    function testStart_InvalidMission() public payable {
+    function testQuadTaskMission_Start_InvalidMission() public payable {
         vm.warp(block.timestamp + 100000);
 
         // Anyone can take user's signature and start quest on behalf of user.
@@ -184,15 +192,15 @@ contract QuestTest is Test {
         quest.start(address(mission), 1);
     }
 
-    function testStart_NotInitialized() public payable {
+    function testQuadTaskMission_Start_NotInitialized() public payable {
         // Anyone can take user's signature and start quest on behalf of user.
         vm.expectRevert(Quest.NotInitialized.selector);
         vm.prank(bob);
         quest.start(address(mission), 0);
     }
 
-    function testStart_QuestInProgress() public payable {
-        testStart();
+    function testQuadTaskMission_Start_QuestInProgress() public payable {
+        testQuadTaskMission_Start();
 
         // Start.
         vm.expectRevert(Quest.QuestInProgress.selector);
@@ -200,7 +208,7 @@ contract QuestTest is Test {
         quest.start(address(mission), 1);
     }
 
-    function testStartBySig() public payable {
+    function testQuadTaskMission_StartBySig() public payable {
         // Initialize tasks and mission.
         setupQuadTaskMission(dao);
 
@@ -227,7 +235,7 @@ contract QuestTest is Test {
         assertEq(missionsCount, 1);
     }
 
-    function testStartBySig_InvalidUser() public payable {
+    function testQuadTaskMissionStartBySig_InvalidUser() public payable {
         // Prepare message.
         bytes32 message = keccak256(
             abi.encodePacked(
@@ -243,20 +251,31 @@ contract QuestTest is Test {
         quest.startBySig(user, address(mission), 1, v, r, s);
     }
 
-    function testStartByDao() public payable {
+    function testQuadTaskMission_SponsoredStart() public payable {
         string memory username = "USER1";
         uint256 prevCount = quest.getPublicCount();
 
         vm.prank(dao);
-        quest.startByDao(username, 123, address(mission), 1);
+        quest.setGasbot(bot);
+
+        vm.deal(bot, 0.5 ether);
+
+        vm.prank(bot);
+        quest.sponsoredStart(username, 123, address(mission), 1);
 
         assertEq(quest.getPublicCount(), prevCount + 1);
         assertEq(quest.isPublicUser(username, 123), true);
         assertEq(quest.getPublicUser(prevCount + 1), getPublicUserAddress(username, 123));
     }
 
-    function testRespond(uint256 response) public payable {
-        testStart();
+    function testQuadTaskMission_SponsoredStart_InvalidBot() public payable {
+        vm.expectRevert(Quest.InvalidBot.selector);
+        vm.prank(dao);
+        quest.sponsoredStart("USER1", 123, address(mission), 1);
+    }
+
+    function testQuadTaskMissionRespond(uint256 response) public payable {
+        testQuadTaskMission_Start();
         vm.warp(block.timestamp + 10);
 
         // Respond.
@@ -271,8 +290,8 @@ contract QuestTest is Test {
         emit log_uint(quest.getQuestProgress(bob, address(mission), 1));
     }
 
-    function testRespondBySig(uint256 response) public payable {
-        testStartBySig();
+    function testQuadTaskMissionRespondBySig(uint256 response) public payable {
+        testQuadTaskMission_StartBySig();
         vm.warp(block.timestamp + 10);
 
         // Prepare message.
@@ -305,15 +324,21 @@ contract QuestTest is Test {
         assertEq(quest.getCompletedTaskCount(user, address(mission), 1), completedCount + 1);
     }
 
-    function testRespondByDao(uint256 response) public payable {
-        testStartByDao();
+    function testQuadTaskMission_SponsoredRespond(uint256 response) public payable {
+        testQuadTaskMission_SponsoredStart();
 
-        vm.prank(dao);
-        quest.respondByDao("USER1", 123, address(mission), 1, 1, response, testString);
+        vm.prank(bot);
+        quest.sponsoredRespond("USER1", 123, address(mission), 1, 1, response, testString);
     }
 
-    function testRespondBySig_InvalidUser(uint256 response) public payable {
-        testStartBySig();
+    function testQuadTaskMission_SponsoredStart_InvalidBot(uint256 response) public payable {
+        vm.expectRevert(Quest.InvalidBot.selector);
+        vm.prank(dao);
+        quest.sponsoredRespond("USER1", 123, address(mission), 1, 1, response, testString);
+    }
+
+    function testQuadTaskMissionRespondBySig_InvalidUser(uint256 response) public payable {
+        testQuadTaskMission_StartBySig();
         vm.warp(block.timestamp + 10);
 
         // Prepare message.
@@ -333,8 +358,8 @@ contract QuestTest is Test {
         quest.respondBySig(user, address(mission), 1, 1, response, testString, v, r, s);
     }
 
-    function testRespond_QuestInactive(uint256 response) public payable {
-        testStart();
+    function testQuadTaskMissionRespond_QuestInactive(uint256 response) public payable {
+        testQuadTaskMission_Start();
 
         // DAO has not started any quest, triggering QusetInactiv().
         vm.expectRevert(Quest.QuestInactive.selector);
@@ -342,8 +367,8 @@ contract QuestTest is Test {
         quest.respond(address(mission), 1, 1, response, testString);
     }
 
-    function testRespond_InvalidMission(uint256 response) public payable {
-        testStart();
+    function testQuadTaskMissionRespond_InvalidMission(uint256 response) public payable {
+        testQuadTaskMission_Start();
 
         // InvalidMission().
         vm.expectRevert(Quest.InvalidMission.selector);
@@ -351,8 +376,8 @@ contract QuestTest is Test {
         quest.respond(address(mission), 1, 8, response, testString);
     }
 
-    function testRespond_Cooldown(uint256 response) public payable {
-        testStart();
+    function testQuadTaskMissionRespond_Cooldown(uint256 response) public payable {
+        testQuadTaskMission_Start();
 
         setCooldown(dao, 100);
 
