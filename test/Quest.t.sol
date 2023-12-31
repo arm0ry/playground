@@ -3,48 +3,49 @@ pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
 import "forge-std/console2.sol";
-
 import "kali-markets/Storage.sol";
 import {Mission} from "src/Mission.sol";
 import {IMission} from "src/interface/IMission.sol";
 import {Quest} from "src/Quest.sol";
 import {IQuest} from "src/interface/IQuest.sol";
 
-/// @dev Mocks.
-import {MockERC721} from "../lib/solbase/test/utils/mocks/MockERC721.sol";
-
-/// -----------------------------------------------------------------------
-/// Test Logic
-/// -----------------------------------------------------------------------
-
 contract QuestTest is Test {
     Quest quest;
     Mission mission;
 
-    address user;
-    uint256 userPK;
-    address bot;
-    uint256 botPK;
     address[] creators;
     uint256[] deadlines;
     string[] detail;
     uint256[] taskIds;
 
-    /// @dev Users.
+    /// @dev Web3 Users.
+    address dao = makeAddr("dao");
     address[] reviewers;
-    address public immutable alice = makeAddr("alice");
-    address public immutable bob = makeAddr("bob");
-    address public immutable charlie = makeAddr("charlie");
-    address public immutable david = makeAddr("david");
-    address public immutable eric = makeAddr("eric");
-    address public immutable fred = makeAddr("fred");
-    address public immutable dao = makeAddr("dao");
+    address alice;
+    uint256 alicePk;
+    address bob;
+    uint256 bobPk;
+    address charlie;
+    uint256 charliePk;
+    address david;
+    uint256 davidPk;
+    address eric;
+    uint256 ericPk;
 
     /// @dev Helpers.
     uint256 taskId;
     uint256 missionId;
     string testString = "TEST";
+
+    /// @dev Bot.
+    address bot;
+    uint256 botPK;
     string gasbotString = "GASBOT";
+
+    /// @dev Public users.
+    string username = "USERNAME";
+    string username2 = "USERNAME2";
+    string username3 = "USERNAME3";
 
     bytes32 public constant START_TYPEHASH = keccak256("Start(address signer,address missions,uint256 missionId)");
     bytes32 public constant RESPOND_TYPEHASH = keccak256(
@@ -64,7 +65,12 @@ contract QuestTest is Test {
         quest = new Quest();
 
         // Initialize user.
-        (user, userPK) = makeAddrAndKey(testString);
+        (alice, alicePk) = makeAddrAndKey("alice");
+        (bob, bobPk) = makeAddrAndKey("bob");
+        (charlie, charliePk) = makeAddrAndKey("charlie");
+        (david, davidPk) = makeAddrAndKey("david");
+        (eric, ericPk) = makeAddrAndKey("eric");
+
         (bot, botPK) = makeAddrAndKey(gasbotString);
 
         // TODO: Propagate update to test quests without proper mission authorization.
@@ -123,13 +129,13 @@ contract QuestTest is Test {
     /// Single-Task Mission Tests
     /// ----------------------------------------------------------------------
 
-    function testSingleTaskMission_Start() public payable {
+    function testSingleTaskMission_Start(address _user) public payable {
         // Start.
-        start(bob, address(mission), 1);
+        start(_user, address(mission), 1);
 
         // Validate.
-        assertEq(quest.getQuestCountByUser(bob), 1);
-        assertEq(quest.getNumOfMissionsStartedByUser(bob, address(mission), 1), 1);
+        assertEq(quest.getQuestCountByUser(_user), 1);
+        assertEq(quest.getNumOfMissionsStartedByUser(_user, address(mission), 1), 1);
         assertEq(quest.getNumOfMissionsStarted(), 1);
         assertEq(mission.getMissionStarts(1), 1);
 
@@ -138,16 +144,16 @@ contract QuestTest is Test {
         assertEq(missionsCount, 1);
     }
 
-    function testSingleTaskMission_Start_UnauthorizedQuest() public payable {
+    function testSingleTaskMission_Start_UnauthorizedQuest(address _user) public payable {
         vm.prank(dao);
         mission.authorizeQuest(address(quest), false);
 
         // Start.
-        start(bob, address(mission), 1);
+        start(_user, address(mission), 1);
 
         // Validate.
-        assertEq(quest.getQuestCountByUser(bob), 1);
-        assertEq(quest.getNumOfMissionsStartedByUser(bob, address(mission), 1), 1);
+        assertEq(quest.getQuestCountByUser(_user), 1);
+        assertEq(quest.getNumOfMissionsStartedByUser(_user, address(mission), 1), 1);
         assertEq(quest.getNumOfMissionsStarted(), 1);
         assertEq(mission.getMissionStarts(1), 0);
 
@@ -156,129 +162,147 @@ contract QuestTest is Test {
         assertEq(missionsCount, 1);
     }
 
-    function testSingleTaskMission_Respond(uint256 response) public payable {
-        testSingleTaskMission_Start();
+    function testSingleTaskMission_Respond(address _user, uint256 response) public payable {
+        testSingleTaskMission_Start(_user);
         vm.warp(block.timestamp + 10);
 
         // Respond.
-        uint256 completedCount = quest.getCompletedTaskCount(bob, address(mission), 1);
+        uint256 completedCount = quest.getCompletedTaskCount(_user, address(mission), 1);
         uint256 numOfTaskCompleted = quest.getNumOfTaskCompleted();
-        uint256 numOfTaskCompletedByUser = quest.getNumOfTasksCompletedByUser(bob, address(mission), 1, 1);
+        uint256 numOfTaskCompletedByUser = quest.getNumOfTasksCompletedByUser(_user, address(mission), 1, 1);
         uint256 numOfMissionCompleted = quest.getNumOfMissionsCompleted();
-        uint256 numOfMissionCompletedByUser = quest.getNumOfMissionsCompletedByUser(bob, address(mission), 1);
+        uint256 numOfMissionCompletedByUser = quest.getNumOfMissionsCompletedByUser(_user, address(mission), 1);
 
-        respond(bob, address(mission), 1, 1, response, testString);
-        assertEq(quest.getCompletedTaskCount(bob, address(mission), 1), completedCount + 1);
+        respond(_user, address(mission), 1, 1, response, testString);
+        assertEq(quest.getCompletedTaskCount(_user, address(mission), 1), completedCount + 1);
         assertEq(quest.getNumOfTaskCompleted(), numOfTaskCompleted + 1);
-        assertEq(quest.getNumOfTasksCompletedByUser(bob, address(mission), 1, 1), numOfTaskCompletedByUser + 1);
+        assertEq(quest.getNumOfTasksCompletedByUser(_user, address(mission), 1, 1), numOfTaskCompletedByUser + 1);
         assertEq(quest.getNumOfMissionsCompleted(), numOfMissionCompleted + 1);
-        assertEq(quest.getNumOfMissionsCompletedByUser(bob, address(mission), 1), numOfMissionCompletedByUser + 1);
-        assertEq(quest.getUserResponse(bob, 0), response);
-        assertEq(quest.getUserFeedback(bob, 0), testString);
+        assertEq(quest.getNumOfMissionsCompletedByUser(_user, address(mission), 1), numOfMissionCompletedByUser + 1);
+        assertEq(quest.getUserResponse(_user, 0), response);
+        assertEq(quest.getUserFeedback(_user, 0), testString);
         assertEq(mission.getMissionCompletions(1), 1);
         assertEq(mission.getTaskCompletions(1), 1);
-        emit log_uint(quest.getQuestProgress(bob, address(mission), 1));
+        emit log_uint(quest.getQuestProgress(_user, address(mission), 1));
     }
 
-    function testSingleTaskMission_Respond_UnauthorizedQuest(uint256 response) public payable {
-        testSingleTaskMission_Start_UnauthorizedQuest();
+    function testSingleTaskMission_Respond_UnauthorizedQuest(address _user, uint256 response) public payable {
+        testSingleTaskMission_Start_UnauthorizedQuest(_user);
         vm.warp(block.timestamp + 10);
 
         // Respond.
         uint256 completedCount = quest.getCompletedTaskCount(bob, address(mission), 1);
         uint256 numOfTaskCompleted = quest.getNumOfTaskCompleted();
-        uint256 numOfTaskCompletedByUser = quest.getNumOfTasksCompletedByUser(bob, address(mission), 1, 1);
+        uint256 numOfTaskCompletedByUser = quest.getNumOfTasksCompletedByUser(_user, address(mission), 1, 1);
         uint256 numOfMissionCompleted = quest.getNumOfMissionsCompleted();
-        uint256 numOfMissionCompletedByUser = quest.getNumOfMissionsCompletedByUser(bob, address(mission), 1);
+        uint256 numOfMissionCompletedByUser = quest.getNumOfMissionsCompletedByUser(_user, address(mission), 1);
 
-        respond(bob, address(mission), 1, 1, response, testString);
-        assertEq(quest.getCompletedTaskCount(bob, address(mission), 1), completedCount + 1);
+        respond(_user, address(mission), 1, 1, response, testString);
+        assertEq(quest.getCompletedTaskCount(_user, address(mission), 1), completedCount + 1);
         assertEq(quest.getNumOfTaskCompleted(), numOfTaskCompleted + 1);
-        assertEq(quest.getNumOfTasksCompletedByUser(bob, address(mission), 1, 1), numOfTaskCompletedByUser + 1);
+        assertEq(quest.getNumOfTasksCompletedByUser(_user, address(mission), 1, 1), numOfTaskCompletedByUser + 1);
         assertEq(quest.getNumOfMissionsCompleted(), numOfMissionCompleted + 1);
-        assertEq(quest.getNumOfMissionsCompletedByUser(bob, address(mission), 1), numOfMissionCompletedByUser + 1);
-        assertEq(quest.getUserResponse(bob, 0), response);
-        assertEq(quest.getUserFeedback(bob, 0), testString);
+        assertEq(quest.getNumOfMissionsCompletedByUser(_user, address(mission), 1), numOfMissionCompletedByUser + 1);
+        assertEq(quest.getUserResponse(_user, 0), response);
+        assertEq(quest.getUserFeedback(_user, 0), testString);
         assertEq(mission.getMissionCompletions(1), 0);
         assertEq(mission.getTaskCompletions(1), 0);
-        emit log_uint(quest.getQuestProgress(bob, address(mission), 1));
+        emit log_uint(quest.getQuestProgress(_user, address(mission), 1));
     }
 
     /// -----------------------------------------------------------------------
     /// Quad-Task Mission Tests
     /// ----------------------------------------------------------------------
 
-    function testQuadTaskMission_Start() public payable {
+    function testQuadTaskMission_Start(address _user) public payable {
         // Initialize tasks and mission.
         setupQuadTaskMission(dao);
 
+        // Retrieve for later validation.
+        uint256 numOfMissionsStartedByUser = quest.getNumOfMissionsStartedByUser(_user, address(mission), 1);
+        uint256 numOfMissionsStarted = quest.getNumOfMissionsStarted();
+        uint256 missionStarts = mission.getMissionStarts(1);
+        (uint256 missionIdCount, uint256 missionsCount) = quest.getNumOfMissionQuested(address(mission), 1);
+
         // Start.
-        start(bob, address(mission), 1);
+        start(_user, address(mission), 1);
 
         // Validate.fo
-        assertEq(quest.getQuestCountByUser(bob), 1);
-        assertEq(quest.getNumOfMissionsStartedByUser(bob, address(mission), 1), 1);
-        assertEq(quest.getNumOfMissionsStarted(), 1);
-        assertEq(mission.getMissionStarts(1), 1);
+        assertEq(quest.getQuestCountByUser(_user), 1);
+        assertEq(quest.getNumOfMissionsStartedByUser(_user, address(mission), 1), numOfMissionsStartedByUser + 1);
+        assertEq(quest.getNumOfMissionsStarted(), numOfMissionsStarted + 1);
+        assertEq(mission.getMissionStarts(1), missionStarts + 1);
 
-        (uint256 missionIdCount, uint256 missionsCount) = quest.getNumOfMissionQuested(address(mission), 1);
-        assertEq(missionIdCount, 1);
-        assertEq(missionsCount, 1);
+        (uint256 _missionIdCount, uint256 _missionsCount) = quest.getNumOfMissionQuested(address(mission), 1);
+        assertEq(_missionIdCount, missionIdCount + 1);
+        assertEq(_missionsCount, missionsCount + 1);
     }
 
-    function testQuadTaskMission_Start_InvalidMission() public payable {
+    function testQuadTaskMission_Start_InvalidMission(address _user) public payable {
         vm.warp(block.timestamp + 100000);
 
         // Anyone can take user's signature and start quest on behalf of user.
         vm.expectRevert(Quest.InvalidMission.selector);
-        vm.prank(bob);
+        vm.prank(_user);
         quest.start(address(mission), 1);
     }
 
-    function testQuadTaskMission_Start_NotInitialized() public payable {
+    function testQuadTaskMission_Start_NotInitialized(address _user) public payable {
         // Anyone can take user's signature and start quest on behalf of user.
         vm.expectRevert(Quest.NotInitialized.selector);
-        vm.prank(bob);
+        vm.prank(_user);
         quest.start(address(mission), 0);
     }
 
-    function testQuadTaskMission_Start_QuestInProgress() public payable {
-        testQuadTaskMission_Start();
+    function testQuadTaskMission_Start_QuestInProgress(address _user) public payable {
+        testQuadTaskMission_Start(_user);
 
         // Start.
         vm.expectRevert(Quest.QuestInProgress.selector);
-        vm.prank(bob);
+        vm.prank(_user);
         quest.start(address(mission), 1);
     }
 
-    function testQuadTaskMission_StartBySig() public payable {
+    function testQuadTaskMission_StartBySig(string memory _username) public payable {
+        (address _user, uint256 _userPk) = makeAddrAndKey(_username);
+
         // Initialize tasks and mission.
         setupQuadTaskMission(dao);
+
+        // Retrieve for later validation.
+        uint256 questCountByUser = quest.getQuestCountByUser(_user);
+        uint256 numOfMissionsStartedByUser = quest.getNumOfMissionsStartedByUser(_user, address(mission), 1);
+        uint256 numOfMissionsStarted = quest.getNumOfMissionsStarted();
+        uint256 missionStarts = mission.getMissionStarts(1);
+        (uint256 missionIdCount, uint256 missionsCount) = quest.getNumOfMissionQuested(address(mission), 1);
 
         // Prepare message.
         bytes32 message = keccak256(
             abi.encodePacked(
-                "\x19\x01", quest.DOMAIN_SEPARATOR(), keccak256(abi.encode(START_TYPEHASH, user, address(mission), 1))
+                "\x19\x01", quest.DOMAIN_SEPARATOR(), keccak256(abi.encode(START_TYPEHASH, _user, address(mission), 1))
             )
         );
 
         // George signs message.
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(userPK, message);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(_userPk, message);
 
         // Anyone can take George's signature and start quest on behalf of George.
-        quest.startBySig(user, address(mission), 1, v, r, s);
+        quest.startBySig(_user, address(mission), 1, v, r, s);
 
         // Validate.
-        assertEq(quest.getQuestCountByUser(user), 1);
-        assertEq(quest.getNumOfMissionsStartedByUser(user, address(mission), 1), 1);
-        assertEq(quest.getNumOfMissionsStarted(), 1);
+        assertEq(quest.getQuestCountByUser(_user), questCountByUser + 1);
+        assertEq(quest.getNumOfMissionsStartedByUser(_user, address(mission), 1), numOfMissionsStartedByUser + 1);
+        assertEq(quest.getNumOfMissionsStarted(), numOfMissionsStarted + 1);
+        assertEq(mission.getMissionStarts(1), missionStarts + 1);
 
-        (uint256 missionIdCount, uint256 missionsCount) = quest.getNumOfMissionQuested(address(mission), 1);
-        assertEq(missionIdCount, 1);
-        assertEq(missionsCount, 1);
+        (uint256 _missionIdCount, uint256 _missionsCount) = quest.getNumOfMissionQuested(address(mission), 1);
+        assertEq(_missionIdCount, missionIdCount + 1);
+        assertEq(_missionsCount, missionsCount + 1);
     }
 
     function testQuadTaskMissionStartBySig_InvalidUser() public payable {
+        (address _user, uint256 _userPk) = makeAddrAndKey("invalidUser");
+
         // Prepare message.
         bytes32 message = keccak256(
             abi.encodePacked(
@@ -287,15 +311,14 @@ contract QuestTest is Test {
         );
 
         // User signs message.
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(userPK, message);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(_userPk, message);
 
         // Anyone can take user's signature and start quest on behalf of user.
         vm.expectRevert(Quest.InvalidUser.selector);
-        quest.startBySig(user, address(mission), 1, v, r, s);
+        quest.startBySig(_user, address(mission), 1, v, r, s);
     }
 
-    function testQuadTaskMission_SponsoredStart() public payable {
-        string memory username = "USER1";
+    function testQuadTaskMission_SponsoredStart(string memory _username) public payable {
         uint256 prevCount = quest.getPublicCount();
 
         vm.prank(dao);
@@ -304,37 +327,77 @@ contract QuestTest is Test {
         vm.deal(bot, 0.5 ether);
 
         vm.prank(bot);
-        quest.sponsoredStart(username, 123, address(mission), 1);
+        quest.sponsoredStart(_username, 123, address(mission), 1);
 
         assertEq(quest.getPublicCount(), prevCount + 1);
-        assertEq(quest.isPublicUser(username, 123), true);
-        assertEq(quest.getPublicUser(prevCount + 1), getPublicUserAddress(username, 123));
+        assertEq(quest.isPublicUser(_username, 123), true);
+        assertEq(quest.getPublicUser(prevCount + 1), getPublicUserAddress(_username, 123));
     }
 
-    function testQuadTaskMission_SponsoredStart_InvalidBot() public payable {
+    function testQuadTaskMission_SponsoredStart_InvalidBot(string memory _username) public payable {
         vm.expectRevert(Quest.InvalidBot.selector);
         vm.prank(dao);
-        quest.sponsoredStart("USER1", 123, address(mission), 1);
+        quest.sponsoredStart(_username, 123, address(mission), 1);
     }
 
-    function testQuadTaskMissionRespond(uint256 response) public payable {
-        testQuadTaskMission_Start();
+    function testQuadTaskMissionRespond(address _user, uint256 response) public payable {
+        testQuadTaskMission_Start(_user);
         vm.warp(block.timestamp + 10);
 
         // Respond.
-        uint256 completedCount = quest.getCompletedTaskCount(bob, address(mission), 1);
+        uint256 completedCount = quest.getCompletedTaskCount(_user, address(mission), 1);
         uint256 numOfTaskCompleted = quest.getNumOfTaskCompleted();
-        uint256 numOfTaskCompletedByUser = quest.getNumOfTasksCompletedByUser(bob, address(mission), 1, 1);
+        uint256 numOfTaskCompletedByUser = quest.getNumOfTasksCompletedByUser(_user, address(mission), 1, 1);
 
-        respond(bob, address(mission), 1, 1, response, testString);
-        assertEq(quest.getCompletedTaskCount(bob, address(mission), 1), completedCount + 1);
+        respond(_user, address(mission), 1, 1, response, testString);
+        assertEq(quest.getCompletedTaskCount(_user, address(mission), 1), completedCount + 1);
         assertEq(quest.getNumOfTaskCompleted(), numOfTaskCompleted + 1);
-        assertEq(quest.getNumOfTasksCompletedByUser(bob, address(mission), 1, 1), numOfTaskCompletedByUser + 1);
-        emit log_uint(quest.getQuestProgress(bob, address(mission), 1));
+        assertEq(quest.getNumOfTasksCompletedByUser(_user, address(mission), 1, 1), numOfTaskCompletedByUser + 1);
+        emit log_uint(quest.getQuestProgress(_user, address(mission), 1));
     }
 
-    function testQuadTaskMissionRespondBySig(uint256 response) public payable {
-        testQuadTaskMission_StartBySig();
+    function testQuadTaskMissionRespond_QuestInactive(address _user, uint256 response) public payable {
+        testQuadTaskMission_Start(_user);
+
+        // DAO has not started any quest, triggering QusetInactiv().
+        vm.expectRevert(Quest.QuestInactive.selector);
+        vm.prank(dao);
+        quest.respond(address(mission), 1, 1, response, testString);
+    }
+
+    function testQuadTaskMissionRespond_InvalidMission(address _user, uint256 response) public payable {
+        testQuadTaskMission_Start(_user);
+
+        // InvalidMission().
+        vm.expectRevert(Quest.InvalidMission.selector);
+        vm.prank(_user);
+        quest.respond(address(mission), 1, 8, response, testString);
+    }
+
+    function testQuadTaskMissionRespond_Cooldown(address _user, uint256 response) public payable {
+        testQuadTaskMission_Start(_user);
+
+        setCooldown(dao, 100);
+
+        // Respond is not allowed when user is not cooled down.
+        vm.warp(block.timestamp + 10);
+
+        vm.expectRevert(Quest.Cooldown.selector);
+        vm.prank(_user);
+        quest.respond(address(mission), 1, 1, response, testString);
+
+        vm.warp(block.timestamp + 100);
+
+        // Respond is allowed after user has cooled down.
+        uint256 completedCount = quest.getCompletedTaskCount(_user, address(mission), 1);
+
+        respond(_user, address(mission), 1, 1, response, testString);
+        assertEq(quest.getCompletedTaskCount(_user, address(mission), 1), completedCount + 1);
+    }
+
+    function testQuadTaskMissionRespondBySig(string memory _username, uint256 response) public payable {
+        (address _user, uint256 _userPk) = makeAddrAndKey(_username);
+        testQuadTaskMission_StartBySig(_username);
         vm.warp(block.timestamp + 10);
 
         // Prepare message.
@@ -342,46 +405,48 @@ contract QuestTest is Test {
             abi.encodePacked(
                 "\x19\x01",
                 quest.DOMAIN_SEPARATOR(),
-                keccak256(abi.encode(RESPOND_TYPEHASH, user, address(mission), 1, 1, response, testString))
+                keccak256(abi.encode(RESPOND_TYPEHASH, _user, address(mission), 1, 1, response, testString))
             )
         );
 
         // User signs message.
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(userPK, message);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(_userPk, message);
 
         // Retrieve for validation later.
-        uint256 completedCount = quest.getCompletedTaskCount(user, address(mission), 1);
+        uint256 completedCount = quest.getCompletedTaskCount(_user, address(mission), 1);
 
         // Respond by sig.
-        quest.respondBySig(user, address(mission), 1, 1, response, testString, v, r, s);
+        quest.respondBySig(_user, address(mission), 1, 1, response, testString, v, r, s);
 
         // Validate.
-        uint256 count = quest.getNumOfResponseByUser(user);
-        assertEq(quest.getUserResponse(user, count), response);
-        assertEq(quest.getUserFeedback(user, count), testString);
+        uint256 count = quest.getNumOfResponseByUser(_user);
+        assertEq(quest.getUserResponse(_user, count), response);
+        assertEq(quest.getUserFeedback(_user, count), testString);
 
-        (address __mission, uint256 __missionId, uint256 __taskId) = quest.getUserTask(user, count);
+        (address __mission, uint256 __missionId, uint256 __taskId) = quest.getUserTask(_user, count);
         assertEq(__mission, address(mission));
         assertEq(__missionId, 1);
         assertEq(__taskId, 1);
-        assertEq(quest.getCompletedTaskCount(user, address(mission), 1), completedCount + 1);
+        assertEq(quest.getCompletedTaskCount(_user, address(mission), 1), completedCount + 1);
     }
 
-    function testQuadTaskMission_SponsoredRespond(uint256 response) public payable {
-        testQuadTaskMission_SponsoredStart();
+    function testQuadTaskMission_SponsoredRespond(string memory _username, uint256 response) public payable {
+        testQuadTaskMission_SponsoredStart(_username);
 
         vm.prank(bot);
-        quest.sponsoredRespond("USER1", 123, address(mission), 1, 1, response, testString);
+        quest.sponsoredRespond(_username, 123, address(mission), 1, 1, response, testString);
     }
 
-    function testQuadTaskMission_SponsoredStart_InvalidBot(uint256 response) public payable {
+    function testQuadTaskMission_SponsoredStart_InvalidBot(string memory _username, uint256 response) public payable {
         vm.expectRevert(Quest.InvalidBot.selector);
         vm.prank(dao);
-        quest.sponsoredRespond("USER1", 123, address(mission), 1, 1, response, testString);
+        quest.sponsoredRespond(_username, 123, address(mission), 1, 1, response, testString);
     }
 
     function testQuadTaskMissionRespondBySig_InvalidUser(uint256 response) public payable {
-        testQuadTaskMission_StartBySig();
+        (address _user, uint256 _userPk) = makeAddrAndKey("invalidUser");
+
+        testQuadTaskMission_StartBySig("invalidUser");
         vm.warp(block.timestamp + 10);
 
         // Prepare message.
@@ -394,50 +459,29 @@ contract QuestTest is Test {
         );
 
         // George signs message.
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(userPK, message);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(_userPk, message);
 
         // Anyone can take George's signature and respond to a task on behalf of George.
         vm.expectRevert(Quest.InvalidUser.selector);
-        quest.respondBySig(user, address(mission), 1, 1, response, testString, v, r, s);
+        quest.respondBySig(_user, address(mission), 1, 1, response, testString, v, r, s);
     }
 
-    function testQuadTaskMissionRespond_QuestInactive(uint256 response) public payable {
-        testQuadTaskMission_Start();
+    /// -----------------------------------------------------------------------
+    /// Quad-Task Mission Tests - Story Mode
+    /// ----------------------------------------------------------------------
 
-        // DAO has not started any quest, triggering QusetInactiv().
-        vm.expectRevert(Quest.QuestInactive.selector);
-        vm.prank(dao);
-        quest.respond(address(mission), 1, 1, response, testString);
-    }
-
-    function testQuadTaskMissionRespond_InvalidMission(uint256 response) public payable {
-        testQuadTaskMission_Start();
-
-        // InvalidMission().
-        vm.expectRevert(Quest.InvalidMission.selector);
-        vm.prank(bob);
-        quest.respond(address(mission), 1, 8, response, testString);
-    }
-
-    function testQuadTaskMissionRespond_Cooldown(uint256 response) public payable {
-        testQuadTaskMission_Start();
-
-        setCooldown(dao, 100);
-
-        // Respond is not allowed when user is not cooled down.
-        vm.warp(block.timestamp + 10);
-
-        vm.expectRevert(Quest.Cooldown.selector);
-        vm.prank(bob);
-        quest.respond(address(mission), 1, 1, response, testString);
+    function testQuadTaskMission_MultipleStarts() public payable {
+        testQuadTaskMission_Start(alice);
+        testQuadTaskMission_StartBySig("charlie");
 
         vm.warp(block.timestamp + 100);
+        testQuadTaskMission_Start(bob);
+        testQuadTaskMission_StartBySig("david");
+        testQuadTaskMission_SponsoredStart(username);
 
-        // Respond is allowed after user has cooled down.
-        uint256 completedCount = quest.getCompletedTaskCount(bob, address(mission), 1);
-
-        respond(bob, address(mission), 1, 1, response, testString);
-        assertEq(quest.getCompletedTaskCount(bob, address(mission), 1), completedCount + 1);
+        vm.warp(block.timestamp + 200);
+        testQuadTaskMission_StartBySig("eric");
+        testQuadTaskMission_SponsoredStart(username2);
     }
 
     /// -----------------------------------------------------------------------
