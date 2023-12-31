@@ -17,6 +17,7 @@ contract Mission is Storage {
     error NotAuthorized();
     error InvalidTask();
     error InvalidMission();
+    error InvalidFee();
 
     /// -----------------------------------------------------------------------
     /// Modifier
@@ -24,6 +25,11 @@ contract Mission is Storage {
 
     modifier onlyQuest() {
         if (!this.isQuestAuthorized(msg.sender)) revert NotAuthorized();
+        _;
+    }
+
+    modifier priceCheck() {
+        if (msg.value != this.getFee()) revert InvalidFee();
         _;
     }
 
@@ -48,31 +54,33 @@ contract Mission is Storage {
         return this.getBool(keccak256(abi.encode(address(this), target, ".authorized")));
     }
 
+    function setFee(uint256 fee) external payable {
+        _setUint(keccak256(abi.encode(address(this), ".fee")), fee);
+    }
+
+    function getFee() external view returns (uint256) {
+        return this.getUint(keccak256(abi.encode(address(this), ".fee")));
+    }
     /// -----------------------------------------------------------------------
     /// Task Logic - Setter
     /// -----------------------------------------------------------------------
-    /// @notice  Create task.
+    /// @notice  Create task by dao.
+
     function setTasks(address[] calldata creators, uint256[] calldata deadlines, string[] calldata detail)
         external
         payable
         onlyOperator
     {
-        uint256 taskId;
+        _setTasks(creators, deadlines, detail);
+    }
 
-        // Confirm inputs are valid.
-        uint256 length = creators.length;
-        if (length != deadlines.length || length != detail.length) revert LengthMismatch();
-        if (length == 0) revert InvalidTask();
-
-        // Set new task content.
-        for (uint256 i = 0; i < length; ++i) {
-            // Increment and retrieve taskId.
-            taskId = incrementTaskId();
-
-            _setTaskCreator(taskId, creators[i]);
-            _setTaskDeadline(taskId, deadlines[i]);
-            _setTaskDetail(taskId, detail[i]);
-        }
+    /// @notice  Create task with payment.
+    function setTasksWithPayment(address[] calldata creators, uint256[] calldata deadlines, string[] calldata detail)
+        external
+        payable
+        priceCheck
+    {
+        _setTasks(creators, deadlines, detail);
     }
 
     /// @notice Update creator of a task.
@@ -94,6 +102,26 @@ contract Mission is Storage {
                     __setMissionDeadline(missionId, deadline);
                 }
             }
+        }
+    }
+
+    /// @notice  Internal function to create task.
+    function _setTasks(address[] calldata creators, uint256[] calldata deadlines, string[] calldata detail) internal {
+        uint256 taskId;
+
+        // Confirm inputs are valid.
+        uint256 length = creators.length;
+        if (length != deadlines.length || length != detail.length) revert LengthMismatch();
+        if (length == 0) revert InvalidTask();
+
+        // Set new task content.
+        for (uint256 i = 0; i < length; ++i) {
+            // Increment and retrieve taskId.
+            taskId = incrementTaskId();
+
+            _setTaskCreator(taskId, creators[i]);
+            _setTaskDeadline(taskId, deadlines[i]);
+            _setTaskDetail(taskId, detail[i]);
         }
     }
 
@@ -145,16 +173,17 @@ contract Mission is Storage {
         payable
         onlyOperator
     {
-        // Retrieve missionId.
-        uint256 missionId = incrementMissionId();
+        _setMission(creator, title, detail, taskIds);
+    }
 
-        // Set new mission content.
-        if (taskIds.length > 0) _addMissionTasks(missionId, taskIds);
-        else revert InvalidMission();
-        if (setMissionDeadline(missionId) == 0) revert InvalidMission();
-        _setMissionCreator(missionId, creator);
-        _setMissionDetail(missionId, detail);
-        _setMissionTitle(missionId, title);
+    /// @notice Create mission with payment.
+    function setMissionWithPayment(
+        address creator,
+        string calldata title,
+        string calldata detail,
+        uint256[] calldata taskIds
+    ) external payable priceCheck {
+        _setMission(creator, title, detail, taskIds);
     }
 
     /// @notice Update creator of a mission.
@@ -201,6 +230,22 @@ contract Mission is Storage {
     /// @notice Increment and return mission id.
     function incrementMissionId() internal returns (uint256) {
         return addUint(keccak256(abi.encode(address(this), "missions.count")), 1);
+    }
+
+    /// @notice Internal function to create a mission.
+    function _setMission(address creator, string calldata title, string calldata detail, uint256[] calldata taskIds)
+        internal
+    {
+        // Retrieve missionId.
+        uint256 missionId = incrementMissionId();
+
+        // Set new mission content.
+        if (taskIds.length > 0) _addMissionTasks(missionId, taskIds);
+        else revert InvalidMission();
+        if (setMissionDeadline(missionId) == 0) revert InvalidMission();
+        _setMissionCreator(missionId, creator);
+        _setMissionDetail(missionId, detail);
+        _setMissionTitle(missionId, title);
     }
 
     /// @notice Add tasks to a mission.
