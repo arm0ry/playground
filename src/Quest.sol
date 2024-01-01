@@ -164,6 +164,7 @@ contract Quest is Storage {
         payable
         virtual
         hasExpired(missions, missionId)
+        onlyGasBot
     {
         // Validate signed message.
         bytes32 digest = keccak256(
@@ -214,7 +215,7 @@ contract Quest is Storage {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) external payable virtual hasExpired(missions, missionId) {
+    ) external payable virtual hasExpired(missions, missionId) onlyGasBot {
         // Validate signed message.
         bytes32 digest = keccak256(
             abi.encodePacked(
