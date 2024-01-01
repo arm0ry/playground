@@ -86,6 +86,27 @@ contract MissionTest is Test {
         mission.authorizeQuest(address(quest), authorization);
     }
 
+    function testSetFee(uint256 _fee) public payable {
+        // Initialize.
+        initialize(dao);
+
+        // Authorize quest contract.
+        vm.prank(dao);
+        mission.setFee(_fee);
+
+        // Validate.
+        assertEq(mission.getFee(), _fee);
+    }
+
+    function testSetFee_NotOperator(uint256 _fee) public payable {
+        // Initialize.
+        initialize(dao);
+
+        // Authorize quest contract.
+        vm.expectRevert(Storage.NotOperator.selector);
+        mission.setFee(_fee);
+    }
+
     /// -----------------------------------------------------------------------
     /// Task Test - Setter
     /// ----------------------------------------------------------------------
@@ -155,6 +176,78 @@ contract MissionTest is Test {
 
         // Set up task.
         setTasks();
+    }
+
+    function testPayToSetTasks(uint256 _fee) public payable {
+        vm.assume(9 ether > _fee);
+
+        // Initialize.
+        testSetFee(_fee);
+
+        // Set up param.
+        delete creators;
+        delete deadlines;
+        delete detail;
+
+        creators.push(alice);
+        creators.push(bob);
+        creators.push(charlie);
+        creators.push(david);
+        creators.push(eric);
+        creators.push(fred);
+        deadlines.push(2);
+        deadlines.push(10);
+        deadlines.push(100);
+        deadlines.push(1000);
+        deadlines.push(10000);
+        deadlines.push(100000);
+        detail.push("TEST 1");
+        detail.push("TEST 2");
+        detail.push("TEST 3");
+        detail.push("TEST 4");
+        detail.push("TEST 5");
+        detail.push("TEST 6");
+
+        vm.deal(alice, 10 ether);
+
+        // Set up task.
+        payToSetTasks(alice, _fee);
+    }
+
+    function testPayToSetTasks_InvalidFee() public payable {
+        // Initialize.
+        testSetFee(0.001 ether);
+
+        // Set up param.
+        delete creators;
+        delete deadlines;
+        delete detail;
+
+        creators.push(alice);
+        creators.push(bob);
+        creators.push(charlie);
+        creators.push(david);
+        creators.push(eric);
+        creators.push(fred);
+        deadlines.push(2);
+        deadlines.push(10);
+        deadlines.push(100);
+        deadlines.push(1000);
+        deadlines.push(10000);
+        deadlines.push(100000);
+        detail.push("TEST 1");
+        detail.push("TEST 2");
+        detail.push("TEST 3");
+        detail.push("TEST 4");
+        detail.push("TEST 5");
+        detail.push("TEST 6");
+
+        vm.deal(alice, 10 ether);
+
+        // Set up task.
+        vm.expectRevert(Mission.InvalidFee.selector);
+        vm.prank(alice);
+        mission.payToSetTasks{value: 0.002 ether}(creators, deadlines, detail);
     }
 
     function testSetTaskCreator(address newCreator) public payable {
@@ -251,6 +344,50 @@ contract MissionTest is Test {
         vm.expectRevert(Mission.InvalidMission.selector);
         vm.prank(dao);
         mission.setMission(alice, "Welcome to your first mission!", "For more, check here.", taskIds);
+    }
+
+    function testPayToSetMission(uint256 _fee) public payable {
+        vm.assume(9 ether > _fee);
+
+        // Initialize.
+        testSetFee(_fee);
+
+        // Set tasks.
+        testPayToSetTasks(_fee);
+        vm.warp(block.timestamp + 1000);
+
+        // Prepare tasks to add to a a new mission.
+        taskIds.push(1);
+        taskIds.push(2);
+        taskIds.push(3);
+        taskIds.push(4);
+
+        vm.deal(alice, 10 ether);
+
+        // Set up task.
+        payToSetMission(alice, "Welcome to your first mission!", "For more, check here.", _fee);
+    }
+
+    function testPayToSetMission_InvalidFee() public payable {
+        // Initialize.
+        testSetFee(0.001 ether);
+
+        // Set tasks.
+        testSetTasks();
+        vm.warp(block.timestamp + 1000);
+
+        // Prepare tasks to add to a a new mission.
+        taskIds.push(1);
+        taskIds.push(2);
+
+        vm.deal(alice, 10 ether);
+
+        // Set up task.
+        vm.expectRevert(Mission.InvalidFee.selector);
+        vm.prank(alice);
+        mission.payToSetMission{value: 0.002 ether}(
+            alice, "Welcome to your first mission!", "For more, check here.", taskIds
+        );
     }
 
     function testSetMissionCreator(address newCreator) public payable {
@@ -393,37 +530,13 @@ contract MissionTest is Test {
         assertEq(mission.getMissionDeadline(_missionId), newDeadline);
     }
 
-    function testIncrementMissionStarts() public payable {}
-
-    function testIncrementMissionCompletions() public payable {}
-
     /// -----------------------------------------------------------------------
     /// Task Test - Getter
     /// ----------------------------------------------------------------------
 
-    function testGetTaskCompletions() public payable {}
-
-    function testIsTaskInMission() public payable {
-        // bool existTask1 = mission.isTaskInMission(1, 1);
-        // bool existTask2 = mission.isTaskInMission(1, 2);
-        // bool existTask3 = mission.isTaskInMission(1, 3);
-        // bool existTask4 = mission.isTaskInMission(1, 4);
-        // bool existTask5 = mission.isTaskInMission(1, 5);
-
-        // assertEq(existTask1, true);
-        // assertEq(existTask2, true);
-        // assertEq(existTask3, true);
-        // assertEq(existTask4, true);
-        // assertEq(existTask5, false);
-    }
-
     /// -----------------------------------------------------------------------
     /// Mission Test - Getter
     /// ----------------------------------------------------------------------
-
-    function testGetMissionStarts() public payable {}
-
-    function testGetMissionCompletions() public payable {}
 
     /// -----------------------------------------------------------------------
     /// Internal Functions
@@ -465,10 +578,62 @@ contract MissionTest is Test {
         assertEq(mission.getTaskId(), taskId);
     }
 
+    function payToSetTasks(address user, uint256 amount) internal {
+        emit log_uint(mission.getTaskId());
+
+        // Set up task.
+        vm.prank(user);
+        mission.payToSetTasks{value: amount}(creators, deadlines, detail);
+
+        // Validate setup.
+        for (uint256 i = 0; i < creators.length; i++) {
+            ++taskId;
+            assertEq(mission.getTaskCreator(taskId), creators[i]);
+            assertEq(mission.getTaskDeadline(taskId), deadlines[i]);
+            assertEq(mission.getTaskDetail(taskId), detail[i]);
+
+            emit log_uint(mission.getTaskId());
+            emit log_uint(taskId);
+        }
+        emit log_uint(mission.getTaskId());
+        emit log_uint(taskId);
+        assertEq(mission.getTaskId(), taskId);
+    }
+
     function setMission(address creator, string memory title, string memory _detail) internal {
         // Set up task.
         vm.prank(dao);
         mission.setMission(creator, title, _detail, taskIds);
+
+        // Retrieve deadlines from tasks identified by taskIds
+        uint256 length = taskIds.length;
+        uint256 _deadline;
+        uint256 temp;
+        for (uint256 i = 0; i < length; i++) {
+            temp = mission.getTaskDeadline(taskIds[i]);
+            (temp > _deadline) ? _deadline = temp : _deadline;
+        }
+
+        // Validate setup.
+        ++missionId;
+        newTaskIds.push(missionId);
+        assertEq(mission.getMissionId(), missionId);
+        assertEq(mission.getMissionCreator(missionId), creator);
+        assertEq(mission.getMissionTitle(missionId), title);
+        assertEq(mission.getMissionDetail(missionId), _detail);
+        assertEq(mission.getMissionDeadline(missionId), _deadline);
+        assertEq(mission.getMissionTaskCount(missionId), length);
+        for (uint256 i = 0; i < length; i++) {
+            assertEq(taskIds[i], mission.getMissionTaskId(missionId, i + 1));
+            assertEq(mission.getTaskMissionIds(taskIds[i]), newTaskIds);
+        }
+        assertEq(taskIds, mission.getMissionTaskIds(missionId));
+    }
+
+    function payToSetMission(address creator, string memory title, string memory _detail, uint256 amount) internal {
+        // Set up task.
+        vm.prank(creator);
+        mission.payToSetMission{value: amount}(creator, title, _detail, taskIds);
 
         // Retrieve deadlines from tasks identified by taskIds
         uint256 length = taskIds.length;

@@ -183,7 +183,7 @@ contract mSupportToken is SupportToken {
         uint256[] memory taskIds = IMission(mission).getMissionTaskIds(missionId);
 
         for (uint256 i = 0; i < taskIds.length;) {
-            uint256 completions = IMission(mission).getTaskCompletions(taskIds[i]);
+            uint256 completions = IMission(mission).getTotalTaskCompletions(taskIds[i]);
 
             // radius = completions * max radius / max completions at max radius + base radius
             uint256 radius = completions * 500 / 100;

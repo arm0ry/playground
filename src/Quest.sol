@@ -882,7 +882,8 @@ contract Quest is Storage {
 
         // Increment task completion at Missions contract.
         if (IMission(missions).isQuestAuthorized(address(this))) {
-            IMission(missions).incrementTaskCompletions(taskId);
+            IMission(missions).incrementTotalTaskCompletions(taskId);
+            IMission(missions).incrementTotalTaskCompletionsByMission(missionId, taskId);
         }
     }
 

@@ -182,7 +182,8 @@ contract QuestTest is Test {
         assertEq(quest.getUserResponse(_user, 0), response);
         assertEq(quest.getUserFeedback(_user, 0), testString);
         assertEq(mission.getMissionCompletions(1), 1);
-        assertEq(mission.getTaskCompletions(1), 1);
+        assertEq(mission.getTotalTaskCompletions(1), 1);
+        assertEq(mission.getTotalTaskCompletionsByMission(1, 1), 1);
         emit log_uint(quest.getQuestProgress(_user, address(mission), 1));
     }
 
@@ -206,7 +207,8 @@ contract QuestTest is Test {
         assertEq(quest.getUserResponse(_user, 0), response);
         assertEq(quest.getUserFeedback(_user, 0), testString);
         assertEq(mission.getMissionCompletions(1), 0);
-        assertEq(mission.getTaskCompletions(1), 0);
+        assertEq(mission.getTotalTaskCompletions(1), 0);
+        assertEq(mission.getTotalTaskCompletionsByMission(1, 1), 0);
         emit log_uint(quest.getQuestProgress(_user, address(mission), 1));
     }
 
