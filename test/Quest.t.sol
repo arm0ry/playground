@@ -725,7 +725,7 @@ contract QuestTest is Test {
         return count;
     }
 
-    function getPublicUserAddress(string memory username, uint256 salt) internal pure returns (address) {
-        return address(uint160(uint256(keccak256(abi.encode(username, salt)))));
+    function getPublicUserAddress(string memory _username, uint256 salt) internal pure returns (address) {
+        return address(uint160(uint256(keccak256(abi.encode(_username, salt)))));
     }
 }
