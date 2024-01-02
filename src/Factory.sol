@@ -35,25 +35,25 @@ contract Factory {
     /// Determine Address Logic
     /// -----------------------------------------------------------------------
 
-    function determineMissionAddress(address user) internal virtual returns (address) {
+    function determineMissionAddress(address user) external virtual returns (address) {
         return mission.predictDeterministicAddress(
             abi.encodePacked(user), keccak256(abi.encode(user, ++nonces[user])), address(this)
         );
     }
 
-    function determineQuestAddress(address user) internal virtual returns (address) {
+    function determineQuestAddress(address user) external virtual returns (address) {
         return quest.predictDeterministicAddress(
             abi.encodePacked(user), keccak256(abi.encode(user, ++nonces[user])), address(this)
         );
     }
 
-    function determineMissionTokenAddress(address user) internal virtual returns (address) {
+    function determineMissionTokenAddress(address user) external virtual returns (address) {
         return mSupportToken.predictDeterministicAddress(
             abi.encodePacked(user), keccak256(abi.encode(user, ++nonces[user])), address(this)
         );
     }
 
-    function determineQuestTokenAddress(address user) internal virtual returns (address) {
+    function determineQuestTokenAddress(address user) external virtual returns (address) {
         return qSupportToken.predictDeterministicAddress(
             abi.encodePacked(user), keccak256(abi.encode(user, ++nonces[user])), address(this)
         );
