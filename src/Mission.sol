@@ -434,7 +434,7 @@ contract Mission is Storage {
         return this.getUint(keccak256(abi.encode(address(this), ".tasks.", taskId, ".missionCount")));
     }
 
-    /// @notice Get a mission id associated with of a given task by order.
+    /// @notice Get mission ids associated with a task.
     function getTaskMissionId(uint256 taskId, uint256 order) external view returns (uint256) {
         return this.getUint(keccak256(abi.encode(address(this), ".tasks.", taskId, ".missionIds.", order)));
     }

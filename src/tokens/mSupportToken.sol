@@ -114,26 +114,9 @@ contract mSupportToken is SupportToken {
                 ),
                 SVG.NULL
             ),
-            buildCurve(),
-            buildSvgData(),
             buildTreeRing(),
+            buildSvgData(),
             "</svg>"
-        );
-    }
-
-    function buildCurve() public view returns (string memory) {
-        (, uint256 burnRatio,,,) = IImpactCurve(curve).getCurveFormula(curveId);
-
-        return string.concat(
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "240"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat("Burn ratio: ", SVG._uint2str(burnRatio), " %")
-            )
         );
     }
 
@@ -160,20 +143,31 @@ contract mSupportToken is SupportToken {
             SVG._text(
                 string.concat(
                     SVG._prop("x", "20"),
-                    SVG._prop("y", "210"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat("# of completions: ", SVG._uint2str(IMission(mission).getMissionCompletions(missionId)))
-            ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
                     SVG._prop("y", "190"),
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
                 string.concat("Ends in: ", SVG._uint2str(IMission(mission).getMissionDeadline(missionId)), " s")
+            ),
+            SVG._text(
+                string.concat(
+                    SVG._prop("x", "20"),
+                    SVG._prop("y", "210"),
+                    SVG._prop("font-size", "12"),
+                    SVG._prop("fill", "#00040a")
+                ),
+                string.concat("# of Starts: ", SVG._uint2str(IMission(mission).getMissionStarts(missionId)))
+            ),
+            SVG._text(
+                string.concat(
+                    SVG._prop("x", "20"),
+                    SVG._prop("y", "230"),
+                    SVG._prop("font-size", "12"),
+                    SVG._prop("fill", "#00040a")
+                ),
+                string.concat(
+                    "# of Completions: ", SVG._uint2str(IMission(mission).getMissionCompletions(missionId)), " s"
+                )
             )
         );
     }
@@ -183,7 +177,7 @@ contract mSupportToken is SupportToken {
         uint256[] memory taskIds = IMission(mission).getMissionTaskIds(missionId);
 
         for (uint256 i = 0; i < taskIds.length;) {
-            uint256 completions = IMission(mission).getTotalTaskCompletions(taskIds[i]);
+            uint256 completions = IMission(mission).getTotalTaskCompletionsByMission(missionId, taskIds[i]);
 
             // radius = completions * max radius / max completions at max radius + base radius
             uint256 radius = completions * 500 / 100;
@@ -210,7 +204,5 @@ contract mSupportToken is SupportToken {
                 ++i;
             }
         }
-
-        return str;
     }
 }

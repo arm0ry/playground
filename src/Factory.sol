@@ -22,6 +22,7 @@ contract Factory {
     address public immutable quest;
     address public immutable mSupportToken;
     address public immutable qSupportToken;
+    mapping(address => uint256) public nonces;
 
     constructor(address _mission, address _mSupportToken, address _quest, address _qSupportToken) payable {
         mission = _mission;
@@ -31,25 +32,51 @@ contract Factory {
     }
 
     /// -----------------------------------------------------------------------
-    /// Deployment Logic
+    /// Determine Address Logic
     /// -----------------------------------------------------------------------
 
-    function determineAddress(address user) public view virtual returns (address) {
+    function determineMissionAddress(address user) internal virtual returns (address) {
         return mission.predictDeterministicAddress(
-            abi.encodePacked(user), bytes32(uint256(uint160(user))), address(this)
+            abi.encodePacked(user), keccak256(abi.encode(user, ++nonces[user])), address(this)
         );
     }
 
-    // TODO: Do we need to use a better salt?
-    function deploy(
-        address user // create2 salt.
-    ) public payable virtual returns (address, address) {
-        address m = mission.cloneDeterministic(abi.encodePacked(user), bytes32(uint256(uint160(user))));
-        address q = quest.cloneDeterministic(abi.encodePacked(user), bytes32(uint256(uint160(user))));
+    function determineQuestAddress(address user) internal virtual returns (address) {
+        return quest.predictDeterministicAddress(
+            abi.encodePacked(user), keccak256(abi.encode(user, ++nonces[user])), address(this)
+        );
+    }
 
+    function determineMissionTokenAddress(address user) internal virtual returns (address) {
+        return mSupportToken.predictDeterministicAddress(
+            abi.encodePacked(user), keccak256(abi.encode(user, ++nonces[user])), address(this)
+        );
+    }
+
+    function determineQuestTokenAddress(address user) internal virtual returns (address) {
+        return qSupportToken.predictDeterministicAddress(
+            abi.encodePacked(user), keccak256(abi.encode(user, ++nonces[user])), address(this)
+        );
+    }
+
+    /// -----------------------------------------------------------------------
+    /// Deployment Logic
+    /// -----------------------------------------------------------------------
+
+    function deployMission(
+        address user // create2 salt.
+    ) public payable virtual returns (address) {
+        address m = mission.cloneDeterministic(abi.encodePacked(user), keccak256(abi.encode(user, ++nonces[user])));
         IMission(m).initialize(user);
+        return (m);
+    }
+
+    function deployQuest(
+        address user // create2 salt.
+    ) public payable virtual returns (address) {
+        address q = quest.cloneDeterministic(abi.encodePacked(user), keccak256(abi.encode(user, ++nonces[user])));
         IQuest(q).initialize(user);
-        return (m, q);
+        return (q);
     }
 
     function deploySupportToken(
@@ -63,11 +90,15 @@ contract Factory {
         uint256 _curveId
     ) public payable virtual returns (address) {
         if (_quest == address(0)) {
-            address m = mSupportToken.cloneDeterministic(abi.encodePacked(_owner), bytes32(uint256(uint160(_owner))));
+            address m = mSupportToken.cloneDeterministic(
+                abi.encodePacked(_owner), keccak256(abi.encode(_owner, ++nonces[_owner]))
+            );
             ISupportToken(m).init(_name, _symbol, _owner, _mission, _missionId, _curve, _curveId);
             return m;
         } else {
-            address q = qSupportToken.cloneDeterministic(abi.encodePacked(_owner), bytes32(uint256(uint160(_owner))));
+            address q = qSupportToken.cloneDeterministic(
+                abi.encodePacked(_owner), keccak256(abi.encode(_owner, ++nonces[_owner]))
+            );
             ISupportToken(q).init(_name, _symbol, _owner, _quest, _mission, _missionId, _curve, _curveId);
             return q;
         }
