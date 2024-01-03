@@ -40,58 +40,64 @@ contract Deploy is Script {
 
         console.log("Account", account);
 
-        address user = address(0x4744cda32bE7b3e75b9334001da9ED21789d4c0d);
+        address user1 = address(0x4744cda32bE7b3e75b9334001da9ED21789d4c0d);
         address user2 = address(0xFB12B6A543d986A1938d2b3C7d05848D8913AcC4);
 
         vm.startBroadcast(privateKey);
 
-        deployFactory(account, user, user2);
+        deployFactory(account, user1, user2);
         // deployImpactCurve(user);
 
         vm.stopBroadcast();
     }
 
     function deployFactory(address patron, address user, address user2) internal {
-        // Templates.
+        // Templates for factory deployment.
         Quest qTemplate = new Quest();
         Mission mTemplate = new Mission();
         mSupportToken mstTemplate = new mSupportToken();
-        qSupportToken qstTemplate = new qSupportToken();
 
-        // Deploy curves.
+        // 1. Deploy factory.
+        fContract = address(new Factory(address(mTemplate), address(mstTemplate), address(qTemplate), address(0)));
+
+        // 1. Deploy curves.
         deployImpactCurve(user);
 
-        // Deploy factory.
-        fContract =
-            address(new Factory(address(mTemplate), address(mstTemplate), address(qTemplate), address(qstTemplate)));
-
-        // Set curve.
-        ImpactCurve(icContract).curve(
-            CurveType.LINEAR,
-            Factory(fContract).determineMissionTokenAddress(user),
-            user,
-            0.0001 ether,
-            0,
-            10,
-            0,
-            0,
-            1,
-            0
-        );
-
-        deployMission(user);
+        // 2. Deploy and prepare mission.
+        deployMission(patron);
         setTasksAndMission(user, user2);
 
+        // 2. Deploy quest and complete tasks.
         deployQuest(user);
+        Mission(mContract).authorizeQuest(qContract, true);
         Quest(qContract).start(address(mContract), 1);
         Quest(qContract).respond(address(mContract), 1, 1, 1, "First Task Done!");
-        Quest(qContract).respond(address(mContract), 1, 1, 2, "Second Task Done!");
+        Quest(qContract).respond(address(mContract), 1, 1, 1, "First Task Done!");
+        Quest(qContract).respond(address(mContract), 1, 1, 1, "First Task Done!");
+        Quest(qContract).respond(address(mContract), 1, 1, 1, "First Task Done!");
+        Quest(qContract).respond(address(mContract), 1, 1, 1, "First Task Done!");
+        Quest(qContract).respond(address(mContract), 1, 1, 1, "First Task Done!");
+        Quest(qContract).respond(address(mContract), 1, 2, 2, "Second Task Done!");
+        Quest(qContract).respond(address(mContract), 1, 2, 2, "Second Task Done!");
+        Quest(qContract).respond(address(mContract), 1, 2, 2, "Second Task Done!");
+        Quest(qContract).respond(address(mContract), 1, 3, 2, "Third Task Done!");
 
+        // 2. Deploy support token.
         mstContract = Factory(fContract).deploySupportToken(
-            "Support Token", "mST", user, address(0), address(mContract), 1, address(icContract), 1
+            "Support Token", "mST", user, address(0), address(mContract), 1, address(icContract)
         );
 
-        ImpactCurve(icContract).support(1, patron, ImpactCurve(icContract).getPrice(true, 1, 0));
+        // 3. Set curve.
+        ImpactCurve(icContract).curve(CurveType.LINEAR, mstContract, user, 0.0001 ether, 0, 10, 0, 0, 1, 0);
+
+        // 4. Patron support.
+        uint256 price = ImpactCurve(icContract).getPrice(true, 1, 0);
+        ImpactCurve(icContract).support{value: price}(1, patron, price);
+    }
+
+    function deployImpactCurve(address user) internal {
+        icContract = payable(address(new ImpactCurve()));
+        ImpactCurve(icContract).initialize(user);
     }
 
     function deployMission(address user) internal {
@@ -102,11 +108,6 @@ contract Deploy is Script {
     function deployQuest(address user) internal {
         qContract = Factory(fContract).deployQuest(user);
         Quest(qContract).initialize(user);
-    }
-
-    function deployImpactCurve(address user) internal {
-        icContract = payable(address(new ImpactCurve()));
-        ImpactCurve(icContract).initialize(user);
     }
 
     function setTasksAndMission(address user, address user2) internal {
@@ -120,13 +121,19 @@ contract Deploy is Script {
         taskDeadlines.push(100000000000000000);
         taskDetail.push("SECOND TASK");
 
+        // Add third task.
+        taskCreators.push(user);
+        taskDeadlines.push(1000000000000);
+        taskDetail.push("THIRD TASK");
+
         // Submit tasks onchain.
-        Mission(mContract).setTasks(taskCreators, taskDeadlines, taskDetail);
+        Mission(mContract).payToSetTasks(taskCreators, taskDeadlines, taskDetail);
 
         taskIds.push(1);
         taskIds.push(2);
+        taskIds.push(3);
 
         // Submit mission onchain.
-        Mission(mContract).setMission(user, unicode"g0v 60th Hackathon", "IT ALL BEGINS..", taskIds);
+        Mission(mContract).payToSetMission(user, unicode"g0v 60th Hackathon", "IT ALL BEGINS..", taskIds);
     }
 }
