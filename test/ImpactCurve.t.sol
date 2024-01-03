@@ -698,7 +698,7 @@ contract ImpactCurveTest is Test {
 
     function initializeQst(address _user) internal {
         qst = new qSupportToken();
-        qst.init("User Support Token", "UST", _user, _user, _user, 1, address(ic), 1);
+        qst.init("User Support Token", "UST", _user, _user, _user, 1, address(ic));
     }
 
     /// @notice Set up a curve.

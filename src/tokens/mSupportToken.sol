@@ -3,14 +3,8 @@ pragma solidity >=0.8.4;
 
 import {SVG} from "../utils/SVG.sol";
 import {JSON} from "../utils/JSON.sol";
-import {Base64} from "solbase/utils/Base64.sol";
-import {LibString} from "solbase/utils/LibString.sol";
 import {SupportToken} from "./SupportToken.sol";
-
 import {IMission} from "../interface/IMission.sol";
-import {IQuest} from "../interface/IQuest.sol";
-import {IImpactCurve} from "../interface/IImpactCurve.sol";
-import {IStorage} from "kali-markets/interface/IStorage.sol";
 
 /// @title Impact NFTs
 /// @notice SVG NFTs displaying impact results and metrics.
@@ -24,7 +18,6 @@ contract mSupportToken is SupportToken {
     address public mission;
     uint256 public missionId;
     address public curve;
-    uint256 public curveId;
     uint256 public totalSupply;
 
     /// -----------------------------------------------------------------------
@@ -37,8 +30,7 @@ contract mSupportToken is SupportToken {
         address _owner,
         address _mission,
         uint256 _missionId,
-        address _curve,
-        uint256 _curveId
+        address _curve
     ) external payable {
         _init(_name, _symbol);
 
@@ -46,7 +38,6 @@ contract mSupportToken is SupportToken {
         mission = _mission;
         missionId = _missionId;
         curve = _curve;
-        curveId = _curveId;
     }
 
     modifier onlyCurve() {
@@ -115,7 +106,7 @@ contract mSupportToken is SupportToken {
                 ),
                 SVG.NULL
             ),
-            buildTreeRing(),
+            buildTaskChart(),
             buildSvgData(),
             "</svg>"
         );
@@ -126,7 +117,7 @@ contract mSupportToken is SupportToken {
             SVG._text(
                 string.concat(
                     SVG._prop("x", "20"),
-                    SVG._prop("y", "80"),
+                    SVG._prop("y", "90"),
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
@@ -135,7 +126,7 @@ contract mSupportToken is SupportToken {
             SVG._text(
                 string.concat(
                     SVG._prop("x", "20"),
-                    SVG._prop("y", "110"),
+                    SVG._prop("y", "120"),
                     SVG._prop("font-size", "18"),
                     SVG._prop("fill", "#00040a")
                 ),
@@ -144,7 +135,7 @@ contract mSupportToken is SupportToken {
             SVG._text(
                 string.concat(
                     SVG._prop("x", "20"),
-                    SVG._prop("y", "190"),
+                    SVG._prop("y", "200"),
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
@@ -153,7 +144,7 @@ contract mSupportToken is SupportToken {
             SVG._text(
                 string.concat(
                     SVG._prop("x", "20"),
-                    SVG._prop("y", "210"),
+                    SVG._prop("y", "220"),
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
@@ -162,42 +153,68 @@ contract mSupportToken is SupportToken {
             SVG._text(
                 string.concat(
                     SVG._prop("x", "20"),
-                    SVG._prop("y", "230"),
+                    SVG._prop("y", "240"),
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat(
-                    "# of Completions: ", SVG._uint2str(IMission(mission).getMissionCompletions(missionId)), " s"
-                )
+                string.concat("# of Completions: ", SVG._uint2str(IMission(mission).getMissionCompletions(missionId)))
             )
         );
     }
 
-    function buildTreeRing() public view returns (string memory str) {
-        uint256 baseRadius = 500;
+    // function buildTreeRing() public view returns (string memory str) {
+    //     uint256[] memory taskIds = IMission(mission).getMissionTaskIds(missionId);
+
+    //     for (uint256 i = 0; i < taskIds.length;) {
+    //         uint256 completions = IMission(mission).getTotalTaskCompletionsByMission(missionId, taskIds[i]);
+    //         uint256 shade = completions * str = string.concat(
+    //             str,
+    //             SVG._circle(
+    //                 string.concat(
+    //                     SVG._prop("cx", "265"),
+    //                     SVG._prop("cy", "265"),
+    //                     SVG._prop("r", SVG._uint2str(50 + i * 20)),
+    //                     SVG._prop("stroke", "#A1662F"),
+    //                     SVG._prop("stroke-opacity", "0.1"),
+    //                     SVG._prop("stroke-width", "3"),
+    //                     SVG._prop("fill", "#FFBE0B"),
+    //                     SVG._prop("fill-opacity", SVG._uint2str(baseRadius, "%"))
+    //                 ),
+    //                 ""
+    //             )
+    //         );
+
+    //         unchecked {
+    //             ++i;
+    //         }
+    //     }
+    // }
+
+    function buildTaskChart() public view returns (string memory str) {
         uint256[] memory taskIds = IMission(mission).getMissionTaskIds(missionId);
+        uint256 length = taskIds.length;
+
+        uint256 completions;
+        uint256 taskWidth = uint256(250) / length;
 
         for (uint256 i = 0; i < taskIds.length;) {
-            uint256 completions = IMission(mission).getTotalTaskCompletionsByMission(missionId, taskIds[i]);
-
-            // radius = completions * max radius / max completions at max radius + base radius
-            uint256 radius = completions * 500 / 100;
-            baseRadius += radius / 10;
+            completions = IMission(mission).getTotalTaskCompletionsByMission(missionId, taskIds[i]);
 
             str = string.concat(
                 str,
-                SVG._circle(
+                SVG._rect(
                     string.concat(
-                        SVG._prop("cx", "265"),
-                        SVG._prop("cy", "265"),
-                        SVG._prop("r", SVG._uint2str(baseRadius / 10)),
-                        SVG._prop("stroke", "#A1662F"),
-                        SVG._prop("stroke-opacity", "0.1"),
-                        SVG._prop("stroke-width", "3"),
                         SVG._prop("fill", "#FFBE0B"),
-                        SVG._prop("fill-opacity", "0.1")
+                        SVG._prop("x", SVG._uint2str(20 + taskWidth * i)),
+                        SVG._prop("y", "140"),
+                        SVG._prop("width", SVG._uint2str(taskWidth)),
+                        SVG._prop("height", "20"),
+                        SVG._prop("fill-opacity", string.concat(SVG._uint2str(completions * 5), "%")),
+                        SVG._prop("stroke", "#FFBE0B"),
+                        SVG._prop("stroke-opacity", "0.2"),
+                        SVG._prop("stroke-width", "1")
                     ),
-                    ""
+                    SVG.NULL
                 )
             );
 

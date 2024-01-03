@@ -4,12 +4,9 @@ pragma solidity >=0.8.4;
 import {SVG} from "../utils/SVG.sol";
 import {JSON} from "../utils/JSON.sol";
 import {SupportToken} from "./SupportToken.sol";
-
 import {Mission} from "../Mission.sol";
 import {IMission} from "../interface/IMission.sol";
 import {IQuest} from "../interface/IQuest.sol";
-import {IImpactCurve} from "../interface/IImpactCurve.sol";
-import {IStorage} from "kali-markets/interface/IStorage.sol";
 
 /// @title Support SVG NFTs.
 /// @notice SVG NFTs displaying impact generated from quests.
@@ -23,7 +20,6 @@ contract qSupportToken is SupportToken {
     address public mission;
     uint256 public missionId;
     address public curve;
-    uint256 public curveId;
     uint256 public totalSupply;
 
     /// -----------------------------------------------------------------------
@@ -37,8 +33,7 @@ contract qSupportToken is SupportToken {
         address _quest,
         address _mission,
         uint256 _missionId,
-        address _curve,
-        uint256 _curveId
+        address _curve
     ) external payable {
         _init(_name, _symbol);
 
@@ -47,7 +42,6 @@ contract qSupportToken is SupportToken {
         mission = _mission;
         missionId = _missionId;
         curve = _curve;
-        curveId = _curveId;
     }
 
     modifier onlyCurve() {
@@ -116,27 +110,10 @@ contract qSupportToken is SupportToken {
                 ),
                 SVG.NULL
             ),
-            buildCurve(),
             buildData(),
             buildProgress(),
             buildProfile(IQuest(quest).getProfilePicture(owner)),
             "</svg>"
-        );
-    }
-
-    function buildCurve() public view returns (string memory) {
-        (, uint256 burnRatio,,,) = IImpactCurve(curve).getCurveFormula(curveId);
-
-        return string.concat(
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "240"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat("Burn ratio: ", SVG._uint2str(burnRatio), " %")
-            )
         );
     }
 

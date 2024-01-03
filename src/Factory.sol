@@ -86,20 +86,19 @@ contract Factory {
         address _quest,
         address _mission,
         uint256 _missionId,
-        address _curve,
-        uint256 _curveId
+        address _curve
     ) public payable virtual returns (address) {
         if (_quest == address(0)) {
             address m = mSupportToken.cloneDeterministic(
                 abi.encodePacked(_owner), keccak256(abi.encode(_owner, ++nonces[_owner]))
             );
-            ISupportToken(m).init(_name, _symbol, _owner, _mission, _missionId, _curve, _curveId);
+            ISupportToken(m).init(_name, _symbol, _owner, _mission, _missionId, _curve);
             return m;
         } else {
             address q = qSupportToken.cloneDeterministic(
                 abi.encodePacked(_owner), keccak256(abi.encode(_owner, ++nonces[_owner]))
             );
-            ISupportToken(q).init(_name, _symbol, _owner, _quest, _mission, _missionId, _curve, _curveId);
+            ISupportToken(q).init(_name, _symbol, _owner, _quest, _mission, _missionId, _curve);
             return q;
         }
     }

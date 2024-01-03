@@ -12,8 +12,7 @@ interface ISupportToken {
         address _quest,
         address _mission,
         uint256 _missionId,
-        address _curve,
-        uint256 _curveId
+        address _curve
     ) external payable;
     /// @notice Mission SupportToken.
     function init(
@@ -22,8 +21,7 @@ interface ISupportToken {
         address _owner,
         address _mission,
         uint256 _missionId,
-        address _curve,
-        uint256 _curveId
+        address _curve
     ) external payable;
 
     /// @notice Patron logic.
