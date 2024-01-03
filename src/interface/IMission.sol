@@ -6,6 +6,8 @@ interface IMission {
 
     /// @dev DAO methods
     function initialize(address dao) external payable;
+    function setFee(uint256 fee) external payable;
+    function getFee() external view returns (uint256);
 
     /// @dev Quest methods
     function authorizeQuest(address quest) external payable;
@@ -39,7 +41,7 @@ interface IMission {
     function getMissionId() external view returns (uint256);
     function getMissionTitle(uint256 missionId) external view returns (string memory);
     function getMissionTaskCount(uint256 missionId) external view returns (uint256 count);
-    function getMissionTaskId(uint256 missionId) external view returns (uint256);
+    function getMissionTaskId(uint256 missionId, uint256 order) external view returns (uint256);
     function getMissionTaskIds(uint256 missionId) external view returns (uint256[] memory);
     function getMissionStarts(uint256 missionId) external view returns (uint256);
     function getMissionCompletions(uint256 missionId) external view returns (uint256);

@@ -464,7 +464,7 @@ contract Mission is Storage {
     }
 
     /// @notice Get deadline of a mission.
-    function getMissionDeadline(uint256 missionId) external payable returns (uint256) {
+    function getMissionDeadline(uint256 missionId) external view returns (uint256) {
         return this.getUint(keccak256(abi.encode(address(this), ".missions.", missionId, ".deadline")));
     }
 
