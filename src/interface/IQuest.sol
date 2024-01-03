@@ -29,7 +29,10 @@ interface IQuest {
     function getQuest(uint256 questId) external view returns (address, address, uint256);
     function isQuestActive(address user, address missions, uint256 missionId) external view returns (bool);
     function getQuestProgress(address user, address missions, uint256 missionId) external view returns (uint256);
-    function getCompletedTaskCount(address user, address missions, uint256 missionId) external view returns (uint256);
+    function getNumOfCompletedTasksInMission(address user, address missions, uint256 missionId)
+        external
+        view
+        returns (uint256);
     function getTimeLastTaskCompleted(address user) external view returns (uint256);
     function hasCooledDown(address user) external view returns (bool);
 

@@ -365,7 +365,11 @@ contract Quest is Storage {
     }
 
     /// @notice Retrieve number of completed tasks in a given mission.
-    function getCompletedTaskCount(address user, address missions, uint256 missionId) external view returns (uint256) {
+    function getNumOfCompletedTasksInMission(address user, address missions, uint256 missionId)
+        external
+        view
+        returns (uint256)
+    {
         return this.getUint(
             keccak256(abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, ".taskCompleted"))
         );
@@ -836,7 +840,7 @@ contract Quest is Storage {
 
     /// @notice Update, and finalize when appropriate, the Quest detail.
     function updateQuestAndStats(address user, address missions, uint256 missionId, uint256 taskId) internal {
-        uint256 completed = this.getCompletedTaskCount(user, missions, missionId);
+        uint256 completed = this.getNumOfCompletedTasksInMission(user, missions, missionId);
         uint256 progress = this.getQuestProgress(user, missions, missionId);
 
         if (this.getNumOfCompletionsByTask(user, missions, missionId, taskId) == 0) {
