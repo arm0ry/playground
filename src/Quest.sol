@@ -322,10 +322,10 @@ contract Quest is Storage {
     /// User Logic - Internal
     /// -----------------------------------------------------------------------
 
-    // /// @notice Internal function to delete quest activity.
-    // function deleteQuestActivity(address user, address missions, uint256 missionId) internal virtual {
-    //     deleteBool(keccak256(abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, ".active")));
-    // }
+    /// @notice Internal function to delete quest activity.
+    function deleteQuestProgress(address user, address missions, uint256 missionId) internal virtual {
+        deleteUint(keccak256(abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, ".progress")));
+    }
 
     /// @notice Internal function to update and return quest progress.
     function updateQuestProgress(address user, address missions, uint256 missionId, uint256 completed)
@@ -651,7 +651,11 @@ contract Quest is Storage {
 
     /// @notice Internal function using signature to start quest.
     function _start(address user, address missions, uint256 missionId) internal virtual {
-        if (this.getNumOfCompletedTasksInMission(user, missions, missionId) > 0) revert InvalidMission();
+        if (
+            this.getNumOfMissionsStartedByUser(user, missions, missionId)
+                != this.getNumOfMissionsCompletedByUser(user, missions, missionId)
+        ) revert InvalidMission();
+        deleteQuestProgress(user, missions, missionId);
 
         // Update mission-related stats.
         updateStats(user, missions, missionId);
@@ -666,13 +670,6 @@ contract Quest is Storage {
 
         emit Started(user, missions, missionId);
     }
-
-    // /// @notice Internal function to set quest active status.
-    // function setQuestActive(address user, address missions, uint256 missionId) internal virtual {
-    //     _setBool(
-    //         keccak256(abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, ".active")), true
-    //     );
-    // }
 
     /// @notice Internal function to update starting stats.
     function updateStats(address user, address missions, uint256 missionId) internal {
@@ -848,21 +845,18 @@ contract Quest is Storage {
 
     /// @notice Update, and finalize when appropriate, the Quest detail.
     function updateQuestAndStats(address user, address missions, uint256 missionId, uint256 taskId) internal {
-        uint256 progress;
-        uint256 completed = incrementNumOfCompletedTasksInMission(user, missions, missionId);
-
         // Calculate and update quest progress.
-        progress = updateQuestProgress(user, missions, missionId, completed);
+        uint256 completed = incrementNumOfCompletedTasksInMission(user, missions, missionId);
+        uint256 progress = updateQuestProgress(user, missions, missionId, completed);
 
         // Update Task-related stats.
         updateTaskCompletionStats(user, missions, missionId, taskId);
 
         // Finalize quest
         if (progress == 100) {
-            if (this.getNumOfMissionsCompletedByUser(user, missions, missionId) == 0) {
-                // Update Mission-related stats
-                updateMissionCompletionStats(missions, missionId);
-            }
+            // Update Mission-related stats
+            updateMissionCompletionStats(missions, missionId);
+
             // Increment number of missions completed by user, as facilitated by this Quest contract.
             incrementNumOfMissionsCompletedByUser(user, missions, missionId);
 
