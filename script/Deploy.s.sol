@@ -81,10 +81,12 @@ contract Deploy is Script {
         Quest(qContract).respond(address(mContract), 1, 2, 2, "Second Task Done!");
         Quest(qContract).respond(address(mContract), 1, 2, 2, "Second Task Done!");
         Quest(qContract).respond(address(mContract), 1, 3, 2, "Third Task Done!");
+        Quest(qContract).respond(address(mContract), 1, 3, 2, "Third Task Done!");
+        Quest(qContract).respond(address(mContract), 1, 4, 2, "Third Task Done!");
 
         // 2. Deploy support token.
         mstContract = Factory(fContract).deploySupportToken(
-            "Support Token", "mST", user, address(0), address(mContract), 1, address(icContract)
+            "g0v Jothon Support Token", "g0vST", user, address(0), address(mContract), 1, address(icContract)
         );
 
         // 3. Set curve.
@@ -114,17 +116,22 @@ contract Deploy is Script {
         // Add first task.
         taskCreators.push(user);
         taskDeadlines.push(100000000);
-        taskDetail.push("FIRST TASK");
+        taskDetail.push(unicode"台灣零時政府第陸拾次記得投票黑客松");
 
         // Add second task.
         taskCreators.push(user2);
-        taskDeadlines.push(100000000000000000);
-        taskDetail.push("SECOND TASK");
+        taskDeadlines.push(1000000000000);
+        taskDetail.push(unicode"台灣零時政府第伍拾玖次輪班寫 code 救台灣黑客松");
 
         // Add third task.
         taskCreators.push(user);
         taskDeadlines.push(1000000000000);
-        taskDetail.push("THIRD TASK");
+        taskDetail.push(unicode"台灣零時政府第伍拾捌次 11 歲生日快樂黑客松");
+
+        // Add third task.
+        taskCreators.push(user);
+        taskDeadlines.push(1000000000000);
+        taskDetail.push(unicode"台灣零時政府第伍拾柒次開源普渡黑客松");
 
         // Submit tasks onchain.
         Mission(mContract).payToSetTasks(taskCreators, taskDeadlines, taskDetail);
@@ -132,8 +139,14 @@ contract Deploy is Script {
         taskIds.push(1);
         taskIds.push(2);
         taskIds.push(3);
+        taskIds.push(4);
 
         // Submit mission onchain.
-        Mission(mContract).payToSetMission(user, unicode"g0v 60th Hackathon", "IT ALL BEGINS..", taskIds);
+        Mission(mContract).payToSetMission(
+            user,
+            unicode"台灣零時政府黑客松",
+            unicode"自台灣發起、多中心化的公民科技社群「零時政府」，以資訊透明、開放成果、開放協作為核心，透過群眾草根的力量來關心公共事務。",
+            taskIds
+        );
     }
 }
