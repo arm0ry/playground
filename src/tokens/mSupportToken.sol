@@ -139,7 +139,9 @@ contract mSupportToken is SupportToken {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat("Ends in: ", SVG._uint2str(IMission(mission).getMissionDeadline(missionId)), " s")
+                string.concat(
+                    "Ends in: ", SVG._uint2str(IMission(mission).getMissionDeadline(missionId) - block.timestamp), "s"
+                )
             ),
             SVG._text(
                 string.concat(

@@ -16,6 +16,7 @@ contract Mission is Storage {
     error InvalidTask();
     error InvalidMission();
     error InvalidFee();
+    error TransferFailed();
 
     /// -----------------------------------------------------------------------
     /// Modifier
@@ -28,9 +29,15 @@ contract Mission is Storage {
 
     modifier priceCheck() {
         uint256 fee = this.getFee();
-        if (fee > 0 && msg.value == this.getFee()) _;
-        else if (fee == 0) _;
-        else revert InvalidFee();
+        if (fee > 0 && msg.value == this.getFee()) {
+            (bool success,) = this.getDao().call{value: msg.value}("");
+            if (!success) revert TransferFailed();
+            _;
+        } else if (fee == 0) {
+            _;
+        } else {
+            revert InvalidFee();
+        }
     }
 
     /// -----------------------------------------------------------------------
@@ -61,11 +68,12 @@ contract Mission is Storage {
     function getFee() external view returns (uint256) {
         return this.getUint(keccak256(abi.encode(address(this), ".fee")));
     }
+
     /// -----------------------------------------------------------------------
     /// Task Logic - Setter
     /// -----------------------------------------------------------------------
-    /// @notice  Create task by dao.
 
+    /// @notice  Create task by dao.
     function setTasks(address[] calldata creators, uint256[] calldata deadlines, string[] calldata detail)
         external
         payable

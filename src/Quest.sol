@@ -86,7 +86,7 @@ contract Quest is Storage {
 
     /// @notice Add global cooldown.
     function setCooldown(uint40 cd) external payable onlyOperator {
-        if (cd > 0) _setUint(keccak256(abi.encode(address(this), ".quests.cd")), cd);
+        _setUint(keccak256(abi.encode(address(this), ".quests.cd")), cd);
     }
 
     /// @notice Retrieve global cooldown.
@@ -182,9 +182,10 @@ contract Quest is Storage {
         hasExpired(missions, missionId)
         onlyGasBot
     {
-        // Start by dao.
+        // Start.
         _start(getPublicUserAddress(username, salt), missions, missionId);
 
+        // Set public registry.
         setPublicRegistry(username, salt);
     }
 
@@ -371,7 +372,9 @@ contract Quest is Storage {
         returns (uint256)
     {
         return this.getUint(
-            keccak256(abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, ".taskCompleted"))
+            keccak256(
+                abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, ".numOfCompletedTasks")
+            )
         );
     }
 
@@ -532,7 +535,19 @@ contract Quest is Storage {
         returns (uint256)
     {
         return addUint(
-            keccak256(abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, ".taskCompleted")), 1
+            keccak256(
+                abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, ".numOfCompletedTasks")
+            ),
+            1
+        );
+    }
+
+    /// @notice Reset number of completed tasks in a given mission.
+    function deleteNumOfCompletedTasksInMission(address user, address missions, uint256 missionId) internal {
+        deleteUint(
+            keccak256(
+                abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, ".numOfCompletedTasks")
+            )
         );
     }
 
@@ -636,11 +651,7 @@ contract Quest is Storage {
 
     /// @notice Internal function using signature to start quest.
     function _start(address user, address missions, uint256 missionId) internal virtual {
-        // // Confirm quest is inactive.
-        // if (this.isQuestActive(user, missions, missionId)) revert QuestInProgress();
-
-        // // Set quest status to active.
-        // setQuestActive(user, missions, missionId);
+        if (this.getNumOfCompletedTasksInMission(user, missions, missionId) > 0) revert InvalidMission();
 
         // Update mission-related stats.
         updateStats(user, missions, missionId);
@@ -694,9 +705,6 @@ contract Quest is Storage {
         uint256 response,
         string calldata feedback
     ) internal virtual {
-        // // Confirm quest is active.
-        // if (!this.isQuestActive(user, missions, missionId)) revert QuestInactive();
-
         // Confirm Task is valid
         if (!IMission(missions).isTaskInMission(missionId, taskId)) revert InvalidMission();
 
@@ -840,16 +848,13 @@ contract Quest is Storage {
 
     /// @notice Update, and finalize when appropriate, the Quest detail.
     function updateQuestAndStats(address user, address missions, uint256 missionId, uint256 taskId) internal {
-        uint256 completed = this.getNumOfCompletedTasksInMission(user, missions, missionId);
-        uint256 progress = this.getQuestProgress(user, missions, missionId);
+        uint256 progress;
+        uint256 completed = incrementNumOfCompletedTasksInMission(user, missions, missionId);
 
-        if (this.getNumOfCompletionsByTask(user, missions, missionId, taskId) == 0) {
-            // Calculate and udpate quest detail
-            completed = incrementNumOfCompletedTasksInMission(user, missions, missionId);
-            progress = updateQuestProgress(user, missions, missionId, completed);
-        }
+        // Calculate and update quest progress.
+        progress = updateQuestProgress(user, missions, missionId, completed);
 
-        // Update Task-related stats
+        // Update Task-related stats.
         updateTaskCompletionStats(user, missions, missionId, taskId);
 
         // Finalize quest
@@ -860,17 +865,9 @@ contract Quest is Storage {
             }
             // Increment number of missions completed by user, as facilitated by this Quest contract.
             incrementNumOfMissionsCompletedByUser(user, missions, missionId);
-        }
-    }
 
-    /// @notice Update mission related stats.
-    function updateMissionCompletionStats(address missions, uint256 missionId) internal {
-        // Increment number of missions facilitated by this Quest contract.
-        incrementNumOfMissionsCompleted();
-
-        // Increment number of mission completions.
-        if (IMission(missions).isQuestAuthorized(address(this))) {
-            IMission(missions).incrementMissionCompletions(missionId);
+            // Reset number of tasks completed to enable multiple participation.
+            deleteNumOfCompletedTasksInMission(user, missions, missionId);
         }
     }
 
@@ -886,6 +883,17 @@ contract Quest is Storage {
         if (IMission(missions).isQuestAuthorized(address(this))) {
             IMission(missions).incrementTotalTaskCompletions(taskId);
             IMission(missions).incrementTotalTaskCompletionsByMission(missionId, taskId);
+        }
+    }
+
+    /// @notice Update mission related stats.
+    function updateMissionCompletionStats(address missions, uint256 missionId) internal {
+        // Increment number of missions facilitated by this Quest contract.
+        incrementNumOfMissionsCompleted();
+
+        // Increment number of mission completions.
+        if (IMission(missions).isQuestAuthorized(address(this))) {
+            IMission(missions).incrementMissionCompletions(missionId);
         }
     }
 

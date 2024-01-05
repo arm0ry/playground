@@ -579,25 +579,25 @@ contract MissionTest is Test {
     }
 
     function payToSetTasks(address user, uint256 amount) internal {
-        emit log_uint(mission.getTaskId());
+        // Retrieve for validation alter.
+        uint256 prevBalance = address(dao).balance;
 
         // Set up task.
         vm.prank(user);
         mission.payToSetTasks{value: amount}(creators, deadlines, detail);
 
-        // Validate setup.
+        // Validate task creation.
         for (uint256 i = 0; i < creators.length; i++) {
             ++taskId;
             assertEq(mission.getTaskCreator(taskId), creators[i]);
             assertEq(mission.getTaskDeadline(taskId), deadlines[i]);
             assertEq(mission.getTaskDetail(taskId), detail[i]);
-
-            emit log_uint(mission.getTaskId());
-            emit log_uint(taskId);
         }
-        emit log_uint(mission.getTaskId());
-        emit log_uint(taskId);
         assertEq(mission.getTaskId(), taskId);
+
+        // Validate balance.
+        assertEq(address(dao).balance, prevBalance + amount);
+        assertEq(address(mission).balance, 0);
     }
 
     function setMission(address creator, string memory title, string memory _detail) internal {
