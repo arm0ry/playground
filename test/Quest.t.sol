@@ -116,8 +116,6 @@ contract QuestTest is Test {
     /// User Test
     /// ----------------------------------------------------------------------
 
-    // TODO: Test scenarios with multiple users and reviewers starting, responding, and reviewing tasks
-
     function testSetProfilePicture(string memory image) public payable {
         vm.prank(alice);
         quest.setProfilePicture(image);
@@ -374,12 +372,12 @@ contract QuestTest is Test {
         vm.deal(bot, 0.5 ether);
 
         vm.prank(bot);
-        quest.sponsoredStart(_username, 123, address(mission), 2);
+        quest.sponsoredStart(_username, address(mission), 2);
 
         assertEq(quest.getPublicCount(), prevCount + 1);
-        assertEq(quest.isPublicUser(_username, 123), true);
-        assertEq(quest.getPublicUser(prevCount + 1), getPublicUserAddress(_username, 123));
-        assertEq(quest.getQuestProgress(getPublicUserAddress(_username, 123), address(mission), missionId), 0);
+        assertEq(quest.isPublicUser(_username), true);
+        assertEq(quest.getPublicUser(prevCount + 1), getPublicUserAddress(_username));
+        assertEq(quest.getQuestProgress(getPublicUserAddress(_username), address(mission), missionId), 0);
     }
 
     function testQuadTaskMission_SponsoredStart_InvalidBot(string memory _username) public payable {
@@ -388,7 +386,7 @@ contract QuestTest is Test {
 
         vm.expectRevert(Quest.InvalidBot.selector);
         vm.prank(dao);
-        quest.sponsoredStart(_username, 123, address(mission), 2);
+        quest.sponsoredStart(_username, address(mission), 2);
     }
 
     function testQuadTaskMission_Respond(address _user, uint256 response) public payable {
@@ -503,13 +501,13 @@ contract QuestTest is Test {
         testQuadTaskMission_SponsoredStart(_username);
 
         // Retrieve for validation later.
-        address _user = getPublicUserAddress(_username, 123);
+        address _user = getPublicUserAddress(_username);
         uint256 completedCount = quest.getNumOfCompletedTasksInMission(_user, address(mission), 2);
         uint256 numOfTasks = mission.getMissionTaskCount(2);
 
         // Sponsored respond.
         vm.prank(bot);
-        quest.sponsoredRespond(_username, 123, address(mission), 2, 1, response, testString);
+        quest.sponsoredRespond(_username, address(mission), 2, 1, response, testString);
 
         // Validate.
         uint256 count = quest.getNumOfResponseByUser(_user);
@@ -536,7 +534,7 @@ contract QuestTest is Test {
 
         vm.expectRevert(Quest.InvalidBot.selector);
         vm.prank(dao);
-        quest.sponsoredRespond(_username, 123, address(mission), 2, 1, response, testString);
+        quest.sponsoredRespond(_username, address(mission), 2, 1, response, testString);
     }
 
     function testQuadTaskMission_RespondBySig_InvalidUser(uint256 response) public payable {
@@ -564,10 +562,11 @@ contract QuestTest is Test {
     }
 
     /// -----------------------------------------------------------------------
-    /// Quad-Task Mission Tests - Story Mode
+    /// Quad-Task Mission Tests - Multi Starts
     /// ----------------------------------------------------------------------
 
     function testQuadTaskMission_MultipleStarts() public payable {
+        // Start.
         testQuadTaskMission_Start(alice);
         testQuadTaskMission_StartBySig("charlie");
 
@@ -579,6 +578,10 @@ contract QuestTest is Test {
         vm.warp(block.timestamp + 200);
         testQuadTaskMission_StartBySig("eric");
         testQuadTaskMission_SponsoredStart(username2);
+
+        // Validate.
+        assertEq(quest.getNumOfStartsByMissionByPublic(address(mission), 2), 2);
+        assertEq(quest.getNumOfMissionsStarted(), 7);
     }
 
     /// -----------------------------------------------------------------------
@@ -821,21 +824,21 @@ contract QuestTest is Test {
         return count;
     }
 
-    function testGetPublicUserAddress(uint256 salt, uint256 salt2) public payable {
-        vm.assume(salt != salt2);
-        address address1 = getPublicUserAddress(username, salt);
-        address address2 = getPublicUserAddress(username2, salt2);
-        address altAddress1 = getPublicUserAddress(username, salt);
-        address altAddress2 = getPublicUserAddress(username, salt2);
-        address bltAddress1 = getPublicUserAddress(username, salt);
-        address bltAddress2 = getPublicUserAddress(username2, salt);
+    // function testGetPublicUserAddress(uint256 salt, uint256 salt2) public payable {
+    //     vm.assume(salt != salt2);
+    //     address address1 = getPublicUserAddress(username, salt);
+    //     address address2 = getPublicUserAddress(username2, salt2);
+    //     address altAddress1 = getPublicUserAddress(username, salt);
+    //     address altAddress2 = getPublicUserAddress(username, salt2);
+    //     address bltAddress1 = getPublicUserAddress(username, salt);
+    //     address bltAddress2 = getPublicUserAddress(username2, salt);
 
-        assert(address1 != address2);
-        assert(altAddress1 != altAddress2);
-        assert(bltAddress1 != bltAddress2);
-    }
+    //     assert(address1 != address2);
+    //     assert(altAddress1 != altAddress2);
+    //     assert(bltAddress1 != bltAddress2);
+    // }
 
-    function getPublicUserAddress(string memory _username, uint256 salt) internal pure returns (address) {
-        return address(uint160(uint256(keccak256(abi.encode(_username, salt)))));
+    function getPublicUserAddress(string memory _username) internal pure returns (address) {
+        return address(uint160(uint256(keccak256(abi.encode(_username)))));
     }
 }

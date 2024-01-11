@@ -174,8 +174,8 @@ contract Quest is Storage {
         _start(signer, missions, missionId);
     }
 
-    /// @notice Start a quest (gasless) with a username and salt.
-    function sponsoredStart(string calldata username, uint256 salt, address missions, uint256 missionId)
+    /// @notice Start a quest (gasless) with a username.
+    function sponsoredStart(string calldata username, address missions, uint256 missionId)
         external
         payable
         virtual
@@ -183,10 +183,10 @@ contract Quest is Storage {
         onlyGasBot
     {
         // Start.
-        _start(getPublicUserAddress(username, salt), missions, missionId);
+        _start(getPublicUserAddress(username), missions, missionId);
 
         // Set public registry.
-        setPublicRegistry(username, salt, missions, missionId);
+        setPublicRegistry(username, missions, missionId);
     }
 
     /// @notice Respond to a task.
@@ -230,7 +230,6 @@ contract Quest is Storage {
     /// @notice Respond to a task (gasless) with a username and salt.
     function sponsoredRespond(
         string calldata username,
-        uint256 salt,
         address missions,
         uint256 missionId,
         uint256 taskId,
@@ -238,7 +237,7 @@ contract Quest is Storage {
         string calldata feedback
     ) external payable virtual hasExpired(missions, missionId) onlyGasBot {
         // Respond by dao.
-        _respond(getPublicUserAddress(username, salt), missions, missionId, taskId, response, feedback);
+        _respond(getPublicUserAddress(username), missions, missionId, taskId, response, feedback);
     }
 
     /// -----------------------------------------------------------------------
@@ -429,10 +428,8 @@ contract Quest is Storage {
     }
 
     /// @notice Retrieve public user status.
-    function isPublicUser(string calldata username, uint256 salt) external view returns (bool) {
-        return this.getBool(
-            keccak256(abi.encode(address(this), ".users.", getPublicUserAddress(username, salt), ".exists"))
-        );
+    function isPublicUser(string calldata username) external view returns (bool) {
+        return this.getBool(keccak256(abi.encode(address(this), ".users.", getPublicUserAddress(username), ".exists")));
     }
 
     /// @notice Retrieve public user address by public user id.
@@ -441,12 +438,7 @@ contract Quest is Storage {
     }
 
     /// @notice Retrieve public user address by public user id.
-    function getPublicUserMissionAndId(uint256 count) external view returns (address, uint256, uint256) {
-        return this.decodeTaskKey(this.getUint(keccak256(abi.encode(address(this), ".public.", count, ".missionKey"))));
-    }
-
-    /// @notice Retrieve public user address by public user id.
-    function getNumOfMissionsStartedByPublic(address missions, uint256 missionId) external view returns (uint256) {
+    function getNumOfStartsByMissionByPublic(address missions, uint256 missionId) external view returns (uint256) {
         return this.getUint(
             keccak256(abi.encode(address(this), ".public.", this.getTaskKey(missions, missionId, 0), ".count"))
         );
@@ -458,18 +450,12 @@ contract Quest is Storage {
     }
 
     /// @notice Set new public user..
-    function setPublicRegistry(string calldata username, uint256 salt, address missions, uint256 missionId) internal {
-        address user = getPublicUserAddress(username, salt);
+    function setPublicRegistry(string calldata username, address missions, uint256 missionId) internal {
+        address user = getPublicUserAddress(username);
         uint256 count = incrementPublicCount();
 
         // Register user.
         _setAddress(keccak256(abi.encode(address(this), ".public.", count, ".user")), user);
-
-        // Register mission and mission id.
-        _setUint(
-            keccak256(abi.encode(address(this), ".public.", count, ".missionKey")),
-            this.getTaskKey(missions, missionId, 0)
-        );
 
         // Increment number of public participation for mission and mission id.
         addUint(keccak256(abi.encode(address(this), ".public.", this.getTaskKey(missions, missionId, 0), ".count")), 1);
@@ -943,7 +929,7 @@ contract Quest is Storage {
     }
 
     /// @notice Encode publicly submitted username and salt as an address.
-    function getPublicUserAddress(string calldata username, uint256 salt) internal pure returns (address) {
-        return address(uint160(uint256(keccak256(abi.encode(username, salt)))));
+    function getPublicUserAddress(string calldata username) internal pure returns (address) {
+        return address(uint160(uint256(keccak256(abi.encode(username)))));
     }
 }
