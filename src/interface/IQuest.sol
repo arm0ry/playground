@@ -7,6 +7,11 @@ interface IQuest {
     function setCooldown(uint40 cd) external payable;
     function getCooldown() external view returns (uint256);
 
+    /// @notice Public logic.
+    function getPublicCount() external view returns (uint256);
+    function isPublicUser(string calldata username) external view returns (bool);
+    function getNumOfStartsByMissionByPublic(address missions, uint256 missionId) external view returns (uint256);
+
     /// @notice User logic.
     function setProfilePicture(string calldata url) external payable;
     function getProfilePicture(address user) external view returns (string memory);

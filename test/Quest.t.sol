@@ -376,7 +376,7 @@ contract QuestTest is Test {
 
         assertEq(quest.getPublicCount(), prevCount + 1);
         assertEq(quest.isPublicUser(_username), true);
-        assertEq(quest.getPublicUser(prevCount + 1), getPublicUserAddress(_username));
+        // assertEq(quest.getPublicUser(prevCount + 1), getPublicUserAddress(_username));
         assertEq(quest.getQuestProgress(getPublicUserAddress(_username), address(mission), missionId), 0);
     }
 

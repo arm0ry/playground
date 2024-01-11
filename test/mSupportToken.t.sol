@@ -43,7 +43,7 @@ contract mSupportTokenTest is Test {
 
     function setUp() public payable {
         mst = new mSupportToken();
-        mst.init(testString, testString, user, user, 0, user);
+        mst.init(testString, testString, user, user, user, 0, user);
     }
 
     function testMint() public payable {

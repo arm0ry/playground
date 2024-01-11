@@ -182,6 +182,9 @@ contract Quest is Storage {
         hasExpired(missions, missionId)
         onlyGasBot
     {
+        // Validate
+        if (this.isPublicUser(username)) revert InvalidUser();
+
         // Start.
         _start(getPublicUserAddress(username), missions, missionId);
 
@@ -433,11 +436,6 @@ contract Quest is Storage {
     }
 
     /// @notice Retrieve public user address by public user id.
-    function getPublicUser(uint256 count) external view returns (address) {
-        return this.getAddress(keccak256(abi.encode(address(this), ".public.", count, ".user")));
-    }
-
-    /// @notice Retrieve public user address by public user id.
     function getNumOfStartsByMissionByPublic(address missions, uint256 missionId) external view returns (uint256) {
         return this.getUint(
             keccak256(abi.encode(address(this), ".public.", this.getTaskKey(missions, missionId, 0), ".count"))
@@ -445,23 +443,20 @@ contract Quest is Storage {
     }
 
     /// @notice Increment number of public users (e.g., public user id).
-    function incrementPublicCount() internal returns (uint256) {
-        return addUint(keccak256(abi.encode(address(this), ".public.count")), 1);
+    function incrementPublicCount() internal {
+        addUint(keccak256(abi.encode(address(this), ".public.count")), 1);
     }
 
     /// @notice Set new public user..
     function setPublicRegistry(string calldata username, address missions, uint256 missionId) internal {
-        address user = getPublicUserAddress(username);
-        uint256 count = incrementPublicCount();
-
-        // Register user.
-        _setAddress(keccak256(abi.encode(address(this), ".public.", count, ".user")), user);
+        // Increment public user id.
+        incrementPublicCount();
 
         // Increment number of public participation for mission and mission id.
         addUint(keccak256(abi.encode(address(this), ".public.", this.getTaskKey(missions, missionId, 0), ".count")), 1);
 
         // Register user existance.
-        _setBool(keccak256(abi.encode(address(this), ".users.", user, ".exists")), true);
+        _setBool(keccak256(abi.encode(address(this), ".users.", getPublicUserAddress(username), ".exists")), true);
     }
 
     /// -----------------------------------------------------------------------
