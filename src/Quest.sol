@@ -32,7 +32,7 @@ contract Quest is Storage {
     error NotInitialized();
     error InvalidUser();
     // error QuestInactive();
-    error QuestInProgress();
+    // error QuestInProgress();
     error InvalidReview();
     error InvalidBot();
     error InvalidReviewer();
@@ -186,7 +186,7 @@ contract Quest is Storage {
         _start(getPublicUserAddress(username, salt), missions, missionId);
 
         // Set public registry.
-        setPublicRegistry(username, salt);
+        setPublicRegistry(username, salt, missions, missionId);
     }
 
     /// @notice Respond to a task.
@@ -351,13 +351,6 @@ contract Quest is Storage {
         return this.getString(keccak256(abi.encode(address(this), ".users.", user, ".profile")));
     }
 
-    // /// @notice Retrieve quest active status.
-    // function isQuestActive(address user, address missions, uint256 missionId) external view returns (bool) {
-    //     return this.getBool(
-    //         keccak256(abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, ".active"))
-    //     );
-    // }
-
     /// @notice Retrieve quest progress.
     function getQuestProgress(address user, address missions, uint256 missionId) external view returns (uint256) {
         return this.getUint(
@@ -447,17 +440,39 @@ contract Quest is Storage {
         return this.getAddress(keccak256(abi.encode(address(this), ".public.", count, ".user")));
     }
 
+    /// @notice Retrieve public user address by public user id.
+    function getPublicUserMissionAndId(uint256 count) external view returns (address, uint256, uint256) {
+        return this.decodeTaskKey(this.getUint(keccak256(abi.encode(address(this), ".public.", count, ".missionKey"))));
+    }
+
+    /// @notice Retrieve public user address by public user id.
+    function getNumOfMissionsStartedByPublic(address missions, uint256 missionId) external view returns (uint256) {
+        return this.getUint(
+            keccak256(abi.encode(address(this), ".public.", this.getTaskKey(missions, missionId, 0), ".count"))
+        );
+    }
+
     /// @notice Increment number of public users (e.g., public user id).
     function incrementPublicCount() internal returns (uint256) {
         return addUint(keccak256(abi.encode(address(this), ".public.count")), 1);
     }
 
     /// @notice Set new public user..
-    function setPublicRegistry(string calldata username, uint256 salt) internal {
+    function setPublicRegistry(string calldata username, uint256 salt, address missions, uint256 missionId) internal {
         address user = getPublicUserAddress(username, salt);
+        uint256 count = incrementPublicCount();
 
         // Register user.
-        _setAddress(keccak256(abi.encode(address(this), ".public.", incrementPublicCount(), ".user")), user);
+        _setAddress(keccak256(abi.encode(address(this), ".public.", count, ".user")), user);
+
+        // Register mission and mission id.
+        _setUint(
+            keccak256(abi.encode(address(this), ".public.", count, ".missionKey")),
+            this.getTaskKey(missions, missionId, 0)
+        );
+
+        // Increment number of public participation for mission and mission id.
+        addUint(keccak256(abi.encode(address(this), ".public.", this.getTaskKey(missions, missionId, 0), ".count")), 1);
 
         // Register user existance.
         _setBool(keccak256(abi.encode(address(this), ".users.", user, ".exists")), true);
@@ -649,7 +664,7 @@ contract Quest is Storage {
     /// Quest Logic - Internal
     /// -----------------------------------------------------------------------
 
-    /// @notice Internal function using signature to start quest.
+    /// @notice Internal function to start quest.
     function _start(address user, address missions, uint256 missionId) internal virtual {
         if (
             this.getNumOfMissionsStartedByUser(user, missions, missionId)
