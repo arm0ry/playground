@@ -8,21 +8,15 @@ interface ISupportToken {
     function init(
         string memory _name,
         string memory _symbol,
-        address _owner,
         address _quest,
         address _mission,
         uint256 _missionId,
         address _curve
     ) external payable;
     /// @notice Mission SupportToken.
-    function init(
-        string memory _name,
-        string memory _symbol,
-        address _owner,
-        address _mission,
-        uint256 _missionId,
-        address _curve
-    ) external payable;
+    function init(string memory _name, string memory _symbol, address _mission, uint256 _missionId, address _curve)
+        external
+        payable;
 
     /// @notice Patron logic.
     function mint(address to) external payable;

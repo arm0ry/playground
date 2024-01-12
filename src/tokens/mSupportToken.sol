@@ -9,13 +9,11 @@ import {IQuest} from "../interface/IQuest.sol";
 
 /// @title Impact NFTs
 /// @notice SVG NFTs displaying impact results and metrics.
-/// Majory inspired by Kali, Async.art
 contract mSupportToken is SupportToken {
     /// -----------------------------------------------------------------------
     /// Storage
     /// -----------------------------------------------------------------------
 
-    address public owner;
     address public quest;
     address public mission;
     uint256 public missionId;
@@ -29,7 +27,6 @@ contract mSupportToken is SupportToken {
     function init(
         string memory _name,
         string memory _symbol,
-        address _owner,
         address _quest,
         address _mission,
         uint256 _missionId,
@@ -37,7 +34,6 @@ contract mSupportToken is SupportToken {
     ) external payable {
         _init(_name, _symbol);
 
-        owner = _owner;
         quest = _quest;
         mission = _mission;
         missionId = _missionId;
@@ -181,22 +177,17 @@ contract mSupportToken is SupportToken {
             SVG._text(
                 string.concat(
                     SVG._prop("x", "20"),
-                    SVG._prop("y", "240"),
+                    SVG._prop("y", "170"),
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat(
-                    unicode"第 ",
-                    SVG._uint2str(hackathonCount),
-                    unicode" 次參與人數：",
-                    SVG._uint2str(IMission(mission).getTotalTaskCompletionsByMission(missionId, taskId))
-                )
+                string.concat(unicode"第 ", SVG._uint2str(hackathonCount), unicode" 次參與人數：")
             ),
             SVG._text(
                 string.concat(
                     SVG._prop("x", "130"),
                     SVG._prop("y", "170"),
-                    SVG._prop("font-size", "30"),
+                    SVG._prop("font-size", "40"),
                     SVG._prop("fill", "#00040a")
                 ),
                 SVG._uint2str(IMission(mission).getTotalTaskCompletionsByMission(missionId, taskId))

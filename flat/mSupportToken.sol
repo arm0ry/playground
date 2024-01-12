@@ -417,6 +417,8 @@ interface IMission {
 
     /// @dev DAO methods
     function initialize(address dao) external payable;
+    function setFee(uint256 fee) external payable;
+    function getFee() external view returns (uint256);
 
     /// @dev Quest methods
     function authorizeQuest(address quest) external payable;
@@ -450,7 +452,7 @@ interface IMission {
     function getMissionId() external view returns (uint256);
     function getMissionTitle(uint256 missionId) external view returns (string memory);
     function getMissionTaskCount(uint256 missionId) external view returns (uint256 count);
-    function getMissionTaskId(uint256 missionId) external view returns (uint256);
+    function getMissionTaskId(uint256 missionId, uint256 order) external view returns (uint256);
     function getMissionTaskIds(uint256 missionId) external view returns (uint256[] memory);
     function getMissionStarts(uint256 missionId) external view returns (uint256);
     function getMissionCompletions(uint256 missionId) external view returns (uint256);
@@ -465,15 +467,127 @@ interface IMission {
     function incrementMissionCompletions(uint256 missionId) external payable;
 }
 
+interface IQuest {
+    /// @notice DAO logic.
+    function initialize(address dao) external payable;
+    function setCooldown(uint40 cd) external payable;
+    function getCooldown() external view returns (uint256);
+
+    /// @notice Public logic.
+    function getPublicCount() external view returns (uint256);
+    function isPublicUser(string calldata username) external view returns (bool);
+    function getNumOfStartsByMissionByPublic(address missions, uint256 missionId) external view returns (uint256);
+
+    /// @notice User logic.
+    function setProfilePicture(string calldata url) external payable;
+    function getProfilePicture(address user) external view returns (string memory);
+    function start(address missions, uint256 missionId) external payable;
+    function startBySig(address signer, address missions, uint256 missionId, uint8 v, bytes32 r, bytes32 s)
+        external
+        payable;
+    function respond(address missions, uint256 missionId, uint256 taskId, string calldata feedback, uint256 response)
+        external
+        payable;
+    function respondBySig(
+        address signer,
+        uint256 taskKey,
+        string calldata feedback,
+        uint256 response,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external payable;
+    function getQuest(uint256 questId) external view returns (address, address, uint256);
+    function isQuestActive(address user, address missions, uint256 missionId) external view returns (bool);
+    function getQuestProgress(address user, address missions, uint256 missionId) external view returns (uint256);
+    function getNumOfCompletedTasksInMission(address user, address missions, uint256 missionId)
+        external
+        view
+        returns (uint256);
+    function getTimeLastTaskCompleted(address user) external view returns (uint256);
+    function hasCooledDown(address user) external view returns (bool);
+
+    /// @notice Reviewer logic.
+    function setReviewer(address reviewer, bool status) external payable;
+    function isReviewer(address user) external view;
+    function getReviewStatus() external view returns (bool);
+    function setReviewStatus(bool status) external payable;
+    function review(
+        address user,
+        address missions,
+        uint256 missionId,
+        uint256 taskId,
+        uint256 response,
+        string calldata feedback
+    ) external payable;
+    function reviewBySig(
+        address signer,
+        address user,
+        address missions,
+        uint256 missionId,
+        uint256 taskId,
+        uint256 response,
+        string calldata feedback,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external payable;
+
+    /// @notice Get response & feedback.
+    function getUserResponse(address user, address missions, uint256 missionId, uint256 taskId)
+        external
+        view
+        returns (uint256);
+    function getUserFeedback(address user, address missions, uint256 missionId, uint256 taskId)
+        external
+        view
+        returns (string memory);
+    function getReviewResponse(address reviewer, address user, address missions, uint256 missionId, uint256 taskId)
+        external
+        view
+        returns (uint256);
+    function getReviewFeedback(address reviewer, address user, address missions, uint256 missionId, uint256 taskId)
+        external
+        view
+        returns (string memory);
+
+    /// @notice Get quest related counter.
+    function getMissionQuestedCount(address missions, uint256 missionId) external view returns (uint256, uint256);
+    function getResponseCountByUser(address user, address missions, uint256 missionId, uint256 taskId)
+        external
+        view
+        returns (uint256, uint256);
+    function getReviewCountByReviewer(address reviewer, address missions, uint256 missionId, uint256 taskId)
+        external
+        view
+        returns (uint256, uint256);
+
+    /// @notice Get quest related stats.
+    function getNumOfMissionsStarted() external view returns (uint256);
+    function getNumOfMissionsCompleted() external view returns (uint256);
+    function getNumOfTaskCompleted() external view returns (uint256);
+    function getNumOfMissionsStartedByUser(address user, address missions, uint256 missionId)
+        external
+        view
+        returns (uint256);
+    function getNumOfMissionsCompletedByUser(address user, address missions, uint256 missionId)
+        external
+        view
+        returns (uint256);
+    function getNumOfTasksCompletedByUser(address user, address missions, uint256 missionId, uint256 taskId)
+        external
+        view
+        returns (uint256);
+}
+
 /// @title Impact NFTs
 /// @notice SVG NFTs displaying impact results and metrics.
-/// Majory inspired by Kali, Async.art
 contract mSupportToken is SupportToken {
     /// -----------------------------------------------------------------------
     /// Storage
     /// -----------------------------------------------------------------------
 
-    address public owner;
+    address public quest;
     address public mission;
     uint256 public missionId;
     address public curve;
@@ -486,14 +600,14 @@ contract mSupportToken is SupportToken {
     function init(
         string memory _name,
         string memory _symbol,
-        address _owner,
+        address _quest,
         address _mission,
         uint256 _missionId,
         address _curve
     ) external payable {
         _init(_name, _symbol);
 
-        owner = _owner;
+        quest = _quest;
         mission = _mission;
         missionId = _missionId;
         curve = _curve;
@@ -540,7 +654,7 @@ contract mSupportToken is SupportToken {
 
     // credit: z0r0z.eth (https://github.com/kalidao/kali-contracts/blob/60ba3992fb8d6be6c09eeb74e8ff3086a8fdac13/contracts/access/KaliAccessManager.sol)
     function _buildURI(uint256 id) private view returns (string memory) {
-        return JSON._formattedMetadata("Support Token", "", generateSvg(id));
+        return JSON._formattedMetadata("g0v Hackathon Support Token", "", generateSvg(id));
     }
 
     function generateSvg(uint256 id) public view returns (string memory) {
@@ -565,28 +679,22 @@ contract mSupportToken is SupportToken {
                 ),
                 SVG.NULL
             ),
-            buildTaskChart(),
+            // buildTaskChart(),
             buildSvgData(),
             "</svg>"
         );
     }
 
     function buildSvgData() public view returns (string memory) {
+        uint256 taskId = IMission(mission).getTaskId();
+        uint256 hackathonCount = 60 + IMission(mission).getMissionTaskCount(missionId);
+
         return string.concat(
             SVG._text(
                 string.concat(
                     SVG._prop("x", "20"),
-                    SVG._prop("y", "90"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat("Title: ")
-            ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "120"),
-                    SVG._prop("font-size", "18"),
+                    SVG._prop("y", "100"),
+                    SVG._prop("font-size", "20"),
                     SVG._prop("fill", "#00040a")
                 ),
                 IMission(mission).getMissionTitle(missionId)
@@ -594,33 +702,82 @@ contract mSupportToken is SupportToken {
             SVG._text(
                 string.concat(
                     SVG._prop("x", "20"),
-                    SVG._prop("y", "200"),
+                    SVG._prop("y", "210"),
+                    SVG._prop("font-size", "12"),
+                    SVG._prop("fill", "#00040a")
+                ),
+                string.concat(unicode"黑客松次數：", SVG._uint2str(hackathonCount), unicode" 次")
+            ),
+            SVG._text(
+                string.concat(
+                    SVG._prop("x", "20"),
+                    SVG._prop("y", "230"),
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
                 string.concat(
-                    "Ends in: ", SVG._uint2str(IMission(mission).getMissionDeadline(missionId) - block.timestamp), "s"
+                    unicode"不具名參與人數：",
+                    SVG._uint2str(IQuest(quest).getNumOfStartsByMissionByPublic(mission, missionId)),
+                    unicode" 人"
                 )
             ),
             SVG._text(
                 string.concat(
                     SVG._prop("x", "20"),
-                    SVG._prop("y", "220"),
+                    SVG._prop("y", "250"),
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat("# of Starts: ", SVG._uint2str(IMission(mission).getMissionStarts(missionId)))
+                string.concat(
+                    unicode"公民參與人數：",
+                    SVG._uint2str(IMission(mission).getMissionStarts(missionId)),
+                    unicode" 人"
+                )
             ),
             SVG._text(
                 string.concat(
                     SVG._prop("x", "20"),
-                    SVG._prop("y", "240"),
+                    SVG._prop("y", "270"),
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
                 string.concat(
-                    "# of Completions: ", SVG._uint2str(IMission(mission).getMissionCompletions(missionId)), " s"
+                    unicode"總完成人數：",
+                    SVG._uint2str(IMission(mission).getMissionCompletions(missionId)),
+                    unicode" 人"
                 )
+            ),
+            SVG._text(
+                string.concat(
+                    SVG._prop("x", "20"),
+                    SVG._prop("y", "170"),
+                    SVG._prop("font-size", "12"),
+                    SVG._prop("fill", "#00040a")
+                ),
+                string.concat(
+                    unicode"第 ",
+                    SVG._uint2str(hackathonCount),
+                    unicode" 次參與人數：",
+                    SVG._uint2str(IMission(mission).getTotalTaskCompletionsByMission(missionId, taskId))
+                )
+            ),
+            SVG._text(
+                string.concat(
+                    SVG._prop("x", "130"),
+                    SVG._prop("y", "170"),
+                    SVG._prop("font-size", "40"),
+                    SVG._prop("fill", "#00040a")
+                ),
+                SVG._uint2str(IMission(mission).getTotalTaskCompletionsByMission(missionId, taskId))
+            ),
+            SVG._text(
+                string.concat(
+                    SVG._prop("x", "210"),
+                    SVG._prop("y", "170"),
+                    SVG._prop("font-size", "11"),
+                    SVG._prop("fill", "#00040a")
+                ),
+                unicode" 次"
             )
         );
     }
@@ -653,37 +810,37 @@ contract mSupportToken is SupportToken {
     //     }
     // }
 
-    function buildTaskChart() public view returns (string memory str) {
-        uint256[] memory taskIds = IMission(mission).getMissionTaskIds(missionId);
-        uint256 length = taskIds.length;
+    // function buildTaskChart() public view returns (string memory str) {
+    //     uint256[] memory taskIds = IMission(mission).getMissionTaskIds(missionId);
+    //     uint256 length = taskIds.length;
 
-        uint256 completions;
-        uint256 taskWidth = uint256(250) / length;
+    //     uint256 completions;
+    //     uint256 taskWidth = uint256(250) / length;
 
-        for (uint256 i = 0; i < taskIds.length;) {
-            completions = IMission(mission).getTotalTaskCompletionsByMission(missionId, taskIds[i]);
+    //     for (uint256 i = 0; i < taskIds.length;) {
+    //         completions = IMission(mission).getTotalTaskCompletionsByMission(missionId, taskIds[i]);
 
-            str = string.concat(
-                str,
-                SVG._rect(
-                    string.concat(
-                        SVG._prop("fill", "#FFBE0B"),
-                        SVG._prop("x", SVG._uint2str(20 + taskWidth * i)),
-                        SVG._prop("y", "140"),
-                        SVG._prop("width", SVG._uint2str(taskWidth)),
-                        SVG._prop("height", "20"),
-                        SVG._prop("fill-opacity", string.concat(SVG._uint2str(completions * 10), "%")),
-                        SVG._prop("stroke", "#FFBE0B"),
-                        SVG._prop("stroke-opacity", "0.2"),
-                        SVG._prop("stroke-width", "1")
-                    ),
-                    SVG.NULL
-                )
-            );
+    //         str = string.concat(
+    //             str,
+    //             SVG._rect(
+    //                 string.concat(
+    //                     SVG._prop("fill", "#FFBE0B"),
+    //                     SVG._prop("x", SVG._uint2str(20 + taskWidth * i)),
+    //                     SVG._prop("y", "140"),
+    //                     SVG._prop("width", SVG._uint2str(taskWidth)),
+    //                     SVG._prop("height", "20"),
+    //                     SVG._prop("fill-opacity", string.concat(SVG._uint2str(completions * 5), "%")),
+    //                     SVG._prop("stroke", "#FFBE0B"),
+    //                     SVG._prop("stroke-opacity", "0.2"),
+    //                     SVG._prop("stroke-width", "1")
+    //                 ),
+    //                 SVG.NULL
+    //             )
+    //         );
 
-            unchecked {
-                ++i;
-            }
-        }
-    }
+    //         unchecked {
+    //             ++i;
+    //         }
+    //     }
+    // }
 }
