@@ -325,23 +325,41 @@ contract Quest is Storage {
     /// -----------------------------------------------------------------------
 
     /// @notice Internal function to delete quest activity.
-    function deleteQuestProgress(address user, address missions, uint256 missionId) internal virtual {
-        deleteUint(keccak256(abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, ".progress")));
-    }
+    // function deleteQuestProgress(address user, address missions, uint256 missionId) internal virtual {
+    //     deleteUint(keccak256(abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, ".progress")));
+    // }
 
     /// @notice Internal function to update and return quest progress.
-    function updateQuestProgress(address user, address missions, uint256 missionId, uint256 completed)
-        internal
-        virtual
-        returns (uint256)
-    {
-        uint256 count = IMission(missions).getMissionTaskCount(missionId);
-        uint256 progress = completed * 100 / count;
-        _setUint(
-            keccak256(abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, ".progress")),
-            progress
+    // function updateQuestProgress(address user, address missions, uint256 missionId, uint256 completed)
+    //     internal
+    //     virtual
+    //     returns (uint256)
+    // {
+    //     uint256 count = IMission(missions).getMissionTaskCount(missionId);
+    //     uint256 progress = completed * 100 / count;
+    //     _setUint(
+    //         keccak256(abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, ".progress")),
+    //         progress
+    //     );
+    //     return progress;
+    // }
+
+    /// @notice Increment number of tasks completed by a user in this quest contract.
+    function setIsTaskAccomplished(address user, address missions, uint256 missionId, uint256 taskId) internal {
+        _setBool(
+            keccak256(
+                abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, taskId, ".isAccomplished")
+            ),
+            true
         );
-        return progress;
+    }
+
+    /// @notice Increment number of tasks completed by a user in this quest contract.
+    function setIsMissionAccomplished(address user, address missions, uint256 missionId) internal {
+        _setBool(
+            keccak256(abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, ".isAccomplished")),
+            true
+        );
     }
 
     /// -----------------------------------------------------------------------
@@ -353,10 +371,23 @@ contract Quest is Storage {
         return this.getString(keccak256(abi.encode(address(this), ".users.", user, ".profile")));
     }
 
-    /// @notice Retrieve quest progress.
-    function getQuestProgress(address user, address missions, uint256 missionId) external view returns (uint256) {
-        return this.getUint(
-            keccak256(abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, ".progress"))
+    /// @notice Increment number of tasks completed by a user in this quest contract.
+    function isTaskAccomplished(address user, address missions, uint256 missionId, uint256 taskId)
+        external
+        view
+        returns (bool)
+    {
+        return this.getBool(
+            keccak256(
+                abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, taskId, ".isAccomplished")
+            )
+        );
+    }
+
+    /// @notice Increment number of tasks completed by a user in this quest contract.
+    function isMissionAccomplished(address user, address missions, uint256 missionId) external view returns (bool) {
+        return this.getBool(
+            keccak256(abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, ".isAccomplished"))
         );
     }
 
@@ -506,12 +537,12 @@ contract Quest is Storage {
         addUint(keccak256(abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, ".starts")), 1);
     }
 
-    /// @notice Increment number of missions completed by a user in this quest contract.
-    function incrementNumOfMissionsCompletedByUser(address user, address missions, uint256 missionId) internal {
-        addUint(
-            keccak256(abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, ".completions")), 1
-        );
-    }
+    // / @notice Increment number of missions completed by a user in this quest contract.
+    // function incrementNumOfMissionsCompletedByUser(address user, address missions, uint256 missionId) internal {
+    //     addUint(
+    //         keccak256(abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, ".completions")), 1
+    //     );
+    // }
 
     /// @notice Increment number of tasks completed by a user in this quest contract.
     function incrementNumOfCompletionsByTask(address user, address missions, uint256 missionId, uint256 taskId)
@@ -539,13 +570,13 @@ contract Quest is Storage {
     }
 
     /// @notice Reset number of completed tasks in a given mission.
-    function deleteNumOfCompletedTasksInMission(address user, address missions, uint256 missionId) internal {
-        deleteUint(
-            keccak256(
-                abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, ".numOfCompletedTasks")
-            )
-        );
-    }
+    // function deleteNumOfCompletedTasksInMission(address user, address missions, uint256 missionId) internal {
+    //     deleteUint(
+    //         keccak256(
+    //             abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, ".numOfCompletedTasks")
+    //         )
+    //     );
+    // }
 
     /// @notice Increment number of quests by user.
     function incrementNumOfTimesQuestedByUser(address user) internal returns (uint256) {
@@ -589,37 +620,37 @@ contract Quest is Storage {
         return this.getUint(keccak256(abi.encode(address(this), ".stats.task.completions")));
     }
 
-    function getNumOfMissionsStartedByUser(address user, address missions, uint256 missionId)
-        external
-        view
-        returns (uint256)
-    {
-        return this.getUint(
-            keccak256(abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, ".starts"))
-        );
-    }
+    // function getNumOfMissionsStartedByUser(address user, address missions, uint256 missionId)
+    //     external
+    //     view
+    //     returns (uint256)
+    // {
+    //     return this.getUint(
+    //         keccak256(abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, ".starts"))
+    //     );
+    // }
 
-    function getNumOfMissionsCompletedByUser(address user, address missions, uint256 missionId)
-        external
-        view
-        returns (uint256)
-    {
-        return this.getUint(
-            keccak256(abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, ".completions"))
-        );
-    }
+    // function getNumOfMissionsCompletedByUser(address user, address missions, uint256 missionId)
+    //     external
+    //     view
+    //     returns (uint256)
+    // {
+    //     return this.getUint(
+    //         keccak256(abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, ".completions"))
+    //     );
+    // }
 
-    function getNumOfCompletionsByTask(address user, address missions, uint256 missionId, uint256 taskId)
-        external
-        view
-        returns (uint256)
-    {
-        return this.getUint(
-            keccak256(
-                abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, taskId, ".completions")
-            )
-        );
-    }
+    // function getNumOfCompletionsByTask(address user, address missions, uint256 missionId, uint256 taskId)
+    //     external
+    //     view
+    //     returns (uint256)
+    // {
+    //     return this.getUint(
+    //         keccak256(
+    //             abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, taskId, ".completions")
+    //         )
+    //     );
+    // }
 
     function getQuestCountByUser(address user) external view returns (uint256) {
         return this.getUint(keccak256(abi.encode(address(this), ".users.", user, ".quests.count")));
@@ -647,11 +678,8 @@ contract Quest is Storage {
 
     /// @notice Internal function to start quest.
     function _start(address user, address missions, uint256 missionId) internal virtual {
-        if (
-            this.getNumOfMissionsStartedByUser(user, missions, missionId)
-                != this.getNumOfMissionsCompletedByUser(user, missions, missionId)
-        ) revert InvalidMission();
-        deleteQuestProgress(user, missions, missionId);
+        if (this.isMissionAccomplished(user, missions, missionId)) revert InvalidMission();
+        // deleteQuestProgress(user, missions, missionId);
 
         // Update mission-related stats.
         updateStats(user, missions, missionId);
@@ -841,24 +869,33 @@ contract Quest is Storage {
 
     /// @notice Update, and finalize when appropriate, the Quest detail.
     function updateQuestAndStats(address user, address missions, uint256 missionId, uint256 taskId) internal {
-        // Calculate and update quest progress.
-        uint256 completed = incrementNumOfCompletedTasksInMission(user, missions, missionId);
-        uint256 progress = updateQuestProgress(user, missions, missionId, completed);
-
         // Update Task-related stats.
         updateTaskCompletionStats(user, missions, missionId, taskId);
 
-        // Finalize quest
-        if (progress == 100) {
-            // Update Mission-related stats
-            updateMissionCompletionStats(missions, missionId);
+        // Calculate and update quest progress.
+        uint256 count = IMission(missions).getMissionTaskCount(missionId);
+        uint256 progress;
 
-            // Increment number of missions completed by user, as facilitated by this Quest contract.
-            incrementNumOfMissionsCompletedByUser(user, missions, missionId);
+        if (!this.isTaskAccomplished(user, missions, missionId, taskId)) {
+            uint256 completionCount = incrementNumOfCompletedTasksInMission(user, missions, missionId);
+            progress = completionCount * 100 / count;
 
-            // Reset number of tasks completed to enable multiple participation.
-            deleteNumOfCompletedTasksInMission(user, missions, missionId);
+            // Finalize quest.
+            if (progress == 100) {
+                // Update Mission-related stats
+                updateMissionCompletionStats(missions, missionId);
+
+                setIsMissionAccomplished(user, missions, missionId);
+            }
         }
+
+        // if (progress == 100) {
+        // Increment number of times missionId is completed , as facilitated by this Quest contract.
+        // incrementNumOfMissionsCompletedByUser(user, missions, missionId);
+
+        // Reset number of tasks completed to enable multiple participation.
+        // deleteNumOfCompletedTasksInMission(user, missions, missionId);
+        // }
     }
 
     /// @notice Update task related stats.
