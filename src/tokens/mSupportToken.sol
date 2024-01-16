@@ -185,7 +185,7 @@ contract mSupportToken is SupportToken {
             ),
             SVG._text(
                 string.concat(
-                    SVG._prop("x", "130"),
+                    SVG._prop("x", "140"),
                     SVG._prop("y", "170"),
                     SVG._prop("font-size", "40"),
                     SVG._prop("fill", "#00040a")
@@ -194,7 +194,7 @@ contract mSupportToken is SupportToken {
             ),
             SVG._text(
                 string.concat(
-                    SVG._prop("x", "210"),
+                    SVG._prop("x", "230"),
                     SVG._prop("y", "170"),
                     SVG._prop("font-size", "11"),
                     SVG._prop("fill", "#00040a")

@@ -620,15 +620,15 @@ contract Quest is Storage {
         return this.getUint(keccak256(abi.encode(address(this), ".stats.task.completions")));
     }
 
-    // function getNumOfMissionsStartedByUser(address user, address missions, uint256 missionId)
-    //     external
-    //     view
-    //     returns (uint256)
-    // {
-    //     return this.getUint(
-    //         keccak256(abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, ".starts"))
-    //     );
-    // }
+    function getNumOfMissionsStartedByUser(address user, address missions, uint256 missionId)
+        external
+        view
+        returns (uint256)
+    {
+        return this.getUint(
+            keccak256(abi.encode(address(this), ".users.", user, ".quests.", missions, missionId, ".starts"))
+        );
+    }
 
     // function getNumOfMissionsCompletedByUser(address user, address missions, uint256 missionId)
     //     external
@@ -679,6 +679,7 @@ contract Quest is Storage {
     /// @notice Internal function to start quest.
     function _start(address user, address missions, uint256 missionId) internal virtual {
         if (this.isMissionAccomplished(user, missions, missionId)) revert InvalidMission();
+        if (this.getNumOfMissionsStartedByUser(user, missions, missionId) > 0) revert InvalidMission();
         // deleteQuestProgress(user, missions, missionId);
 
         // Update mission-related stats.

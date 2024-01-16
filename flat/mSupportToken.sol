@@ -754,16 +754,11 @@ contract mSupportToken is SupportToken {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat(
-                    unicode"第 ",
-                    SVG._uint2str(hackathonCount),
-                    unicode" 次參與人數：",
-                    SVG._uint2str(IMission(mission).getTotalTaskCompletionsByMission(missionId, taskId))
-                )
+                string.concat(unicode"第 ", SVG._uint2str(hackathonCount), unicode" 次參與人數：")
             ),
             SVG._text(
                 string.concat(
-                    SVG._prop("x", "130"),
+                    SVG._prop("x", "140"),
                     SVG._prop("y", "170"),
                     SVG._prop("font-size", "40"),
                     SVG._prop("fill", "#00040a")
@@ -772,7 +767,7 @@ contract mSupportToken is SupportToken {
             ),
             SVG._text(
                 string.concat(
-                    SVG._prop("x", "210"),
+                    SVG._prop("x", "230"),
                     SVG._prop("y", "170"),
                     SVG._prop("font-size", "11"),
                     SVG._prop("fill", "#00040a")

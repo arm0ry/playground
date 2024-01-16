@@ -171,7 +171,7 @@ contract QuestTest is Test {
         respond(_user, address(mission), 1, 1, response, testString);
 
         // Validate.
-        assertEq(quest.getNumOfCompletedTasksInMission(_user, address(mission), 1), 0);
+        assertEq(quest.getNumOfCompletedTasksInMission(_user, address(mission), 1), 1);
         assertEq(quest.getNumOfTaskCompleted(), numOfTaskCompleted + 1);
         assertEq(quest.getNumOfMissionsCompleted(), numOfMissionCompleted + 1);
         assertEq(quest.getTaskResponse(_user, 0), response);
@@ -195,7 +195,7 @@ contract QuestTest is Test {
         respond(_user, address(mission), 1, 1, response, testString);
 
         // Validate.
-        assertEq(quest.getNumOfCompletedTasksInMission(_user, address(mission), 1), 0);
+        assertEq(quest.getNumOfCompletedTasksInMission(_user, address(mission), 1), 1);
         assertEq(quest.getNumOfTaskCompleted(), numOfTaskCompleted + 1);
         assertEq(quest.getNumOfMissionsCompleted(), numOfMissionCompleted + 1);
         assertEq(quest.getTaskResponse(_user, 0), response);
