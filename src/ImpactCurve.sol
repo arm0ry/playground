@@ -118,8 +118,8 @@ contract ImpactCurve is Storage {
 
     function zeroClaim(uint256 curveId) external payable virtual {
         if (this.getCurveOwner(curveId) != msg.sender) revert NotAuthorized();
-        if (ISupportToken(this.getCurveToken(curveId)).totalSupply() == 0 && this.getCurvePool(curveId) > 0) {
-            (bool success,) = msg.sender.call{value: this.getCurvePool(curveId)}("");
+        if (ISupportToken(this.getCurveToken(curveId)).totalSupply() == 0 && this.getCurveTreasury(curveId) > 0) {
+            (bool success,) = msg.sender.call{value: this.getCurveTreasury(curveId)}("");
             if (!success) revert TransferFailed();
         } else {
             revert NotAuthorized();
@@ -147,7 +147,7 @@ contract ImpactCurve is Storage {
         // Distribute support to curve owner.
         uint256 burnPrice = this.getPrice(false, curveId, 0);
         addUnclaimed(owner, price - burnPrice);
-        addCurvePool(curveId, burnPrice);
+        addCurveTreasury(curveId, burnPrice);
     }
 
     /// @notice Burn curve token to receive ether.
@@ -160,7 +160,7 @@ contract ImpactCurve is Storage {
 
         // Reduce curve pool by burn price.
         uint256 burnPrice = this.getPrice(false, curveId, 0);
-        subCurvePool(curveId, burnPrice);
+        subCurveTreasury(curveId, burnPrice);
 
         // Distribute burn to patron.
         (bool success,) = patron.call{value: burnPrice}("");
@@ -214,12 +214,12 @@ contract ImpactCurve is Storage {
     }
 
     /// @notice .
-    function addCurvePool(uint256 curveId, uint256 amount) internal {
+    function addCurveTreasury(uint256 curveId, uint256 amount) internal {
         addUint(keccak256(abi.encode(address(this), ".curves", curveId, ".pool")), amount);
     }
 
     /// @notice .
-    function subCurvePool(uint256 curveId, uint256 amount) internal {
+    function subCurveTreasury(uint256 curveId, uint256 amount) internal {
         subUint(keccak256(abi.encode(address(this), ".curves", curveId, ".pool")), amount);
     }
 
@@ -257,7 +257,7 @@ contract ImpactCurve is Storage {
     }
 
     /// @notice .
-    function getCurvePool(uint256 curveId) external view returns (uint256) {
+    function getCurveTreasury(uint256 curveId) external view returns (uint256) {
         return this.getUint(keccak256(abi.encode(address(this), ".curves", curveId, ".pool")));
     }
 

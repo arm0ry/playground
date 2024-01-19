@@ -32,7 +32,7 @@ interface IImpactCurve {
     function getCurveId() external view returns (uint256);
     function getCurveOwner(uint256 curveId) external view returns (address);
     function getCurveToken(uint256 curveId) external view returns (address);
-    function getCurveSupply(uint256 curveId) external view returns (uint256);
+    function getCurveTreasury(uint256 curveId) external view returns (uint256);
     function getCurveType(uint256 curveId) external view returns (CurveType);
     function getCurveFormula(uint256 curveId) external view returns (uint256, uint256, uint256, uint256, uint256);
     function getCurveBurned(uint256 curveId, address patron, bool burned) external view returns (bool);

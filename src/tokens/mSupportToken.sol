@@ -81,7 +81,7 @@ contract mSupportToken is SupportToken {
 
     // credit: z0r0z.eth (https://github.com/kalidao/kali-contracts/blob/60ba3992fb8d6be6c09eeb74e8ff3086a8fdac13/contracts/access/KaliAccessManager.sol)
     function _buildURI(uint256 id) private view returns (string memory) {
-        return JSON._formattedMetadata("g0v Hackathon Support Token", "", generateSvg(id));
+        return JSON._formattedMetadata(unicode"g0v Hackathon Support Token", "", generateSvg(id));
     }
 
     function generateSvg(uint256 id) public view returns (string memory) {
@@ -94,7 +94,7 @@ contract mSupportToken is SupportToken {
                     SVG._prop("font-size", "20"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat("Support #", SVG._uint2str(id))
+                string.concat(unicode"沒有人 #", SVG._uint2str(id))
             ),
             SVG._rect(
                 string.concat(
@@ -143,7 +143,7 @@ contract mSupportToken is SupportToken {
                     SVG._prop("fill", "#00040a")
                 ),
                 string.concat(
-                    unicode"不具名參與人數：",
+                    unicode"n0body 參與人數：",
                     SVG._uint2str(IQuest(quest).getNumOfStartsByMissionByPublic(mission, missionId)),
                     unicode" 人"
                 )
@@ -156,7 +156,7 @@ contract mSupportToken is SupportToken {
                     SVG._prop("fill", "#00040a")
                 ),
                 string.concat(
-                    unicode"公民參與人數：",
+                    unicode"總參與人數：",
                     SVG._uint2str(IMission(mission).getMissionStarts(missionId)),
                     unicode" 人"
                 )
@@ -169,7 +169,7 @@ contract mSupportToken is SupportToken {
                     SVG._prop("fill", "#00040a")
                 ),
                 string.concat(
-                    unicode"總完成人數：",
+                    unicode"100% 參與人數：",
                     SVG._uint2str(IMission(mission).getMissionCompletions(missionId)),
                     unicode" 人"
                 )
@@ -199,7 +199,7 @@ contract mSupportToken is SupportToken {
                     SVG._prop("font-size", "11"),
                     SVG._prop("fill", "#00040a")
                 ),
-                unicode" 次"
+                unicode" 人"
             )
         );
     }

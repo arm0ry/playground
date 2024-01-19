@@ -131,7 +131,7 @@ contract QuestTest is Test {
         start(_user, address(mission), 1);
 
         // Validate.
-        assertEq(quest.getQuestCountByUser(_user), 1);
+        assertEq(quest.getNumOfTimesQuestedByUser(_user), 1);
         assertEq(quest.getNumOfMissionsStarted(), 1);
         assertEq(mission.getMissionStarts(1), 1);
 
@@ -148,7 +148,7 @@ contract QuestTest is Test {
         start(_user, address(mission), 1);
 
         // Validate.
-        assertEq(quest.getQuestCountByUser(_user), 1);
+        assertEq(quest.getNumOfTimesQuestedByUser(_user), 1);
         assertEq(quest.getNumOfMissionsStarted(), 1);
         assertEq(mission.getMissionStarts(1), 0);
 
@@ -168,14 +168,22 @@ contract QuestTest is Test {
         uint256 numOfMissionCompleted = quest.getNumOfMissionsCompleted();
 
         // Respond.
-        respond(_user, address(mission), 1, 1, response, testString);
+        uint256 _missionId = 1;
+        uint256 _taskId = 1;
+        respond(_user, address(mission), _missionId, 1, response, testString);
 
         // Validate.
-        assertEq(quest.getNumOfCompletedTasksInMission(_user, address(mission), 1), 1);
+        assertEq(quest.getNumOfCompletedTasksInMission(_user, address(mission), _missionId), 1);
         assertEq(quest.getNumOfTaskCompleted(), numOfTaskCompleted + 1);
         assertEq(quest.getNumOfMissionsCompleted(), numOfMissionCompleted + 1);
-        assertEq(quest.getTaskResponse(_user, 0), response);
-        assertEq(quest.getTaskFeedback(_user, 0), testString);
+        assertEq(
+            quest.getTaskResponse(quest.getQuestIdByUserAndMission(_user, address(mission), _missionId), _taskId),
+            response
+        );
+        assertEq(
+            quest.getTaskFeedback(quest.getQuestIdByUserAndMission(_user, address(mission), _missionId), _taskId),
+            testString
+        );
         assertEq(mission.getMissionCompletions(1), 1);
         assertEq(mission.getTotalTaskCompletions(1), 1);
         assertEq(mission.getTotalTaskCompletionsByMission(1, 1), 1);
@@ -192,17 +200,25 @@ contract QuestTest is Test {
         uint256 numOfMissionCompleted = quest.getNumOfMissionsCompleted();
 
         // Respond.
-        respond(_user, address(mission), 1, 1, response, testString);
+        uint256 _missionId = 1;
+        uint256 _taskId = 1;
+        respond(_user, address(mission), _missionId, 1, response, testString);
 
         // Validate.
-        assertEq(quest.getNumOfCompletedTasksInMission(_user, address(mission), 1), 1);
+        assertEq(quest.getNumOfCompletedTasksInMission(_user, address(mission), _missionId), 1);
         assertEq(quest.getNumOfTaskCompleted(), numOfTaskCompleted + 1);
         assertEq(quest.getNumOfMissionsCompleted(), numOfMissionCompleted + 1);
-        assertEq(quest.getTaskResponse(_user, 0), response);
-        assertEq(quest.getTaskFeedback(_user, 0), testString);
-        assertEq(mission.getMissionCompletions(1), 0);
-        assertEq(mission.getTotalTaskCompletions(1), 0);
-        assertEq(mission.getTotalTaskCompletionsByMission(1, 1), 0);
+        assertEq(
+            quest.getTaskResponse(quest.getQuestIdByUserAndMission(_user, address(mission), _missionId), _taskId),
+            response
+        );
+        assertEq(
+            quest.getTaskFeedback(quest.getQuestIdByUserAndMission(_user, address(mission), _missionId), _taskId),
+            testString
+        );
+        assertEq(mission.getMissionCompletions(_missionId), 0);
+        assertEq(mission.getTotalTaskCompletions(_missionId), 0);
+        assertEq(mission.getTotalTaskCompletionsByMission(_missionId, _taskId), 0);
     }
 
     /// -----------------------------------------------------------------------
@@ -224,7 +240,7 @@ contract QuestTest is Test {
         start(_user, address(mission), 2);
 
         // Validate.
-        assertEq(quest.getQuestCountByUser(_user), 1);
+        assertEq(quest.getNumOfTimesQuestedByUser(_user), 1);
         assertEq(quest.getNumOfMissionsStarted(), numOfMissionsStarted + 1);
         assertEq(mission.getMissionStarts(2), missionStarts + 1);
 
@@ -279,7 +295,7 @@ contract QuestTest is Test {
         setupQuadTaskMission(dao);
 
         // Retrieve for later validation.
-        uint256 questCountByUser = quest.getQuestCountByUser(_user);
+        uint256 questCountByUser = quest.getNumOfTimesQuestedByUser(_user);
         uint256 numOfMissionsStarted = quest.getNumOfMissionsStarted();
         uint256 missionStarts = mission.getMissionStarts(2);
         (uint256 missionIdCount, uint256 missionsCount) = quest.getNumOfMissionQuested(address(mission), 2);
@@ -303,7 +319,7 @@ contract QuestTest is Test {
         quest.startBySig(_user, address(mission), 2, v, r, s);
 
         // Validate.
-        assertEq(quest.getQuestCountByUser(_user), questCountByUser + 1);
+        assertEq(quest.getNumOfTimesQuestedByUser(_user), questCountByUser + 1);
         assertEq(quest.getNumOfMissionsStarted(), numOfMissionsStarted + 1);
         assertEq(mission.getMissionStarts(2), missionStarts + 1);
 
@@ -344,7 +360,8 @@ contract QuestTest is Test {
         // Initialize tasks and mission.
         setupQuadTaskMission(dao);
 
-        uint256 prevCount = quest.getPublicCount();
+        uint256 prevCount = quest.getNumOfPublicUsers();
+        uint256 prevStartCount = quest.getNumOfStartsByMissionByPublic(address(mission), 2);
 
         // Set gas bot.
         vm.prank(dao);
@@ -356,9 +373,9 @@ contract QuestTest is Test {
         vm.prank(bot);
         quest.sponsoredStart(_username, address(mission), 2);
 
-        assertEq(quest.getPublicCount(), prevCount + 1);
-        assertEq(quest.isPublicUser(_username), true);
-        // assertEq(quest.getPublicUser(prevCount + 1), getPublicUserAddress(_username));
+        assertEq(quest.getNumOfPublicUsers(), prevCount + 1);
+        assertEq(quest.isPublicUser(_username, address(mission), 2), true);
+        assertEq(quest.getNumOfStartsByMissionByPublic(address(mission), 2), prevStartCount + 1);
     }
 
     function testQuadTaskMission_SponsoredStart_InvalidBot(string memory _username) public payable {
@@ -377,7 +394,6 @@ contract QuestTest is Test {
         // Retrieve for validation later.
         uint256 completedCount = quest.getNumOfCompletedTasksInMission(_user, address(mission), 2);
         uint256 numOfTaskCompleted = quest.getNumOfTaskCompleted();
-        uint256 numOfTasks = mission.getMissionTaskCount(2);
 
         // Respond.
         respond(_user, address(mission), 2, 1, response, testString);
@@ -386,7 +402,6 @@ contract QuestTest is Test {
         assertEq(quest.getNumOfCompletedTasksInMission(_user, address(mission), 2), completedCount + 1);
         assertEq(quest.getNumOfTaskCompleted(), numOfTaskCompleted + 1);
 
-        // TODO: Need to check progress.
         emit log_uint(quest.getNumOfCompletedTasksInMission(_user, address(mission), 2));
     }
 
@@ -456,13 +471,8 @@ contract QuestTest is Test {
         uint256 response
     ) internal {
         uint256 count = quest.getNumOfResponseByUser(_user);
-        assertEq(quest.getTaskResponse(_user, count), response);
-        assertEq(quest.getTaskFeedback(_user, count), testString);
-
-        (address __mission, uint256 __missionId, uint256 __taskId) = quest.getTaskResponded(_user, count);
-        assertEq(__mission, address(mission));
-        assertEq(__missionId, 2);
-        assertEq(__taskId, 1);
+        assertEq(quest.getTaskResponse(quest.getQuestIdByUserAndMission(_user, address(mission), 2), 1), response);
+        assertEq(quest.getTaskFeedback(quest.getQuestIdByUserAndMission(_user, address(mission), 2), 1), testString);
         assertEq(quest.getNumOfCompletedTasksInMission(_user, address(mission), 2), completedCount + 1);
     }
 
@@ -480,13 +490,8 @@ contract QuestTest is Test {
 
         // Validate.
         uint256 count = quest.getNumOfResponseByUser(_user);
-        assertEq(quest.getTaskResponse(_user, count), response);
-        assertEq(quest.getTaskFeedback(_user, count), testString);
-
-        (address __mission, uint256 __missionId, uint256 __taskId) = quest.getTaskResponded(_user, count);
-        assertEq(__mission, address(mission));
-        assertEq(__missionId, 2);
-        assertEq(__taskId, 1);
+        assertEq(quest.getTaskResponse(quest.getQuestIdByUserAndMission(_user, address(mission), 2), 1), response);
+        assertEq(quest.getTaskFeedback(quest.getQuestIdByUserAndMission(_user, address(mission), 2), 1), testString);
         assertEq(quest.getNumOfCompletedTasksInMission(_user, address(mission), 2), completedCount + 1);
     }
 
@@ -738,7 +743,7 @@ contract QuestTest is Test {
         quest.start(_mission, _missionId);
 
         // Validate.
-        (address __user, address __mission, uint256 __missionId) = quest.getQuest(quest.getQuestCount());
+        (address __user, address __mission, uint256 __missionId) = quest.getQuest(quest.getQuestId());
         assertEq(__user, _user);
         assertEq(__mission, _mission);
         assertEq(__missionId, _missionId);
@@ -757,14 +762,14 @@ contract QuestTest is Test {
         quest.respond(_mission, _missionId, _taskId, response, feedback);
 
         // Validate.
-        uint256 count = quest.getNumOfResponseByUser(_user);
-        assertEq(quest.getTaskResponse(_user, count), response);
-        assertEq(quest.getTaskFeedback(_user, count), feedback);
-
-        (address __mission, uint256 __missionId, uint256 __taskId) = quest.getTaskResponded(_user, count);
-        assertEq(__mission, _mission);
-        assertEq(__missionId, _missionId);
-        assertEq(__taskId, _taskId);
+        assertEq(
+            quest.getTaskResponse(quest.getQuestIdByUserAndMission(_user, address(_mission), _missionId), _taskId),
+            response
+        );
+        assertEq(
+            quest.getTaskFeedback(quest.getQuestIdByUserAndMission(_user, address(_mission), _missionId), _taskId),
+            feedback
+        );
     }
 
     function review(

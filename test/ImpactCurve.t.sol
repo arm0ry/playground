@@ -176,7 +176,7 @@ contract ImpactCurveTest is Test {
         assertEq(qst.balanceOf(bob), 1);
         assertEq(qst.totalSupply(), 1);
         assertEq(ic.getUnclaimed(ic.getCurveOwner(ic.getCurveId())), mintPrice - burnPrice);
-        assertEq(ic.getCurvePool(1), burnPrice);
+        assertEq(ic.getCurveTreasury(1), burnPrice);
         assertEq(ic.getPrice(true, 1, 1000) - ic.getPrice(false, 1, 1000), ic.getMintBurnDifference(1, 1000));
     }
 
@@ -303,7 +303,7 @@ contract ImpactCurveTest is Test {
         // Validate.
         assertEq(qst.balanceOf(bob), 0);
         assertEq(qst.totalSupply(), 0);
-        assertEq(ic.getCurvePool(1), 0);
+        assertEq(ic.getCurveTreasury(1), 0);
         assertEq(ic.getCurveBurned(1, bob), true);
         assertEq(!burned, true);
     }
@@ -474,7 +474,7 @@ contract ImpactCurveTest is Test {
         qst.burn(1);
 
         // Retrieve for validation.
-        uint256 prevPool = ic.getCurvePool(1);
+        uint256 prevPool = ic.getCurveTreasury(1);
         uint256 prevBalance = address(alice).balance;
 
         // Claim.
@@ -553,7 +553,7 @@ contract ImpactCurveTest is Test {
         qst.burn(2);
 
         // Retrieve for validation.
-        uint256 prevPool = ic.getCurvePool(1);
+        uint256 prevPool = ic.getCurveTreasury(1);
         uint256 prevBalance = address(alice).balance;
 
         // Claim.
@@ -646,7 +646,7 @@ contract ImpactCurveTest is Test {
         assertEq(qst.balanceOf(bob), 1);
         assertEq(qst.totalSupply(), 1);
         assertEq(ic.getUnclaimed(alice), mintPrice - burnPrice);
-        assertEq(ic.getCurvePool(1), burnPrice);
+        assertEq(ic.getCurveTreasury(1), burnPrice);
     }
 
     function testPolyCurve_burn(
@@ -675,7 +675,7 @@ contract ImpactCurveTest is Test {
         // Validation.
         assertEq(qst.balanceOf(bob), 0);
         assertEq(qst.totalSupply(), 0);
-        assertEq(ic.getCurvePool(1), 0);
+        assertEq(ic.getCurveTreasury(1), 0);
         assertEq(address(bob).balance, prevBalance + burnPrice);
     }
 
