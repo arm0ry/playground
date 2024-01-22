@@ -182,14 +182,15 @@ contract Quest is Storage {
         hasExpired(missions, missionId)
         onlyGasBot
     {
+        address user = getPublicUserAddress(username);
         // Validate
-        if (this.isPublicUser(username, missions, missionId)) revert InvalidUser();
+        if (this.isPublicUser(user, missions, missionId)) revert InvalidUser();
 
         // Start.
-        _start(getPublicUserAddress(username), missions, missionId);
+        _start(user, missions, missionId);
 
         // Set public registry.
-        setPublicRegistry(username, missions, missionId);
+        setPublicRegistry(user, missions, missionId);
     }
 
     /// @notice Respond to a task.
@@ -200,11 +201,6 @@ contract Quest is Storage {
         hasExpired(missions, missionId)
     {
         _respond(msg.sender, missions, missionId, taskId, response, feedback);
-
-        // When review is not required, update quest progress and related stats.
-        if (!this.getReviewStatus()) {
-            updateQuestAndStats(msg.sender, missions, missionId, taskId);
-        }
     }
 
     /// @notice Respond to a task (gasless).
@@ -231,12 +227,7 @@ contract Quest is Storage {
         address recoveredAddress = ecrecover(digest, v, r, s);
         if (recoveredAddress == address(0) || recoveredAddress != signer) revert InvalidUser();
 
-        _respond(msg.sender, missions, missionId, taskId, response, feedback);
-
-        // When review is not required, update quest progress and related stats.
-        if (!this.getReviewStatus()) {
-            updateQuestAndStats(msg.sender, missions, missionId, taskId);
-        }
+        _respond(signer, missions, missionId, taskId, response, feedback);
     }
 
     /// @notice Respond to a task (gasless) with a username and salt.
@@ -249,7 +240,7 @@ contract Quest is Storage {
         string calldata feedback
     ) external payable virtual hasExpired(missions, missionId) onlyGasBot {
         address user = getPublicUserAddress(username);
-        if (!this.isPublicUser(username, missions, missionId)) revert InvalidUser();
+        if (!this.isPublicUser(user, missions, missionId)) revert InvalidUser();
 
         // Respond by dao.
         _respond(user, missions, missionId, taskId, response, feedback);
@@ -259,6 +250,7 @@ contract Quest is Storage {
     /// Review Logic
     /// -----------------------------------------------------------------------
 
+    // TODO: Maybe using only taskId is enough
     /// @notice Review a task.
     function review(
         address user,
@@ -435,16 +427,11 @@ contract Quest is Storage {
     }
 
     /// @notice Retrieve public user status.
-    function isPublicUser(string calldata username, address missions, uint256 missionId) external view returns (bool) {
+    function isPublicUser(address user, address missions, uint256 missionId) external view returns (bool) {
         return this.getBool(
             keccak256(
                 abi.encode(
-                    address(this),
-                    ".public.",
-                    this.getTaskKey(missions, missionId, 0),
-                    ".users.",
-                    getPublicUserAddress(username),
-                    ".exists"
+                    address(this), ".public.", this.getTaskKey(missions, missionId, 0), ".users.", user, ".exists"
                 )
             )
         );
@@ -463,7 +450,7 @@ contract Quest is Storage {
     }
 
     /// @notice Set new public user..
-    function setPublicRegistry(string calldata username, address missions, uint256 missionId) internal {
+    function setPublicRegistry(address user, address missions, uint256 missionId) internal {
         // Increment public user id.
         incrementPublicCount();
 
@@ -474,12 +461,7 @@ contract Quest is Storage {
         _setBool(
             keccak256(
                 abi.encode(
-                    address(this),
-                    ".public.",
-                    this.getTaskKey(missions, missionId, 0),
-                    ".users.",
-                    getPublicUserAddress(username),
-                    ".exists"
+                    address(this), ".public.", this.getTaskKey(missions, missionId, 0), ".users.", user, ".exists"
                 )
             ),
             true
@@ -544,16 +526,16 @@ contract Quest is Storage {
     }
 
     /// @notice Increment number of missions started by a user in this quest contract.
-    function incrementNumOfMissionsStartedByUser(address user, address missions, uint256 missionId) internal {
-        addUint(
-            keccak256(
-                abi.encode(
-                    address(this), ".quests.", this.getQuestIdByUserAndMission(user, missions, missionId), ".starts"
-                )
-            ),
-            1
-        );
-    }
+    // function incrementNumOfMissionsStartedByUser(address user, address missions, uint256 missionId) internal {
+    //     addUint(
+    //         keccak256(
+    //             abi.encode(
+    //                 address(this), ".quests.", this.getQuestIdByUserAndMission(user, missions, missionId), ".starts"
+    //             )
+    //         ),
+    //         1
+    //     );
+    // }
 
     // / @notice Increment number of missions completed by a user in this quest contract.
     // function incrementNumOfMissionsCompletedByUser(address user, address missions, uint256 missionId) internal {
@@ -645,24 +627,19 @@ contract Quest is Storage {
         return this.getUint(keccak256(abi.encode(address(this), ".stats.task.completions")));
     }
 
-    function getNumOfMissionsStartedByUser(address user, address missions, uint256 missionId)
-        external
-        view
-        returns (uint256)
-    {
-        return this.getUint(
-            keccak256(
-                abi.encode(
-                    address(this),
-                    ".users.",
-                    user,
-                    ".quests.",
-                    this.getQuestIdByUserAndMission(user, missions, missionId),
-                    ".starts"
-                )
-            )
-        );
-    }
+    // function getNumOfMissionsStartedByUser(address user, address missions, uint256 missionId)
+    //     external
+    //     view
+    //     returns (uint256)
+    // {
+    //     return this.getUint(
+    //         keccak256(
+    //             abi.encode(
+    //                 address(this), ".quests.", this.getQuestIdByUserAndMission(user, missions, missionId), ".starts"
+    //             )
+    //         )
+    //     );
+    // }
 
     // function getNumOfMissionsCompletedByUser(address user, address missions, uint256 missionId)
     //     external
@@ -713,7 +690,8 @@ contract Quest is Storage {
     /// @notice Internal function to start quest.
     function _start(address user, address missions, uint256 missionId) internal virtual {
         if (this.isMissionAccomplished(user, missions, missionId)) revert InvalidMission();
-        if (this.getNumOfMissionsStartedByUser(user, missions, missionId) > 0) revert InvalidMission();
+
+        if (this.getQuestIdByUserAndMission(user, missions, missionId) > 0) revert InvalidMission();
         // deleteQuestProgress(user, missions, missionId);
 
         // Update mission-related stats.
@@ -733,7 +711,7 @@ contract Quest is Storage {
     /// @notice Internal function to update starting stats.
     function updateStats(address user, address missions, uint256 missionId) internal {
         // Increment number of missions started by user, as facilitated by this Quest contract.
-        incrementNumOfMissionsStartedByUser(user, missions, missionId);
+        // incrementNumOfMissionsStartedByUser(user, missions, missionId);
 
         // Increment number of missions started and facilitated by this Quest contract.
         incrementNumOfMissionsStarted();
@@ -777,6 +755,11 @@ contract Quest is Storage {
 
         // Start cooldown.
         setTimeLastTaskCompleted(user);
+
+        // When review is not required, update quest progress and related stats.
+        if (!this.getReviewStatus()) {
+            updateQuestAndStats(user, missions, missionId, taskId);
+        }
 
         emit Responded(user, missions, missionId, taskId, response, feedback);
     }
@@ -891,8 +874,6 @@ contract Quest is Storage {
         // Update Task-related stats.
         updateTaskCompletionStats(missions, missionId, taskId);
 
-        // Calculate and update quest progress.
-
         if (!this.isTaskAccomplished(user, missions, missionId, taskId)) {
             // Finalize task.
             setIsTaskAccomplished(user, missions, missionId, taskId);
@@ -952,24 +933,24 @@ contract Quest is Storage {
     }
 
     /// @notice Decode uint256 into address of mission, mission id and task id.
-    function decodeTaskKey(uint256 tokenId) external pure returns (address, uint256, uint256) {
-        // Convert tokenId from type uint256 to bytes32.
-        bytes32 key = bytes32(tokenId);
+    // function decodeTaskKey(uint256 tokenId) external pure returns (address, uint256, uint256) {
+    //     // Convert tokenId from type uint256 to bytes32.
+    //     bytes32 key = bytes32(tokenId);
 
-        // Declare variables to return later.
-        uint48 taskId;
-        uint48 missionId;
-        address mission;
+    //     // Declare variables to return later.
+    //     uint48 taskId;
+    //     uint48 missionId;
+    //     address mission;
 
-        // Parse data via assembly.
-        assembly {
-            taskId := key
-            missionId := shr(48, key)
-            mission := shr(96, key)
-        }
+    //     // Parse data via assembly.
+    //     assembly {
+    //         taskId := key
+    //         missionId := shr(48, key)
+    //         mission := shr(96, key)
+    //     }
 
-        return (mission, uint256(missionId), uint256(taskId));
-    }
+    //     return (mission, uint256(missionId), uint256(taskId));
+    // }
 
     /// @notice Encode publicly submitted username and salt as an address.
     function getPublicUserAddress(string calldata username) internal pure returns (address) {

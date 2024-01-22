@@ -271,18 +271,18 @@ contract Mission is Storage {
 
     /// @notice Set whether a task is part of a mission.
     function setIsTaskInMission(uint256 missionId, uint256 taskId, bool status) internal {
-        _setBool(keccak256(abi.encode(address(this), ".missions.", missionId, ".taskIds.", taskId, ".exists")), status);
+        _setBool(keccak256(abi.encode(address(this), ".missions.", missionId, ".tasks.", taskId, ".exists")), status);
     }
 
     /// @notice Set whether a task is part of a mission.
     function deleteIsTaskInMission(uint256 missionId, uint256 taskId) internal {
-        deleteBool(keccak256(abi.encode(address(this), ".missions.", missionId, ".taskIds.", taskId, ".exists")));
+        deleteBool(keccak256(abi.encode(address(this), ".missions.", missionId, ".tasks.", taskId, ".exists")));
     }
 
     /// @notice Associate a task with a given mission.
     function addNewTaskToMission(uint256 missionId, uint256 taskId) internal {
         uint256 count = incrementMissionTaskCount(missionId);
-        _setUint(keccak256(abi.encode(address(this), ".missions.", missionId, ".taskIds.", count)), taskId);
+        _setUint(keccak256(abi.encode(address(this), ".missions.", missionId, ".tasks.", count)), taskId);
     }
 
     /// @notice Increment and return number of tasks a mission.
@@ -292,7 +292,7 @@ contract Mission is Storage {
 
     /// @notice Associate a task with a given mission.
     function updateTaskInMission(uint256 missionId, uint256 order, uint256 taskId) internal {
-        _setUint(keccak256(abi.encode(address(this), ".missions.", missionId, ".taskIds.", order)), taskId);
+        _setUint(keccak256(abi.encode(address(this), ".missions.", missionId, ".tasks.", order)), taskId);
     }
 
     /// @notice Associate a mission with a given task.
@@ -391,7 +391,7 @@ contract Mission is Storage {
 
     /// @notice Increment number of task completions by task id by authorized Quest contracts only.
     function incrementTotalTaskCompletionsByMission(uint256 missionId, uint256 taskId) external payable onlyQuest {
-        addUint(keccak256(abi.encode(address(this), ".missions.", missionId, ".taskIds.", taskId, ".completions")), 1);
+        addUint(keccak256(abi.encode(address(this), ".missions.", missionId, ".tasks.", taskId, ".completions")), 1);
     }
 
     /// -----------------------------------------------------------------------
@@ -420,9 +420,7 @@ contract Mission is Storage {
 
     /// @notice Returns whether a task is part of a mission.
     function isTaskInMission(uint256 missionId, uint256 taskId) external view returns (bool) {
-        return this.getBool(
-            keccak256(abi.encode(address(this), ".missions.", missionId, ".taskIds.", taskId, ".exists"))
-        );
+        return this.getBool(keccak256(abi.encode(address(this), ".missions.", missionId, ".tasks.", taskId, ".exists")));
     }
 
     /// @notice Get number of task completions by task id.
@@ -433,7 +431,7 @@ contract Mission is Storage {
     /// @notice Get number of task completions by task id.
     function getTotalTaskCompletionsByMission(uint256 missionId, uint256 taskId) external view returns (uint256) {
         return this.getUint(
-            keccak256(abi.encode(address(this), ".missions.", missionId, ".taskIds.", taskId, ".completions"))
+            keccak256(abi.encode(address(this), ".missions.", missionId, ".tasks.", taskId, ".completions"))
         );
     }
 
@@ -503,7 +501,7 @@ contract Mission is Storage {
 
     /// @notice Get a task id associated with in a given mission by order.
     function getMissionTaskId(uint256 missionId, uint256 order) external view returns (uint256) {
-        return this.getUint(keccak256(abi.encode(address(this), ".missions.", missionId, ".taskIds.", order)));
+        return this.getUint(keccak256(abi.encode(address(this), ".missions.", missionId, ".tasks.", order)));
     }
 
     /// @notice Get all task ids associated with a given mission.

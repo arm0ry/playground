@@ -221,6 +221,15 @@ contract QuestTest is Test {
         assertEq(mission.getTotalTaskCompletionsByMission(_missionId, _taskId), 0);
     }
 
+    function testSingleTaskMission_Respond_InvalidRestart(address _user, uint256 response) public payable {
+        testSingleTaskMission_Respond(_user, response);
+
+        // .
+        vm.expectRevert(Quest.InvalidMission.selector);
+        vm.prank(_user);
+        quest.start(address(mission), 1);
+    }
+
     /// -----------------------------------------------------------------------
     /// Quad-Task Mission Tests
     /// ----------------------------------------------------------------------
@@ -374,7 +383,7 @@ contract QuestTest is Test {
         quest.sponsoredStart(_username, address(mission), 2);
 
         assertEq(quest.getNumOfPublicUsers(), prevCount + 1);
-        assertEq(quest.isPublicUser(_username, address(mission), 2), true);
+        assertEq(quest.isPublicUser(getPublicUserAddress(_username), address(mission), 2), true);
         assertEq(quest.getNumOfStartsByMissionByPublic(address(mission), 2), prevStartCount + 1);
     }
 
@@ -387,6 +396,14 @@ contract QuestTest is Test {
         quest.sponsoredStart(_username, address(mission), 2);
     }
 
+    function testQuadTaskMission_SponsoredStart_InvalidUser(string memory _username) public payable {
+        testQuadTaskMission_SponsoredStart(_username);
+
+        vm.expectRevert(Quest.InvalidUser.selector);
+        vm.prank(bot);
+        quest.sponsoredStart(_username, address(mission), 2);
+    }
+
     function testQuadTaskMission_Respond(address _user, uint256 response) public payable {
         testQuadTaskMission_Start(_user);
         vm.warp(block.timestamp + 10);
@@ -394,6 +411,7 @@ contract QuestTest is Test {
         // Retrieve for validation later.
         uint256 completedCount = quest.getNumOfCompletedTasksInMission(_user, address(mission), 2);
         uint256 numOfTaskCompleted = quest.getNumOfTaskCompleted();
+        uint256 numOfResponseByUser = quest.getNumOfResponseByUser(_user);
 
         // Respond.
         respond(_user, address(mission), 2, 1, response, testString);
@@ -401,8 +419,9 @@ contract QuestTest is Test {
         // Validate.
         assertEq(quest.getNumOfCompletedTasksInMission(_user, address(mission), 2), completedCount + 1);
         assertEq(quest.getNumOfTaskCompleted(), numOfTaskCompleted + 1);
-
-        emit log_uint(quest.getNumOfCompletedTasksInMission(_user, address(mission), 2));
+        assertEq(quest.getNumOfResponseByUser(_user), numOfResponseByUser + 1);
+        assertEq(mission.getTotalTaskCompletions(1), 1);
+        assertEq(mission.getTotalTaskCompletionsByMission(2, 1), 1);
     }
 
     function testQuadTaskMission_Respond_InvalidMission(address _user, uint256 response) public payable {
@@ -454,26 +473,19 @@ contract QuestTest is Test {
 
         // Retrieve for validation later.
         uint256 completedCount = quest.getNumOfCompletedTasksInMission(_user, address(mission), 2);
-        uint256 numOfTasks = mission.getMissionTaskCount(2);
+        uint256 numOfResponseByUser = quest.getNumOfResponseByUser(_user);
 
         // Respond by sig.
         vm.prank(bot);
         quest.respondBySig(_user, address(mission), 2, 1, response, testString, v, r, s);
 
         // Validate.
-        validateQuadTaskMission_RespondBySig(_user, completedCount, numOfTasks, response);
-    }
-
-    function validateQuadTaskMission_RespondBySig(
-        address _user,
-        uint256 completedCount,
-        uint256 numOfTasks,
-        uint256 response
-    ) internal {
-        uint256 count = quest.getNumOfResponseByUser(_user);
         assertEq(quest.getTaskResponse(quest.getQuestIdByUserAndMission(_user, address(mission), 2), 1), response);
         assertEq(quest.getTaskFeedback(quest.getQuestIdByUserAndMission(_user, address(mission), 2), 1), testString);
         assertEq(quest.getNumOfCompletedTasksInMission(_user, address(mission), 2), completedCount + 1);
+        assertEq(quest.getNumOfResponseByUser(_user), numOfResponseByUser + 1);
+        assertEq(mission.getTotalTaskCompletions(1), 1);
+        assertEq(mission.getTotalTaskCompletionsByMission(2, 1), 1);
     }
 
     function testQuadTaskMission_SponsoredRespond(string memory _username, uint256 response) public payable {
@@ -482,17 +494,20 @@ contract QuestTest is Test {
         // Retrieve for validation later.
         address _user = getPublicUserAddress(_username);
         uint256 completedCount = quest.getNumOfCompletedTasksInMission(_user, address(mission), 2);
-        uint256 numOfTasks = mission.getMissionTaskCount(2);
+        uint256 numOfResponseByUser = quest.getNumOfResponseByUser(_user);
 
         // Sponsored respond.
         vm.prank(bot);
         quest.sponsoredRespond(_username, address(mission), 2, 1, response, testString);
 
         // Validate.
-        uint256 count = quest.getNumOfResponseByUser(_user);
         assertEq(quest.getTaskResponse(quest.getQuestIdByUserAndMission(_user, address(mission), 2), 1), response);
         assertEq(quest.getTaskFeedback(quest.getQuestIdByUserAndMission(_user, address(mission), 2), 1), testString);
         assertEq(quest.getNumOfCompletedTasksInMission(_user, address(mission), 2), completedCount + 1);
+        assertEq(quest.isTaskAccomplished(_user, address(mission), 2, 1), true);
+        assertEq(quest.getNumOfResponseByUser(_user), numOfResponseByUser + 1);
+        assertEq(mission.getTotalTaskCompletions(1), 1);
+        assertEq(mission.getTotalTaskCompletionsByMission(2, 1), 1);
     }
 
     function testQuadTaskMission_SponsoredRespond_InvalidBot(string memory _username, uint256 response)
@@ -505,6 +520,17 @@ contract QuestTest is Test {
         vm.expectRevert(Quest.InvalidBot.selector);
         vm.prank(dao);
         quest.sponsoredRespond(_username, address(mission), 2, 1, response, testString);
+    }
+
+    function testQuadTaskMission_SponsoredRespond_InvalidUser(string memory _username, uint256 response)
+        public
+        payable
+    {
+        testQuadTaskMission_SponsoredStart(_username);
+
+        vm.expectRevert(Quest.InvalidUser.selector);
+        vm.prank(bot);
+        quest.sponsoredRespond("anotherUser", address(mission), 2, 1, response, testString);
     }
 
     function testQuadTaskMission_RespondBySig_InvalidUser(uint256 response) public payable {
@@ -789,8 +815,6 @@ contract QuestTest is Test {
         uint256 count = quest.getNumOfReviewByReviewer(reviewer);
         assertEq(quest.getReviewResponse(reviewer, count), reviewResponse);
         assertEq(quest.getReviewFeedback(reviewer, count), reviewFeedback);
-        assertEq(quest.getReviewResponse(reviewer, 0), reviewResponse);
-        assertEq(quest.getReviewFeedback(reviewer, 0), reviewFeedback);
         return count;
     }
 
