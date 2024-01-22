@@ -667,7 +667,7 @@ contract mSupportToken is SupportToken {
                     SVG._prop("font-size", "20"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat("Support #", SVG._uint2str(id))
+                string.concat(unicode"沒有人 #", SVG._uint2str(id))
             ),
             SVG._rect(
                 string.concat(
@@ -686,7 +686,10 @@ contract mSupportToken is SupportToken {
     }
 
     function buildSvgData() public view returns (string memory) {
+        // Okay to use dynamic taskId as intent is to showcase latest attendance.
         uint256 taskId = IMission(mission).getTaskId();
+
+        // The number of hackath0ns hosted by g0v.
         uint256 hackathonCount = 60 + IMission(mission).getMissionTaskCount(missionId);
 
         return string.concat(
@@ -699,15 +702,15 @@ contract mSupportToken is SupportToken {
                 ),
                 IMission(mission).getMissionTitle(missionId)
             ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "210"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat(unicode"黑客松次數：", SVG._uint2str(hackathonCount), unicode" 次")
-            ),
+            // SVG._text(
+            //     string.concat(
+            //         SVG._prop("x", "20"),
+            //         SVG._prop("y", "210"),
+            //         SVG._prop("font-size", "12"),
+            //         SVG._prop("fill", "#00040a")
+            //     ),
+            //     string.concat(unicode"黑客松次數：", SVG._uint2str(hackathonCount), unicode" 次")
+            // ),
             SVG._text(
                 string.concat(
                     SVG._prop("x", "20"),
@@ -716,7 +719,7 @@ contract mSupportToken is SupportToken {
                     SVG._prop("fill", "#00040a")
                 ),
                 string.concat(
-                    unicode"不具名參與人數：",
+                    unicode"n0body 參與人數：",
                     SVG._uint2str(IQuest(quest).getNumOfStartsByMissionByPublic(mission, missionId)),
                     unicode" 人"
                 )
@@ -729,7 +732,7 @@ contract mSupportToken is SupportToken {
                     SVG._prop("fill", "#00040a")
                 ),
                 string.concat(
-                    unicode"公民參與人數：",
+                    unicode"總參與人數：",
                     SVG._uint2str(IMission(mission).getMissionStarts(missionId)),
                     unicode" 人"
                 )
@@ -742,7 +745,7 @@ contract mSupportToken is SupportToken {
                     SVG._prop("fill", "#00040a")
                 ),
                 string.concat(
-                    unicode"總完成人數：",
+                    unicode"100% 參與人數：",
                     SVG._uint2str(IMission(mission).getMissionCompletions(missionId)),
                     unicode" 人"
                 )
@@ -772,70 +775,8 @@ contract mSupportToken is SupportToken {
                     SVG._prop("font-size", "11"),
                     SVG._prop("fill", "#00040a")
                 ),
-                unicode" 次"
+                unicode" 人"
             )
         );
     }
-
-    // function buildTreeRing() public view returns (string memory str) {
-    //     uint256[] memory taskIds = IMission(mission).getMissionTaskIds(missionId);
-
-    //     for (uint256 i = 0; i < taskIds.length;) {
-    //         uint256 completions = IMission(mission).getTotalTaskCompletionsByMission(missionId, taskIds[i]);
-    //         uint256 shade = completions * str = string.concat(
-    //             str,
-    //             SVG._circle(
-    //                 string.concat(
-    //                     SVG._prop("cx", "265"),
-    //                     SVG._prop("cy", "265"),
-    //                     SVG._prop("r", SVG._uint2str(50 + i * 20)),
-    //                     SVG._prop("stroke", "#A1662F"),
-    //                     SVG._prop("stroke-opacity", "0.1"),
-    //                     SVG._prop("stroke-width", "3"),
-    //                     SVG._prop("fill", "#FFBE0B"),
-    //                     SVG._prop("fill-opacity", SVG._uint2str(baseRadius, "%"))
-    //                 ),
-    //                 ""
-    //             )
-    //         );
-
-    //         unchecked {
-    //             ++i;
-    //         }
-    //     }
-    // }
-
-    // function buildTaskChart() public view returns (string memory str) {
-    //     uint256[] memory taskIds = IMission(mission).getMissionTaskIds(missionId);
-    //     uint256 length = taskIds.length;
-
-    //     uint256 completions;
-    //     uint256 taskWidth = uint256(250) / length;
-
-    //     for (uint256 i = 0; i < taskIds.length;) {
-    //         completions = IMission(mission).getTotalTaskCompletionsByMission(missionId, taskIds[i]);
-
-    //         str = string.concat(
-    //             str,
-    //             SVG._rect(
-    //                 string.concat(
-    //                     SVG._prop("fill", "#FFBE0B"),
-    //                     SVG._prop("x", SVG._uint2str(20 + taskWidth * i)),
-    //                     SVG._prop("y", "140"),
-    //                     SVG._prop("width", SVG._uint2str(taskWidth)),
-    //                     SVG._prop("height", "20"),
-    //                     SVG._prop("fill-opacity", string.concat(SVG._uint2str(completions * 5), "%")),
-    //                     SVG._prop("stroke", "#FFBE0B"),
-    //                     SVG._prop("stroke-opacity", "0.2"),
-    //                     SVG._prop("stroke-width", "1")
-    //                 ),
-    //                 SVG.NULL
-    //             )
-    //         );
-
-    //         unchecked {
-    //             ++i;
-    //         }
-    //     }
-    // }
 }
