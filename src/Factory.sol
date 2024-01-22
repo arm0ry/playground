@@ -33,13 +33,13 @@ contract Factory {
 
     function determineMissionAddress(address user) external virtual returns (address) {
         return mission.predictDeterministicAddress(
-            abi.encodePacked(user), keccak256(abi.encode(user, ++nonces[user])), address(this)
+            abi.encodePacked(user), keccak256(abi.encode(user, nonces[user] + 1)), address(this)
         );
     }
 
     function determineQuestAddress(address user) external virtual returns (address) {
         return quest.predictDeterministicAddress(
-            abi.encodePacked(user), keccak256(abi.encode(user, ++nonces[user])), address(this)
+            abi.encodePacked(user), keccak256(abi.encode(user, nonces[user] + 1)), address(this)
         );
     }
 
