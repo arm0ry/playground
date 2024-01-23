@@ -35,6 +35,7 @@ contract Quest is Storage {
     error InvalidBot();
     error InvalidReviewer();
     error InvalidMission();
+    error InvalidTask();
     error Cooldown();
 
     /// -----------------------------------------------------------------------
@@ -64,8 +65,8 @@ contract Quest is Storage {
         _;
     }
 
-    modifier hasExpired(address missions, uint256 missionId) {
-        checkExpiry(missions, missionId);
+    modifier hasExpired(address missions, uint256 missionId, uint256 taskId) {
+        checkExpiry(missions, missionId, taskId);
         _;
     }
 
@@ -146,7 +147,7 @@ contract Quest is Storage {
     /// -----------------------------------------------------------------------
 
     /// @notice Start a quest.
-    function start(address missions, uint256 missionId) external payable hasExpired(missions, missionId) {
+    function start(address missions, uint256 missionId) external payable hasExpired(missions, missionId, 0) {
         _start(msg.sender, missions, missionId);
     }
 
@@ -159,7 +160,7 @@ contract Quest is Storage {
         external
         payable
         virtual
-        hasExpired(missions, missionId)
+        hasExpired(missions, missionId, 0)
         onlyGasBot
     {
         // Validate signed message.
@@ -181,10 +182,10 @@ contract Quest is Storage {
         external
         payable
         virtual
-        hasExpired(missions, missionId)
+        hasExpired(missions, missionId, 0)
         onlyGasBot
     {
-        address user = getPublicUserAddress(username);
+        address user = this.getPublicUserAddress(username);
         // Validate
         if (this.isPublicUser(user, missions, missionId)) revert InvalidUser();
 
@@ -204,7 +205,7 @@ contract Quest is Storage {
     function respond(address missions, uint256 missionId, uint256 taskId, uint256 response, string calldata feedback)
         external
         payable
-        hasExpired(missions, missionId)
+        hasExpired(missions, missionId, taskId)
     {
         _respond(msg.sender, missions, missionId, taskId, response, feedback);
     }
@@ -220,7 +221,7 @@ contract Quest is Storage {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) external payable virtual hasExpired(missions, missionId) onlyGasBot {
+    ) external payable virtual hasExpired(missions, missionId, taskId) onlyGasBot {
         // Validate signed message.
         bytes32 digest = keccak256(
             abi.encodePacked(
@@ -244,8 +245,8 @@ contract Quest is Storage {
         uint256 taskId,
         uint256 response,
         string calldata feedback
-    ) external payable virtual hasExpired(missions, missionId) onlyGasBot {
-        address user = getPublicUserAddress(username);
+    ) external payable virtual hasExpired(missions, missionId, taskId) onlyGasBot {
+        address user = this.getPublicUserAddress(username);
         if (!this.isPublicUser(user, missions, missionId)) revert InvalidUser();
 
         // Respond by dao.
@@ -337,7 +338,6 @@ contract Quest is Storage {
     /// Review Logic
     /// -----------------------------------------------------------------------
 
-    // TODO: Maybe using only taskId is enough
     /// @notice Review a task.
     function review(
         address user,
@@ -346,7 +346,7 @@ contract Quest is Storage {
         uint256 taskId,
         uint256 response,
         string calldata feedback
-    ) external payable onlyReviewer(address(0)) hasExpired(missions, missionId) {
+    ) external payable onlyReviewer(address(0)) hasExpired(missions, missionId, taskId) {
         _review(msg.sender, user, missions, missionId, taskId, response, feedback);
     }
 
@@ -830,10 +830,12 @@ contract Quest is Storage {
     /// -----------------------------------------------------------------------
 
     /// @notice Check if mission has expired.
-    function checkExpiry(address missions, uint256 missionId) internal view {
-        uint256 deadline = IMission(missions).getMissionDeadline(missionId);
-        if (deadline == 0) revert NotInitialized();
-        if (block.timestamp > deadline) revert InvalidMission();
+    function checkExpiry(address missions, uint256 missionId, uint256 taskId) internal view {
+        uint256 taskDeadline = IMission(missions).getTaskDeadline(taskId);
+        uint256 missionDeadline = IMission(missions).getMissionDeadline(missionId);
+        if (missionDeadline == 0) revert NotInitialized();
+        if (block.timestamp > missionDeadline) revert InvalidMission();
+        if (block.timestamp > taskDeadline) revert InvalidTask();
     }
 
     /// @notice Encode address of mission, mission id and task id as type uint256.
@@ -862,7 +864,7 @@ contract Quest is Storage {
     // }
 
     /// @notice Encode publicly submitted username and salt as an address.
-    function getPublicUserAddress(string calldata username) internal pure returns (address) {
+    function getPublicUserAddress(string calldata username) external pure returns (address) {
         return address(uint160(uint256(keccak256(abi.encode(username)))));
     }
 }
