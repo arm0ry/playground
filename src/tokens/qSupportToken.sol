@@ -12,9 +12,16 @@ import {IQuest} from "../interface/IQuest.sol";
 /// @notice SVG NFTs displaying impact generated from quests.
 contract qSupportToken is SupportToken {
     /// -----------------------------------------------------------------------
-    /// Storage
+    /// SVG Storage
     /// -----------------------------------------------------------------------
 
+    uint8[7] public counters;
+
+    /// -----------------------------------------------------------------------
+    /// Core Storage
+    /// -----------------------------------------------------------------------
+
+    bool public isInitialized;
     address public owner;
     address public quest;
     address public mission;
@@ -42,6 +49,13 @@ contract qSupportToken is SupportToken {
         mission = _mission;
         missionId = _missionId;
         curve = _curve;
+
+        isInitialized = true;
+    }
+
+    modifier initialized() {
+        if (!isInitialized) revert Unauthorized();
+        _;
     }
 
     modifier onlyCurve() {
@@ -59,7 +73,7 @@ contract qSupportToken is SupportToken {
     /// Mint / Burn Logic
     /// -----------------------------------------------------------------------
 
-    function mint(address to) external payable onlyCurve {
+    function mint(address to) external payable initialized onlyCurve {
         unchecked {
             ++totalSupply;
         }
@@ -67,7 +81,7 @@ contract qSupportToken is SupportToken {
         _safeMint(to, totalSupply);
     }
 
-    function burn(uint256 id) external payable onlyOwnerOrCurve(id) {
+    function burn(uint256 id) external payable initialized onlyOwnerOrCurve(id) {
         unchecked {
             --totalSupply;
         }
@@ -98,7 +112,7 @@ contract qSupportToken is SupportToken {
                     SVG._prop("font-size", "20"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat("Support #", SVG._uint2str(id))
+                string.concat(unicode"沒有人 #", SVG._uint2str(id))
             ),
             SVG._rect(
                 string.concat(
@@ -110,68 +124,93 @@ contract qSupportToken is SupportToken {
                 ),
                 SVG.NULL
             ),
-            buildData(),
-            buildProgress(),
-            buildProfile(IQuest(quest).getProfilePicture(owner)),
+            buildSvgData(),
             "</svg>"
         );
     }
 
-    function buildProgress() public view returns (string memory) {
-        uint256 progress = IQuest(quest).getQuestProgress(owner, mission, missionId);
-        return string.concat(
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "145"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat("Progress: ", SVG._uint2str(progress), "%")
-            ),
-            SVG._rect(
-                string.concat(
-                    SVG._prop("fill", "#ffecb6"),
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "165"),
-                    SVG._prop("width", SVG._uint2str(250)),
-                    SVG._prop("height", SVG._uint2str(20)),
-                    SVG._prop("opacity", SVG._uint2str(25))
-                ),
-                SVG.NULL
-            ),
-            SVG._rect(
-                string.concat(
-                    SVG._prop("fill", "#C60000"),
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "165"),
-                    SVG._prop("width", SVG._uint2str(uint256(250) * uint256(progress) / uint256(100))),
-                    SVG._prop("height", SVG._uint2str(20))
-                ),
-                SVG.NULL
-            )
-        );
-    }
+    function buildSvgData() public view returns (string memory) {
+        // Okay to use dynamic taskId as intent is to showcase latest attendance.
+        uint256 taskId = IMission(mission).getTaskId();
 
-    function buildData() public view returns (string memory) {
+        // The number of hackath0ns hosted by g0v.
+        uint256 hackathonCount = 60 + IMission(mission).getMissionTaskCount(missionId);
+
         return string.concat(
             SVG._text(
                 string.concat(
                     SVG._prop("x", "20"),
-                    SVG._prop("y", "80"),
-                    SVG._prop("font-size", "12"),
+                    SVG._prop("y", "100"),
+                    SVG._prop("font-size", "20"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat("Title: ")
+                string.concat(unicode"零時政府第 ", SVG._uint2str(hackathonCount), unicode" 次 - 新手試煉")
             ),
             SVG._text(
                 string.concat(
                     SVG._prop("x", "20"),
-                    SVG._prop("y", "110"),
-                    SVG._prop("font-size", "18"),
+                    SVG._prop("y", "140"),
+                    SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                IMission(mission).getMissionTitle(missionId)
+                string.concat(
+                    unicode"第 ",
+                    SVG._uint2str(hackathonCount),
+                    unicode" 次參與人數： ",
+                    SVG._uint2str(IMission(mission).getTotalTaskCompletionsByMission(missionId, taskId)),
+                    unicode" 人"
+                )
+            ),
+            SVG._text(
+                string.concat(
+                    SVG._prop("x", "20"),
+                    SVG._prop("y", "160"),
+                    SVG._prop("font-size", "12"),
+                    SVG._prop("fill", "#00040a")
+                ),
+                string.concat(unicode"👍 幫 g0v 粉專按讚： ", SVG._uint2str(counters[0]), unicode" 人")
+            ),
+            SVG._text(
+                string.concat(
+                    SVG._prop("x", "20"),
+                    SVG._prop("y", "180"),
+                    SVG._prop("font-size", "12"),
+                    SVG._prop("fill", "#00040a")
+                ),
+                string.concat(unicode"🔔 打開專案頻道通知： ", SVG._uint2str(counters[1]), unicode" 人")
+            ),
+            SVG._text(
+                string.concat(
+                    SVG._prop("x", "20"),
+                    SVG._prop("y", "200"),
+                    SVG._prop("font-size", "12"),
+                    SVG._prop("fill", "#00040a")
+                ),
+                string.concat(
+                    unicode"📝 截圖任一提案的專案共筆： ", SVG._uint2str(counters[2]), unicode" 人"
+                )
+            ),
+            SVG._text(
+                string.concat(
+                    SVG._prop("x", "20"),
+                    SVG._prop("y", "220"),
+                    SVG._prop("font-size", "12"),
+                    SVG._prop("fill", "#00040a")
+                ),
+                string.concat(
+                    unicode"🧐 加入三個你有興趣的頻道： ", SVG._uint2str(counters[3]), unicode" 人"
+                )
+            ),
+            SVG._text(
+                string.concat(
+                    SVG._prop("x", "20"),
+                    SVG._prop("y", "240"),
+                    SVG._prop("font-size", "12"),
+                    SVG._prop("fill", "#00040a")
+                ),
+                string.concat(
+                    unicode"👀 瀏覽並截圖最新社群九分鐘： ", SVG._uint2str(counters[4]), unicode" 人"
+                )
             ),
             SVG._text(
                 string.concat(
@@ -180,7 +219,11 @@ contract qSupportToken is SupportToken {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat("Cooldown ends in: ", SVG._uint2str(IQuest(quest).getCooldown()), " s")
+                string.concat(
+                    unicode"🏷️ 拿三張符合你身份的技能貼紙：",
+                    SVG._uint2str(counters[5]),
+                    unicode" 人"
+                )
             ),
             SVG._text(
                 string.concat(
@@ -190,15 +233,27 @@ contract qSupportToken is SupportToken {
                     SVG._prop("fill", "#00040a")
                 ),
                 string.concat(
-                    "Ends in: ", SVG._uint2str(IMission(mission).getMissionDeadline(missionId) - block.timestamp), "s"
+                    unicode"🎙️ 在有興趣的專案共筆上介紹自己： ",
+                    SVG._uint2str(counters[6]),
+                    unicode" 人"
                 )
             )
         );
     }
 
-    function buildProfile(string memory url) public pure returns (string memory) {
-        return string.concat(
-            SVG._image(url, string.concat(SVG._prop("x", "220"), SVG._prop("y", "230"), SVG._prop("width", "50")))
-        );
+    function tally(uint256 taskId) external initialized {
+        uint256 response;
+        uint256 questId = IQuest(quest).getQuestId();
+
+        if (questId > 0) {
+            for (uint256 i = 1; i <= questId; ++i) {
+                response = IQuest(quest).getTaskResponse(i, taskId);
+                for (uint256 j; j < 7; ++j) {
+                    if ((response / (10 ** j)) % 10 == 1) ++counters[j];
+                }
+            }
+        } else {
+            revert Unauthorized();
+        }
     }
 }

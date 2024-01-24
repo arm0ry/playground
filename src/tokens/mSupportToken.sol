@@ -14,6 +14,7 @@ contract mSupportToken is SupportToken {
     /// Storage
     /// -----------------------------------------------------------------------
 
+    bool public isInitialized;
     address public quest;
     address public mission;
     uint256 public missionId;
@@ -38,6 +39,13 @@ contract mSupportToken is SupportToken {
         mission = _mission;
         missionId = _missionId;
         curve = _curve;
+
+        isInitialized = true;
+    }
+
+    modifier initialized() {
+        if (!isInitialized) revert Unauthorized();
+        _;
     }
 
     modifier onlyCurve() {
@@ -55,7 +63,7 @@ contract mSupportToken is SupportToken {
     /// Mint / Burn Logic
     /// -----------------------------------------------------------------------
 
-    function mint(address to) external payable onlyCurve {
+    function mint(address to) external payable initialized onlyCurve {
         unchecked {
             ++totalSupply;
         }
@@ -63,7 +71,7 @@ contract mSupportToken is SupportToken {
         _safeMint(to, totalSupply);
     }
 
-    function burn(uint256 id) external payable onlyOwnerOrCurve(id) {
+    function burn(uint256 id) external payable initialized onlyOwnerOrCurve(id) {
         unchecked {
             --totalSupply;
         }
