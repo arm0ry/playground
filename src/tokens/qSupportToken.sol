@@ -22,7 +22,6 @@ contract qSupportToken is SupportToken {
     /// -----------------------------------------------------------------------
 
     bool public isInitialized;
-    address public owner;
     address public quest;
     address public mission;
     uint256 public missionId;
@@ -36,7 +35,6 @@ contract qSupportToken is SupportToken {
     function init(
         string memory _name,
         string memory _symbol,
-        address _owner,
         address _quest,
         address _mission,
         uint256 _missionId,
@@ -44,7 +42,6 @@ contract qSupportToken is SupportToken {
     ) external payable {
         _init(_name, _symbol);
 
-        owner = _owner;
         quest = _quest;
         mission = _mission;
         missionId = _missionId;

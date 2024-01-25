@@ -43,7 +43,7 @@ contract qSupportTokenTest is Test {
 
     function setUp() public payable {
         qst = new qSupportToken();
-        qst.init(testString, testString, user, user, user, 0, user);
+        qst.init(testString, testString, user, user, 0, user);
     }
 
     function testMint() public payable {

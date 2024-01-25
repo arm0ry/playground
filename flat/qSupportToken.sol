@@ -1146,9 +1146,11 @@ interface IQuest {
     function initialize(address dao) external payable;
     function setCooldown(uint40 cd) external payable;
     function getCooldown() external view returns (uint256);
+    function setGasbot(address bot) external payable;
+    function isGasBot(address bot) external view returns (bool);
 
     /// @notice Public logic.
-    function getPublicCount() external view returns (uint256);
+    function getNumOfPublicUsers() external view returns (uint256);
     function isPublicUser(string calldata username) external view returns (bool);
     function getNumOfStartsByMissionByPublic(address missions, uint256 missionId) external view returns (uint256);
 
@@ -1159,26 +1161,40 @@ interface IQuest {
     function startBySig(address signer, address missions, uint256 missionId, uint8 v, bytes32 r, bytes32 s)
         external
         payable;
-    function respond(address missions, uint256 missionId, uint256 taskId, string calldata feedback, uint256 response)
+    function sponsoredStart(string calldata username, address missions, uint256 missionId) external payable;
+    function respond(address missions, uint256 missionId, uint256 taskId, uint256 response, string calldata feedback)
         external
         payable;
     function respondBySig(
         address signer,
         uint256 taskKey,
-        string calldata feedback,
         uint256 response,
+        string calldata feedback,
         uint8 v,
         bytes32 r,
         bytes32 s
     ) external payable;
+    function sponsoredRespond(
+        string calldata username,
+        address missions,
+        uint256 missionId,
+        uint256 taskId,
+        uint256 response,
+        string calldata feedback
+    ) external payable;
+
+    /// @notice Quest logic.
     function getQuestId() external view returns (uint256);
     function getQuestIdByUserAndMission(address user, address missions, uint256 missionId)
         external
         view
         returns (uint256);
     function getQuest(uint256 questId) external view returns (address, address, uint256);
-    function isQuestActive(address user, address missions, uint256 missionId) external view returns (bool);
-    function getQuestProgress(address user, address missions, uint256 missionId) external view returns (uint256);
+    function isTaskAccomplished(address user, address missions, uint256 missionId, uint256 taskId)
+        external
+        view
+        returns (bool);
+    function isMissionAccomplished(address user, address missions, uint256 missionId) external view returns (bool);
     function getNumOfCompletedTasksInMission(address user, address missions, uint256 missionId)
         external
         view
@@ -1215,51 +1231,15 @@ interface IQuest {
     /// @notice Get response & feedback.
     function getTaskResponse(uint256 questId, uint256 taskId) external view returns (uint256);
     function getTaskFeedback(uint256 questId, uint256 taskId) external view returns (string memory);
-    function getReviewResponse(address reviewer, address user, address missions, uint256 missionId, uint256 taskId)
-        external
-        view
-        returns (uint256);
-    function getReviewFeedback(address reviewer, address user, address missions, uint256 missionId, uint256 taskId)
-        external
-        view
-        returns (string memory);
-
-    /// @notice Get quest related counter.
-    function getMissionQuestedCount(address missions, uint256 missionId) external view returns (uint256, uint256);
-    function getResponseCountByUser(address user, address missions, uint256 missionId, uint256 taskId)
-        external
-        view
-        returns (uint256, uint256);
-    function getReviewCountByReviewer(address reviewer, address missions, uint256 missionId, uint256 taskId)
-        external
-        view
-        returns (uint256, uint256);
+    function getReviewResponse(address reviewer, uint256 questId) external view returns (uint256);
+    function getReviewFeedback(address reviewer, uint256 questId) external view returns (string memory);
 
     /// @notice Get quest related stats.
     function getNumOfMissionsStarted() external view returns (uint256);
     function getNumOfMissionsCompleted() external view returns (uint256);
     function getNumOfTaskCompleted() external view returns (uint256);
-    function getNumOfMissionsStartedByUser(address user, address missions, uint256 missionId)
-        external
-        view
-        returns (uint256);
-    function getNumOfMissionsCompletedByUser(address user, address missions, uint256 missionId)
-        external
-        view
-        returns (uint256);
-    function getNumOfTasksCompletedByUser(address user, address missions, uint256 missionId, uint256 taskId)
-        external
-        view
-        returns (uint256);
-}
-
-struct Stats {
-    uint8 first;
-    uint8 second;
-    uint8 third;
-    uint8 fourth;
-    uint8 fifth;
-    uint8 sixth;
+    function getNumOfTimesQuestedByUser(address user) external view returns (uint256);
+    function getNumOfMissionQuested(address missions, uint256 missionId) external view returns (uint256, uint256);
 }
 
 /// @title Support SVG NFTs.
@@ -1269,20 +1249,13 @@ contract qSupportToken is SupportToken {
     /// SVG Storage
     /// -----------------------------------------------------------------------
 
-    uint8 public first;
-    uint8 public second;
-    uint8 public third;
-    uint8 public fourth;
-    uint8 public fifth;
-    uint8 public sixth;
-    uint8 public seventh;
     uint8[7] public counters;
 
     /// -----------------------------------------------------------------------
     /// Core Storage
     /// -----------------------------------------------------------------------
 
-    address public owner;
+    bool public isInitialized;
     address public quest;
     address public mission;
     uint256 public missionId;
@@ -1296,7 +1269,6 @@ contract qSupportToken is SupportToken {
     function init(
         string memory _name,
         string memory _symbol,
-        address _owner,
         address _quest,
         address _mission,
         uint256 _missionId,
@@ -1304,11 +1276,17 @@ contract qSupportToken is SupportToken {
     ) external payable {
         _init(_name, _symbol);
 
-        owner = _owner;
         quest = _quest;
         mission = _mission;
         missionId = _missionId;
         curve = _curve;
+
+        isInitialized = true;
+    }
+
+    modifier initialized() {
+        if (!isInitialized) revert Unauthorized();
+        _;
     }
 
     modifier onlyCurve() {
@@ -1326,7 +1304,7 @@ contract qSupportToken is SupportToken {
     /// Mint / Burn Logic
     /// -----------------------------------------------------------------------
 
-    function mint(address to) external payable {
+    function mint(address to) external payable initialized onlyCurve {
         unchecked {
             ++totalSupply;
         }
@@ -1334,7 +1312,7 @@ contract qSupportToken is SupportToken {
         _safeMint(to, totalSupply);
     }
 
-    function burn(uint256 id) external payable onlyOwnerOrCurve(id) {
+    function burn(uint256 id) external payable initialized onlyOwnerOrCurve(id) {
         unchecked {
             --totalSupply;
         }
@@ -1378,8 +1356,6 @@ contract qSupportToken is SupportToken {
                 SVG.NULL
             ),
             buildSvgData(),
-            // buildProgress(),
-            // buildProfile(IQuest(quest).getProfilePicture(owner)),
             "</svg>"
         );
     }
@@ -1496,7 +1472,7 @@ contract qSupportToken is SupportToken {
         );
     }
 
-    function tally(uint256 taskId) external {
+    function tally(uint256 taskId) external initialized {
         uint256 response;
         uint256 questId = IQuest(quest).getQuestId();
 
