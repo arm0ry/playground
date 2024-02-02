@@ -94,8 +94,6 @@ contract MissionTest is Test {
         mission.authorizeQuest(address(quest), authorization);
     }
 
-    function testSetFee(uint256 _fee) public payable {}
-
     function testSetPriceCurve() public payable {
         // Initialize.
         initialize(dao);
@@ -279,7 +277,9 @@ contract MissionTest is Test {
         // Set up task.
         vm.expectRevert();
         vm.prank(fred);
-        mission.payToSetTasks{value: 0.00000001 ether}(creators, deadlines, titles, detail);
+        mission.payToSetTasks{value: 0.0002 ether}(creators, deadlines, titles, detail);
+        // emit log_uint(address(mission).balance);
+        // emit log_uint(address(impactCurve).balance);
     }
 
     function testSetTaskCreator(address newCreator) public payable {

@@ -2,7 +2,6 @@
 pragma solidity >=0.8.4;
 
 import {Storage} from "kali-markets/Storage.sol";
-
 import {IImpactCurve, CurveType} from "./interface/IImpactCurve.sol";
 import {ISupportToken} from "./interface/ISupportToken.sol";
 
