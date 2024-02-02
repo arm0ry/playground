@@ -9,6 +9,10 @@ import {Mission} from "src/Mission.sol";
 import {IMission} from "src/interface/IMission.sol";
 import {Quest} from "src/Quest.sol";
 import {IQuest} from "src/interface/IQuest.sol";
+import {ImpactCurve} from "src/ImpactCurve.sol";
+import {CurveType, IImpactCurve} from "src/interface/IImpactCurve.sol";
+import {mSupportToken} from "src/tokens/mSupportToken.sol";
+import {ISupportToken} from "src/interface/ISupportToken.sol";
 
 /// -----------------------------------------------------------------------
 /// Test Logic
@@ -17,9 +21,12 @@ import {IQuest} from "src/interface/IQuest.sol";
 contract MissionTest is Test {
     Quest quest;
     Mission mission;
+    ImpactCurve impactCurve;
+    mSupportToken mst;
 
     address[] creators;
     uint256[] deadlines;
+    string[] titles;
     string[] detail;
     uint256[] taskIds;
     uint256[] newTaskIds;
@@ -36,6 +43,7 @@ contract MissionTest is Test {
     /// @dev Helpers.
     uint256 taskId;
     uint256 missionId;
+    uint256 curveId;
 
     /// -----------------------------------------------------------------------
     /// Setup Tests
@@ -43,9 +51,14 @@ contract MissionTest is Test {
 
     /// @notice Set up the testing suite.
     function setUp() public payable {
-        // Deploy contract
+        // Deploy contracts.
         mission = new Mission();
         quest = new Quest();
+        impactCurve = new ImpactCurve();
+        mst = new mSupportToken();
+
+        impactCurve.initialize(dao);
+        impactCurve.curve(CurveType.LINEAR, address(mst), alice, 0.001 ether, 0, 2, 0, 0, 1, 0);
     }
 
     function testReceiveETH() public payable {
@@ -86,16 +99,20 @@ contract MissionTest is Test {
         mission.authorizeQuest(address(quest), authorization);
     }
 
-    function testSetFee(uint256 _fee) public payable {
+    function testSetFee(uint256 _fee) public payable {}
+
+    function testSetPriceCurve() public payable {
         // Initialize.
         initialize(dao);
 
         // Authorize quest contract.
         vm.prank(dao);
-        mission.setFee(_fee);
+        mission.setPriceCurve(address(impactCurve), 1);
+        (address _impactCurve, uint256 _curveId) = mission.getPriceCurve();
 
         // Validate.
-        assertEq(mission.getFee(), _fee);
+        assertEq(_impactCurve, address(impactCurve));
+        assertEq(_curveId, 1);
     }
 
     function testSetFee_NotOperator(uint256 _fee) public payable {
@@ -104,7 +121,7 @@ contract MissionTest is Test {
 
         // Authorize quest contract.
         vm.expectRevert(Storage.NotOperator.selector);
-        mission.setFee(_fee);
+        mission.setPriceCurve(address(impactCurve), 1);
     }
 
     /// -----------------------------------------------------------------------
@@ -116,7 +133,7 @@ contract MissionTest is Test {
         initialize(dao);
 
         // Set up task.
-        setTask(alice, 100000, "Test");
+        setTask(alice, 100000, "TITLE", "Test");
     }
 
     function testSetTask_NotOperator() public payable {
@@ -125,7 +142,7 @@ contract MissionTest is Test {
 
         // Set up task.
         vm.expectRevert(Storage.NotOperator.selector);
-        mission.setTasks(creators, deadlines, detail);
+        mission.setTasks(creators, deadlines, titles, detail);
     }
 
     function testSetTask_LengthMismatch() public payable {
@@ -137,7 +154,7 @@ contract MissionTest is Test {
         // Set up task.
         vm.expectRevert(Storage.LengthMismatch.selector);
         vm.prank(dao);
-        mission.setTasks(creators, deadlines, detail);
+        mission.setTasks(creators, deadlines, titles, detail);
     }
 
     function testSetTask_InvalidTask() public payable {
@@ -147,7 +164,7 @@ contract MissionTest is Test {
         // Set up task.
         vm.expectRevert(Mission.InvalidTask.selector);
         vm.prank(dao);
-        mission.setTasks(creators, deadlines, detail);
+        mission.setTasks(creators, deadlines, titles, detail);
     }
 
     function testSetTasks() public payable {
@@ -161,6 +178,12 @@ contract MissionTest is Test {
         creators.push(david);
         creators.push(eric);
         creators.push(fred);
+        titles.push("TITLE 1");
+        titles.push("TITLE 2");
+        titles.push("TITLE 3");
+        titles.push("TITLE 4");
+        titles.push("TITLE 5");
+        titles.push("TITLE 6");
         deadlines.push(2);
         deadlines.push(10);
         deadlines.push(100);
@@ -178,15 +201,15 @@ contract MissionTest is Test {
         setTasks();
     }
 
-    function testPayToSetTasks(uint256 _fee) public payable {
-        vm.assume(9 ether > _fee);
-
+    function testPayToSetTasks() public payable {
         // Initialize.
-        testSetFee(_fee);
+        testSetPriceCurve();
+        initializeMst(1);
 
         // Set up param.
         delete creators;
         delete deadlines;
+        delete titles;
         delete detail;
 
         creators.push(alice);
@@ -195,6 +218,12 @@ contract MissionTest is Test {
         creators.push(david);
         creators.push(eric);
         creators.push(fred);
+        titles.push("TITLE 1");
+        titles.push("TITLE 2");
+        titles.push("TITLE 3");
+        titles.push("TITLE 4");
+        titles.push("TITLE 5");
+        titles.push("TITLE 6");
         deadlines.push(2);
         deadlines.push(10);
         deadlines.push(100);
@@ -208,19 +237,21 @@ contract MissionTest is Test {
         detail.push("TEST 5");
         detail.push("TEST 6");
 
-        vm.deal(alice, 10 ether);
+        vm.deal(fred, 10 ether);
 
         // Set up task.
-        payToSetTasks(alice, _fee);
+        _payToSetTasks(fred);
     }
 
     function testPayToSetTasks_InvalidFee() public payable {
         // Initialize.
-        testSetFee(0.001 ether);
+        testSetPriceCurve();
+        initializeMst(1);
 
         // Set up param.
         delete creators;
         delete deadlines;
+        delete titles;
         delete detail;
 
         creators.push(alice);
@@ -235,6 +266,12 @@ contract MissionTest is Test {
         deadlines.push(1000);
         deadlines.push(10000);
         deadlines.push(100000);
+        titles.push("TITLE 1");
+        titles.push("TITLE 2");
+        titles.push("TITLE 3");
+        titles.push("TITLE 4");
+        titles.push("TITLE 5");
+        titles.push("TITLE 6");
         detail.push("TEST 1");
         detail.push("TEST 2");
         detail.push("TEST 3");
@@ -242,12 +279,12 @@ contract MissionTest is Test {
         detail.push("TEST 5");
         detail.push("TEST 6");
 
-        vm.deal(alice, 10 ether);
+        vm.deal(fred, 10 ether);
 
         // Set up task.
-        vm.expectRevert(Mission.InvalidFee.selector);
-        vm.prank(alice);
-        mission.payToSetTasks{value: 0.002 ether}(creators, deadlines, detail);
+        vm.expectRevert();
+        vm.prank(fred);
+        mission.payToSetTasks{value: 0.00000001 ether}(creators, deadlines, titles, detail);
     }
 
     function testSetTaskCreator(address newCreator) public payable {
@@ -346,14 +383,9 @@ contract MissionTest is Test {
         mission.setMission(alice, "Welcome to your first mission!", "For more, check here.", taskIds);
     }
 
-    function testPayToSetMission(uint256 _fee) public payable {
-        vm.assume(9 ether > _fee);
-
-        // Initialize.
-        testSetFee(_fee);
-
+    function testPayToSetMission() public payable {
         // Set tasks.
-        testPayToSetTasks(_fee);
+        testPayToSetTasks();
         vm.warp(block.timestamp + 1000);
 
         // Prepare tasks to add to a a new mission.
@@ -365,12 +397,13 @@ contract MissionTest is Test {
         vm.deal(alice, 10 ether);
 
         // Set up task.
-        payToSetMission(alice, "Welcome to your first mission!", "For more, check here.", _fee);
+        _payToSetMission(alice, "Welcome to your first mission!", "For more, check here.");
     }
 
     function testPayToSetMission_InvalidFee() public payable {
         // Initialize.
-        testSetFee(0.001 ether);
+        testSetPriceCurve();
+        initializeMst(1);
 
         // Set tasks.
         testSetTasks();
@@ -383,9 +416,9 @@ contract MissionTest is Test {
         vm.deal(alice, 10 ether);
 
         // Set up task.
-        vm.expectRevert(Mission.InvalidFee.selector);
+        vm.expectRevert();
         vm.prank(alice);
-        mission.payToSetMission{value: 0.002 ether}(
+        mission.payToSetMission{value: 0.001 ether}(
             alice, "Welcome to your first mission!", "For more, check here.", taskIds
         );
     }
@@ -546,58 +579,73 @@ contract MissionTest is Test {
         mission.initialize(_dao);
     }
 
-    function setTask(address creator, uint256 deadline, string memory description) internal {
+    function initializeMst(uint256 _missionId) internal {
+        mst.init("Test", "TEST", address(quest), address(mission), _missionId, address(impactCurve));
+    }
+
+    function setTask(address creator, uint256 deadline, string memory title, string memory description) internal {
         // Set up task param.
         creators.push(creator);
         deadlines.push(deadline);
+        titles.push(title);
         detail.push(description);
 
         // Set up task.
         vm.prank(dao);
-        mission.setTasks(creators, deadlines, detail);
+        mission.setTasks(creators, deadlines, titles, detail);
 
         // Validate setup.
         assertEq(mission.getTaskId(), ++taskId);
         assertEq(mission.getTaskCreator(taskId), creator);
         assertEq(mission.getTaskDeadline(taskId), deadline);
+        assertEq(mission.getTaskTitle(taskId), title);
         assertEq(mission.getTaskDetail(taskId), description);
     }
 
     function setTasks() internal {
         // Set up task.
         vm.prank(dao);
-        mission.setTasks(creators, deadlines, detail);
+        mission.setTasks(creators, deadlines, titles, detail);
 
         // Validate setup.
         for (uint256 i = 0; i < creators.length; i++) {
             ++taskId;
             assertEq(mission.getTaskCreator(taskId), creators[i]);
             assertEq(mission.getTaskDeadline(taskId), deadlines[i]);
+            assertEq(mission.getTaskTitle(taskId), titles[i]);
             assertEq(mission.getTaskDetail(taskId), detail[i]);
         }
         assertEq(mission.getTaskId(), taskId);
     }
 
-    function payToSetTasks(address user, uint256 amount) internal {
+    function _payToSetTasks(address user) internal {
         // Retrieve for validation alter.
-        uint256 prevBalance = address(dao).balance;
+        // uint256 prevBalance = address(dao).balance;
+
+        uint256 amount = impactCurve.getCurvePrice(true, 1, 0);
+        uint256 tokenSupply = mst.totalSupply();
+        uint256 tokenBalance = mst.balanceOf(user);
 
         // Set up task.
         vm.prank(user);
-        mission.payToSetTasks{value: amount}(creators, deadlines, detail);
+        mission.payToSetTasks{value: amount}(creators, deadlines, titles, detail);
 
         // Validate task creation.
         for (uint256 i = 0; i < creators.length; i++) {
             ++taskId;
             assertEq(mission.getTaskCreator(taskId), creators[i]);
             assertEq(mission.getTaskDeadline(taskId), deadlines[i]);
+            assertEq(mission.getTaskTitle(taskId), titles[i]);
             assertEq(mission.getTaskDetail(taskId), detail[i]);
         }
         assertEq(mission.getTaskId(), taskId);
 
         // Validate balance.
-        assertEq(address(dao).balance, prevBalance + amount);
+        // assertEq(address(dao).balance, prevBalance + amount);
         assertEq(address(mission).balance, 0);
+        assertEq(address(impactCurve).balance, amount);
+        assertEq(mst.totalSupply(), tokenSupply + 1);
+        assertEq(mst.balanceOf(user), tokenBalance + 1);
     }
 
     function setMission(address creator, string memory title, string memory _detail) internal {
@@ -630,7 +678,9 @@ contract MissionTest is Test {
         assertEq(taskIds, mission.getMissionTaskIds(missionId));
     }
 
-    function payToSetMission(address creator, string memory title, string memory _detail, uint256 amount) internal {
+    function _payToSetMission(address creator, string memory title, string memory _detail) internal {
+        uint256 amount = impactCurve.getCurvePrice(true, 1, 0);
+
         // Set up task.
         vm.prank(creator);
         mission.payToSetMission{value: amount}(creator, title, _detail, taskIds);

@@ -135,8 +135,7 @@ contract ImpactCurve is Storage {
         // Validate mint conditions.
         address owner = this.getCurveOwner(curveId);
         if (owner == address(0)) revert NotInitialized();
-        if (patron == owner) revert NotAuthorized();
-        if (price != this.getPrice(true, curveId, 0) || price != msg.value) {
+        if (price != this.getCurvePrice(true, curveId, 0) || price != msg.value) {
             revert InvalidAmount();
         }
 
@@ -145,7 +144,7 @@ contract ImpactCurve is Storage {
         ISupportToken(curveToken).mint(patron);
 
         // Distribute support to curve owner.
-        uint256 burnPrice = this.getPrice(false, curveId, 0);
+        uint256 burnPrice = this.getCurvePrice(false, curveId, 0);
         addUnclaimed(owner, price - burnPrice);
         addCurveTreasury(curveId, burnPrice);
     }
@@ -159,7 +158,7 @@ contract ImpactCurve is Storage {
         setCurveBurned(curveId, patron, true);
 
         // Reduce curve pool by burn price.
-        uint256 burnPrice = this.getPrice(false, curveId, 0);
+        uint256 burnPrice = this.getCurvePrice(false, curveId, 0);
         subCurveTreasury(curveId, burnPrice);
 
         // Distribute burn to patron.
@@ -267,7 +266,7 @@ contract ImpactCurve is Storage {
     }
 
     /// @notice Calculate mint and burn price.
-    function getPrice(bool _mint, uint256 curveId, uint256 _supply) external view virtual returns (uint256) {
+    function getCurvePrice(bool _mint, uint256 curveId, uint256 _supply) external view virtual returns (uint256) {
         // Retrieve curve data.
         CurveType curveType = this.getCurveType(curveId);
         uint256 supply = _supply == 0 ? ISupportToken(this.getCurveToken(curveId)).totalSupply() : _supply;
@@ -312,7 +311,7 @@ contract ImpactCurve is Storage {
 
     /// @notice Return mint and burn price difference of a curve.
     function getMintBurnDifference(uint256 curveId, uint256 supply) external view returns (uint256) {
-        return this.getPrice(true, curveId, supply) - this.getPrice(false, curveId, supply);
+        return this.getCurvePrice(true, curveId, supply) - this.getCurvePrice(false, curveId, supply);
     }
 
     /// @notice Return unclaimed amount by a user.

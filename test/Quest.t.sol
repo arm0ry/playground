@@ -15,6 +15,7 @@ contract QuestTest is Test {
 
     address[] creators;
     uint256[] deadlines;
+    string[] titles;
     string[] detail;
     uint256[] taskIds;
 
@@ -430,7 +431,9 @@ contract QuestTest is Test {
         // InvalidMission().
         vm.expectRevert(Quest.InvalidMission.selector);
         vm.prank(_user);
-        quest.respond(address(mission), 2, 8, response, testString);
+        quest.respond(address(mission), 2, 5, response, testString);
+        emit log_uint(mission.getTaskId());
+        emit log_uint(mission.getMissionId());
     }
 
     function testQuadTaskMission_Respond_Cooldown(address _user, uint256 response) public payable {
@@ -651,15 +654,17 @@ contract QuestTest is Test {
     function setupSingleTaskMission(address _dao) internal {
         delete creators;
         delete deadlines;
+        delete titles;
         delete detail;
         delete taskIds;
 
         creators.push(alice);
         deadlines.push(10000);
+        titles.push("TITLE 1");
         detail.push("TEST 1");
 
         vm.prank(_dao);
-        mission.setTasks(creators, deadlines, detail);
+        mission.setTasks(creators, deadlines, titles, detail);
 
         taskIds.push(1);
 
@@ -670,19 +675,22 @@ contract QuestTest is Test {
     function setupDoubleTaskMission(address _dao) internal {
         delete creators;
         delete deadlines;
+        delete titles;
         delete detail;
         delete taskIds;
 
         creators.push(alice);
         deadlines.push(2);
+        titles.push("TITLE 1");
         detail.push("TEST 1");
 
         creators.push(bob);
         deadlines.push(10);
+        titles.push("TITLE 2");
         detail.push("TEST 2");
 
         vm.prank(_dao);
-        mission.setTasks(creators, deadlines, detail);
+        mission.setTasks(creators, deadlines, titles, detail);
 
         taskIds.push(1);
         taskIds.push(2);
@@ -694,23 +702,27 @@ contract QuestTest is Test {
     function setupTripleTaskMission(address _dao) internal {
         delete creators;
         delete deadlines;
+        delete titles;
         delete detail;
         delete taskIds;
 
         creators.push(alice);
         deadlines.push(2);
+        titles.push("TITLE 1");
         detail.push("TEST 1");
 
         creators.push(bob);
         deadlines.push(10);
+        titles.push("TITLE 2");
         detail.push("TEST 2");
 
         creators.push(charlie);
         deadlines.push(1000);
+        titles.push("TITLE 3");
         detail.push("TEST 3");
 
         vm.prank(_dao);
-        mission.setTasks(creators, deadlines, detail);
+        mission.setTasks(creators, deadlines, titles, detail);
 
         taskIds.push(1);
         taskIds.push(2);
@@ -723,27 +735,32 @@ contract QuestTest is Test {
     function setupQuadTaskMission(address _dao) internal {
         delete creators;
         delete deadlines;
+        delete titles;
         delete detail;
         delete taskIds;
 
         creators.push(alice);
         deadlines.push(2);
+        titles.push("TITLE 1");
         detail.push("TEST 1");
 
         creators.push(bob);
         deadlines.push(10);
+        titles.push("TITLE 2");
         detail.push("TEST 2");
 
         creators.push(charlie);
         deadlines.push(1000);
+        titles.push("TITLE 3");
         detail.push("TEST 3");
 
         creators.push(david);
         deadlines.push(10000);
+        titles.push("TITLE 4");
         detail.push("TEST 4");
 
         vm.prank(_dao);
-        mission.setTasks(creators, deadlines, detail);
+        mission.setTasks(creators, deadlines, titles, detail);
 
         taskIds.push(1);
         taskIds.push(2);

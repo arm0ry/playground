@@ -161,7 +161,7 @@ contract ImpactCurveTest is Test {
         vm.warp(block.timestamp + 100);
 
         // Retrieve for validation.
-        uint256 mintPrice = ic.getPrice(true, 1, 0);
+        uint256 mintPrice = ic.getCurvePrice(true, 1, 0);
 
         // Deal.
         vm.deal(bob, 10000000000000 ether);
@@ -170,38 +170,14 @@ contract ImpactCurveTest is Test {
         vm.prank(bob);
         ic.support{value: mintPrice}(1, bob, mintPrice);
 
-        uint256 burnPrice = ic.getPrice(false, 1, 0);
+        uint256 burnPrice = ic.getCurvePrice(false, 1, 0);
 
         // Validate.
         assertEq(qst.balanceOf(bob), 1);
         assertEq(qst.totalSupply(), 1);
         assertEq(ic.getUnclaimed(ic.getCurveOwner(ic.getCurveId())), mintPrice - burnPrice);
         assertEq(ic.getCurveTreasury(1), burnPrice);
-        assertEq(ic.getPrice(true, 1, 1000) - ic.getPrice(false, 1, 1000), ic.getMintBurnDifference(1, 1000));
-    }
-
-    function testLinearCurve_support_NotAuthorized(
-        uint64 scale,
-        uint32 mint_a,
-        uint32 mint_b,
-        uint32 mint_c,
-        uint32 burn_a,
-        uint32 burn_b,
-        uint32 burn_c
-    ) public payable {
-        // Set up.
-        testLinearCurve_support(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
-
-        // Retrieve for validation.
-        uint256 mintPrice = ic.getPrice(true, 1, 0);
-
-        // Deal.
-        vm.deal(alice, 10000000000000 ether);
-
-        // Support.
-        vm.expectRevert(ImpactCurve.NotAuthorized.selector);
-        vm.prank(alice);
-        ic.support{value: mintPrice}(1, alice, mintPrice);
+        assertEq(ic.getCurvePrice(true, 1, 1000) - ic.getCurvePrice(false, 1, 1000), ic.getMintBurnDifference(1, 1000));
     }
 
     function testLinearCurve_support_InvalidCurve(
@@ -244,7 +220,7 @@ contract ImpactCurveTest is Test {
         testLinearCurve(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
 
         // Retrieve for validation.
-        uint256 mintPrice = ic.getPrice(true, 1, 0);
+        uint256 mintPrice = ic.getCurvePrice(true, 1, 0);
 
         // Deal.
         vm.deal(bob, 10000000000000 ether);
@@ -268,7 +244,7 @@ contract ImpactCurveTest is Test {
         testLinearCurve(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
 
         // Retrieve for validation.
-        uint256 mintPrice = ic.getPrice(true, 1, 0);
+        uint256 mintPrice = ic.getCurvePrice(true, 1, 0);
 
         // Deal.
         vm.deal(bob, 10000000000000 ether);
@@ -338,7 +314,7 @@ contract ImpactCurveTest is Test {
         // Set up.
         testLinearCurve_support(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
 
-        uint256 mintPrice = ic.getPrice(true, 1, 0);
+        uint256 mintPrice = ic.getCurvePrice(true, 1, 0);
 
         // Support once more.
         vm.prank(bob);
@@ -376,7 +352,7 @@ contract ImpactCurveTest is Test {
         vm.warp(block.timestamp + 100);
 
         // Retrieve for validation.
-        uint256 mintPrice = ic.getPrice(true, 1, 0);
+        uint256 mintPrice = ic.getCurvePrice(true, 1, 0);
 
         vm.prank(bob);
         ic.support{value: mintPrice}(1, bob, mintPrice);
@@ -449,17 +425,17 @@ contract ImpactCurveTest is Test {
         vm.warp(block.timestamp + 100);
 
         // Support once more.
-        uint256 mintPrice = ic.getPrice(true, 1, 0);
+        uint256 mintPrice = ic.getCurvePrice(true, 1, 0);
         vm.prank(bob);
         ic.support{value: mintPrice}(1, bob, mintPrice);
 
         // Support once more.
-        mintPrice = ic.getPrice(true, 1, 0);
+        mintPrice = ic.getCurvePrice(true, 1, 0);
         vm.prank(bob);
         ic.support{value: mintPrice}(1, bob, mintPrice);
 
         // Support once more.
-        mintPrice = ic.getPrice(true, 1, 0);
+        mintPrice = ic.getCurvePrice(true, 1, 0);
         vm.prank(bob);
         ic.support{value: mintPrice}(1, bob, mintPrice);
 
@@ -497,7 +473,7 @@ contract ImpactCurveTest is Test {
         vm.warp(block.timestamp + 100);
 
         // Support once more.
-        uint256 mintPrice = ic.getPrice(true, 1, 0);
+        uint256 mintPrice = ic.getCurvePrice(true, 1, 0);
         vm.prank(bob);
         ic.support{value: mintPrice}(1, bob, mintPrice);
 
@@ -530,17 +506,17 @@ contract ImpactCurveTest is Test {
         testLinearCurve_support(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
 
         // Support once more.
-        uint256 mintPrice = ic.getPrice(true, 1, 0);
+        uint256 mintPrice = ic.getCurvePrice(true, 1, 0);
         vm.prank(bob);
         ic.support{value: mintPrice}(1, bob, mintPrice);
 
         // Support once more.
-        mintPrice = ic.getPrice(true, 1, 0);
+        mintPrice = ic.getCurvePrice(true, 1, 0);
         vm.prank(bob);
         ic.support{value: mintPrice}(1, bob, mintPrice);
 
         // Support once more.
-        mintPrice = ic.getPrice(true, 1, 0);
+        mintPrice = ic.getCurvePrice(true, 1, 0);
         vm.prank(bob);
         ic.support{value: mintPrice}(1, bob, mintPrice);
 
@@ -635,13 +611,13 @@ contract ImpactCurveTest is Test {
         vm.assume(scale > 0);
         testPolyCurve(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
 
-        uint256 mintPrice = ic.getPrice(true, 1, 0);
+        uint256 mintPrice = ic.getCurvePrice(true, 1, 0);
 
         vm.deal(bob, 1000000000000000000 ether);
         vm.prank(bob);
         ic.support{value: mintPrice}(1, bob, mintPrice);
 
-        uint256 burnPrice = ic.getPrice(false, 1, 0);
+        uint256 burnPrice = ic.getCurvePrice(false, 1, 0);
 
         assertEq(qst.balanceOf(bob), 1);
         assertEq(qst.totalSupply(), 1);
@@ -664,7 +640,7 @@ contract ImpactCurveTest is Test {
         testPolyCurve_support(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
 
         // Retrieve for validation.
-        uint256 burnPrice = ic.getPrice(false, 1, 0);
+        uint256 burnPrice = ic.getCurvePrice(false, 1, 0);
         uint256 prevBalance = address(bob).balance;
         emit log_uint(prevBalance);
 
@@ -771,26 +747,32 @@ contract ImpactCurveTest is Test {
 
         if (curveType == CurveType.LINEAR) {
             // Linear @ supply.
-            assertEq(ic.getPrice(true, curveId, supply), ic.calculatePrice(supply + 1, scale, 0, mint_b, mint_c));
-            assertEq(ic.getPrice(false, curveId, supply), ic.calculatePrice(supply, scale, 0, burn_b, burn_c));
+            assertEq(ic.getCurvePrice(true, curveId, supply), ic.calculatePrice(supply + 1, scale, 0, mint_b, mint_c));
+            assertEq(ic.getCurvePrice(false, curveId, supply), ic.calculatePrice(supply, scale, 0, burn_b, burn_c));
 
             // Linear @ supply2.
-            assertEq(ic.getPrice(true, curveId, supply2), ic.calculatePrice(supply2 + 1, scale, 0, mint_b, mint_c));
-            assertEq(ic.getPrice(false, curveId, supply2), ic.calculatePrice(supply2, scale, 0, burn_b, burn_c));
+            assertEq(ic.getCurvePrice(true, curveId, supply2), ic.calculatePrice(supply2 + 1, scale, 0, mint_b, mint_c));
+            assertEq(ic.getCurvePrice(false, curveId, supply2), ic.calculatePrice(supply2, scale, 0, burn_b, burn_c));
         } else if (curveType == CurveType.POLY) {
             // Poly @ supply.
-            assertEq(ic.getPrice(true, curveId, supply), ic.calculatePrice(supply + 1, scale, mint_a, mint_b, mint_c));
-            assertEq(ic.getPrice(false, curveId, supply), ic.calculatePrice(supply, scale, burn_a, burn_b, burn_c));
+            assertEq(
+                ic.getCurvePrice(true, curveId, supply), ic.calculatePrice(supply + 1, scale, mint_a, mint_b, mint_c)
+            );
+            assertEq(ic.getCurvePrice(false, curveId, supply), ic.calculatePrice(supply, scale, burn_a, burn_b, burn_c));
 
             // Poly @ supply2.
-            assertEq(ic.getPrice(true, curveId, supply2), ic.calculatePrice(supply2 + 1, scale, mint_a, mint_b, mint_c));
-            assertEq(ic.getPrice(false, curveId, supply2), ic.calculatePrice(supply2, scale, burn_a, burn_b, burn_c));
+            assertEq(
+                ic.getCurvePrice(true, curveId, supply2), ic.calculatePrice(supply2 + 1, scale, mint_a, mint_b, mint_c)
+            );
+            assertEq(
+                ic.getCurvePrice(false, curveId, supply2), ic.calculatePrice(supply2, scale, burn_a, burn_b, burn_c)
+            );
         } else {
-            assertEq(ic.getPrice(true, curveId, supply), ic.calculatePrice(supply + 1, scale, 0, 0, 0));
-            assertEq(ic.getPrice(false, curveId, supply), ic.calculatePrice(supply, scale, 0, 0, 0));
+            assertEq(ic.getCurvePrice(true, curveId, supply), ic.calculatePrice(supply + 1, scale, 0, 0, 0));
+            assertEq(ic.getCurvePrice(false, curveId, supply), ic.calculatePrice(supply, scale, 0, 0, 0));
 
-            assertEq(ic.getPrice(true, curveId, supply2), ic.calculatePrice(supply2 + 1, scale, 0, 0, 0));
-            assertEq(ic.getPrice(false, curveId, supply2), ic.calculatePrice(supply2, scale, 0, 0, 0));
+            assertEq(ic.getCurvePrice(true, curveId, supply2), ic.calculatePrice(supply2 + 1, scale, 0, 0, 0));
+            assertEq(ic.getCurvePrice(false, curveId, supply2), ic.calculatePrice(supply2, scale, 0, 0, 0));
         }
     }
 }

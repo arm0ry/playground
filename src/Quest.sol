@@ -831,11 +831,12 @@ contract Quest is Storage {
 
     /// @notice Check if mission has expired.
     function checkExpiry(address missions, uint256 missionId, uint256 taskId) internal view {
-        uint256 taskDeadline = IMission(missions).getTaskDeadline(taskId);
         uint256 missionDeadline = IMission(missions).getMissionDeadline(missionId);
         if (missionDeadline == 0) revert NotInitialized();
         if (block.timestamp > missionDeadline) revert InvalidMission();
-        if (block.timestamp > taskDeadline) revert InvalidTask();
+        if (taskId > 0) {
+            if (block.timestamp > IMission(missions).getTaskDeadline(taskId)) revert InvalidTask();
+        }
     }
 
     /// @notice Encode address of mission, mission id and task id as type uint256.
