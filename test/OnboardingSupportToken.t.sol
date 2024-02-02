@@ -14,13 +14,13 @@ import {Quest} from "src/Quest.sol";
 import {IQuest} from "src/interface/IQuest.sol";
 import {Storage} from "kali-markets/Storage.sol";
 import {IStorage} from "kali-markets/interface/IStorage.sol";
-import {mSupportToken} from "src/tokens/mSupportToken.sol";
+import {OnboardingSupportToken} from "src/tokens/g0v/OnboardingSupportToken.sol";
 
-contract mSupportTokenTest is Test {
+contract OnboardingSupportTokenTest is Test {
     Quest quest;
     Mission mission;
     Storage stor;
-    mSupportToken mst;
+    OnboardingSupportToken onboardingSupportToken;
 
     IQuest iQuest;
     IStorage iStorage;
@@ -42,8 +42,7 @@ contract mSupportTokenTest is Test {
     /// @notice Set up the testing suite.
 
     function setUp() public payable {
-        mst = new mSupportToken();
-        mst.init(testString, testString, user, user, 0, user);
+        onboardingSupportToken = new OnboardingSupportToken(testString, testString, user, user, 0, user);
     }
 
     function testMint() public payable {
@@ -52,13 +51,13 @@ contract mSupportTokenTest is Test {
 
         // vm.deal(bob, 10 ether);
         // vm.prank(bob);
-        // mst.support{value: price}(alice, 1, 1, amount);
+        // onboardingSupportToken.support{value: price}(alice, 1, 1, amount);
 
-        // emit log_uint(mst.balanceOf(bob, 1));
+        // emit log_uint(onboardingSupportToken.balanceOf(bob, 1));
     }
 
     function testReceiveETH() public payable {
-        (bool sent,) = address(mst).call{value: 5 ether}("");
+        (bool sent,) = address(onboardingSupportToken).call{value: 5 ether}("");
         assert(!sent);
     }
 }

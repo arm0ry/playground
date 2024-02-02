@@ -1,17 +1,24 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.4;
 
-import {SVG} from "../utils/SVG.sol";
-import {JSON} from "../utils/JSON.sol";
-import {SupportToken} from "./SupportToken.sol";
-import {IMission} from "../interface/IMission.sol";
-import {IQuest} from "../interface/IQuest.sol";
+import {SVG} from "../../utils/SVG.sol";
+import {JSON} from "../../utils/JSON.sol";
+import {SupportToken} from "../SupportToken.sol";
+import {Mission} from "../../Mission.sol";
+import {IMission} from "../../interface/IMission.sol";
+import {IQuest} from "../../interface/IQuest.sol";
 
-/// @title Impact NFTs
-/// @notice SVG NFTs displaying impact results and metrics.
-contract mSupportToken is SupportToken {
+/// @title Support SVG NFTs.
+/// @notice SVG NFTs displaying impact generated from quests.
+contract ParticipantSupportToken is SupportToken {
     /// -----------------------------------------------------------------------
-    /// Storage
+    /// SVG Storage
+    /// -----------------------------------------------------------------------
+
+    uint8[7] public counters;
+
+    /// -----------------------------------------------------------------------
+    /// Core Storage
     /// -----------------------------------------------------------------------
 
     bool public isInitialized;
@@ -89,7 +96,7 @@ contract mSupportToken is SupportToken {
 
     // credit: z0r0z.eth (https://github.com/kalidao/kali-contracts/blob/60ba3992fb8d6be6c09eeb74e8ff3086a8fdac13/contracts/access/KaliAccessManager.sol)
     function _buildURI(uint256 id) private view returns (string memory) {
-        return JSON._formattedMetadata("g0v Hackathon Support Token", "", generateSvg(id));
+        return JSON._formattedMetadata("Support Token", "", generateSvg(id));
     }
 
     function generateSvg(uint256 id) public view returns (string memory) {
@@ -114,7 +121,6 @@ contract mSupportToken is SupportToken {
                 ),
                 SVG.NULL
             ),
-            // buildTaskChart(),
             buildSvgData(),
             "</svg>"
         );
@@ -135,83 +141,116 @@ contract mSupportToken is SupportToken {
                     SVG._prop("font-size", "20"),
                     SVG._prop("fill", "#00040a")
                 ),
-                IMission(mission).getMissionTitle(missionId)
+                string.concat(unicode"黑客松新參者一日求生小錦囊")
             ),
-            // SVG._text(
-            //     string.concat(
-            //         SVG._prop("x", "20"),
-            //         SVG._prop("y", "210"),
-            //         SVG._prop("font-size", "12"),
-            //         SVG._prop("fill", "#00040a")
-            //     ),
-            //     string.concat(unicode"黑客松次數：", SVG._uint2str(hackathonCount), unicode" 次")
-            // ),
             SVG._text(
                 string.concat(
                     SVG._prop("x", "20"),
-                    SVG._prop("y", "230"),
+                    SVG._prop("y", "140"),
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
                 string.concat(
-                    unicode"n0body 參與人數：",
-                    SVG._uint2str(IQuest(quest).getNumOfStartsByMissionByPublic(mission, missionId)),
+                    unicode"第 ",
+                    SVG._uint2str(hackathonCount),
+                    unicode" 次參與人數： ",
+                    SVG._uint2str(IMission(mission).getTotalTaskCompletionsByMission(missionId, taskId)),
                     unicode" 人"
                 )
             ),
             SVG._text(
                 string.concat(
                     SVG._prop("x", "20"),
-                    SVG._prop("y", "250"),
+                    SVG._prop("y", "160"),
+                    SVG._prop("font-size", "12"),
+                    SVG._prop("fill", "#00040a")
+                ),
+                string.concat(unicode"👍 幫 g0v 粉專按讚： ", SVG._uint2str(counters[0]), unicode" 人")
+            ),
+            SVG._text(
+                string.concat(
+                    SVG._prop("x", "20"),
+                    SVG._prop("y", "180"),
+                    SVG._prop("font-size", "12"),
+                    SVG._prop("fill", "#00040a")
+                ),
+                string.concat(unicode"🔔 打開專案頻道通知： ", SVG._uint2str(counters[1]), unicode" 人")
+            ),
+            SVG._text(
+                string.concat(
+                    SVG._prop("x", "20"),
+                    SVG._prop("y", "200"),
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
                 string.concat(
-                    unicode"總參與人數：",
-                    SVG._uint2str(IMission(mission).getMissionStarts(missionId)),
+                    unicode"📝 截圖任一提案的專案共筆： ", SVG._uint2str(counters[2]), unicode" 人"
+                )
+            ),
+            SVG._text(
+                string.concat(
+                    SVG._prop("x", "20"),
+                    SVG._prop("y", "220"),
+                    SVG._prop("font-size", "12"),
+                    SVG._prop("fill", "#00040a")
+                ),
+                string.concat(
+                    unicode"🧐 加入三個你有興趣的頻道： ", SVG._uint2str(counters[3]), unicode" 人"
+                )
+            ),
+            SVG._text(
+                string.concat(
+                    SVG._prop("x", "20"),
+                    SVG._prop("y", "240"),
+                    SVG._prop("font-size", "12"),
+                    SVG._prop("fill", "#00040a")
+                ),
+                string.concat(
+                    unicode"👀 瀏覽並截圖最新社群九分鐘： ", SVG._uint2str(counters[4]), unicode" 人"
+                )
+            ),
+            SVG._text(
+                string.concat(
+                    SVG._prop("x", "20"),
+                    SVG._prop("y", "260"),
+                    SVG._prop("font-size", "12"),
+                    SVG._prop("fill", "#00040a")
+                ),
+                string.concat(
+                    unicode"🏷️ 拿三張符合你身份的技能貼紙：",
+                    SVG._uint2str(counters[5]),
                     unicode" 人"
                 )
             ),
             SVG._text(
                 string.concat(
                     SVG._prop("x", "20"),
-                    SVG._prop("y", "270"),
+                    SVG._prop("y", "280"),
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
                 string.concat(
-                    unicode"100% 參與人數：",
-                    SVG._uint2str(IMission(mission).getMissionCompletions(missionId)),
+                    unicode"🎙️ 在有興趣的專案共筆上介紹自己： ",
+                    SVG._uint2str(counters[6]),
                     unicode" 人"
                 )
-            ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "170"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat(unicode"第 ", SVG._uint2str(hackathonCount), unicode" 次參與人數：")
-            ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "140"),
-                    SVG._prop("y", "170"),
-                    SVG._prop("font-size", "40"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                SVG._uint2str(IMission(mission).getTotalTaskCompletionsByMission(missionId, taskId))
-            ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "230"),
-                    SVG._prop("y", "170"),
-                    SVG._prop("font-size", "11"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                unicode" 人"
             )
         );
+    }
+
+    function tally(uint256 taskId) external initialized {
+        uint256 response;
+        uint256 questId = IQuest(quest).getQuestId();
+
+        if (questId > 0) {
+            for (uint256 i = 1; i <= questId; ++i) {
+                response = IQuest(quest).getTaskResponse(i, taskId);
+                for (uint256 j; j < 7; ++j) {
+                    if ((response / (10 ** j)) % 10 == 1) ++counters[j];
+                }
+            }
+        } else {
+            revert Unauthorized();
+        }
     }
 }

@@ -14,13 +14,13 @@ import {Quest} from "src/Quest.sol";
 import {IQuest} from "src/interface/IQuest.sol";
 import {Storage} from "kali-markets/Storage.sol";
 import {IStorage} from "kali-markets/interface/IStorage.sol";
-import {qSupportToken} from "src/tokens/qSupportToken.sol";
+import {HackathonSupportToken} from "src/tokens/g0v/HackathonSupportToken.sol";
 
-contract qSupportTokenTest is Test {
+contract HackathonSupportTokenTest is Test {
     Quest quest;
     Mission mission;
     Storage stor;
-    qSupportToken qst;
+    HackathonSupportToken hacakathonSupportToken;
 
     IQuest iQuest;
     IStorage iStorage;
@@ -42,8 +42,7 @@ contract qSupportTokenTest is Test {
     /// @notice Set up the testing suite.
 
     function setUp() public payable {
-        qst = new qSupportToken();
-        qst.init(testString, testString, user, user, 0, user);
+        hacakathonSupportToken = new HackathonSupportToken(testString, testString, user, user, user);
     }
 
     function testMint() public payable {
@@ -52,13 +51,13 @@ contract qSupportTokenTest is Test {
 
         // vm.deal(bob, 10 ether);
         // vm.prank(bob);
-        // qst.support{value: price}(alice, 1, 1, amount);
+        // hacakathonSupportToken.support{value: price}(alice, 1, 1, amount);
 
-        // emit log_uint(qst.balanceOf(bob, 1));
+        // emit log_uint(hacakathonSupportToken.balanceOf(bob, 1));
     }
 
     function testReceiveETH() public payable {
-        (bool sent,) = address(qst).call{value: 5 ether}("");
+        (bool sent,) = address(hacakathonSupportToken).call{value: 5 ether}("");
         assert(!sent);
     }
 }

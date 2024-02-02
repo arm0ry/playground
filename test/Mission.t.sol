@@ -11,7 +11,7 @@ import {Quest} from "src/Quest.sol";
 import {IQuest} from "src/interface/IQuest.sol";
 import {ImpactCurve} from "src/ImpactCurve.sol";
 import {CurveType, IImpactCurve} from "src/interface/IImpactCurve.sol";
-import {mSupportToken} from "src/tokens/mSupportToken.sol";
+import {HackathonSupportToken} from "src/tokens/g0v/HackathonSupportToken.sol";
 import {ISupportToken} from "src/interface/ISupportToken.sol";
 
 /// -----------------------------------------------------------------------
@@ -22,7 +22,7 @@ contract MissionTest is Test {
     Quest quest;
     Mission mission;
     ImpactCurve impactCurve;
-    mSupportToken mst;
+    HackathonSupportToken hacakathonSupportToken;
 
     address[] creators;
     uint256[] deadlines;
@@ -54,11 +54,6 @@ contract MissionTest is Test {
         // Deploy contracts.
         mission = new Mission();
         quest = new Quest();
-        impactCurve = new ImpactCurve();
-        mst = new mSupportToken();
-
-        impactCurve.initialize(dao);
-        impactCurve.curve(CurveType.LINEAR, address(mst), alice, 0.001 ether, 0, 2, 0, 0, 1, 0);
     }
 
     function testReceiveETH() public payable {
@@ -203,8 +198,8 @@ contract MissionTest is Test {
 
     function testPayToSetTasks() public payable {
         // Initialize.
+        initializeCurveAndToken(1);
         testSetPriceCurve();
-        initializeMst(1);
 
         // Set up param.
         delete creators;
@@ -245,8 +240,8 @@ contract MissionTest is Test {
 
     function testPayToSetTasks_InvalidFee() public payable {
         // Initialize.
+        initializeCurveAndToken(1);
         testSetPriceCurve();
-        initializeMst(1);
 
         // Set up param.
         delete creators;
@@ -402,8 +397,8 @@ contract MissionTest is Test {
 
     function testPayToSetMission_InvalidFee() public payable {
         // Initialize.
+        initializeCurveAndToken(1);
         testSetPriceCurve();
-        initializeMst(1);
 
         // Set tasks.
         testSetTasks();
@@ -579,8 +574,14 @@ contract MissionTest is Test {
         mission.initialize(_dao);
     }
 
-    function initializeMst(uint256 _missionId) internal {
-        mst.init("Test", "TEST", address(quest), address(mission), _missionId, address(impactCurve));
+    function initializeCurveAndToken(uint256 _missionId) internal {
+        impactCurve = new ImpactCurve();
+        impactCurve.initialize(dao);
+
+        hacakathonSupportToken =
+            new HackathonSupportToken("Test", "TEST", address(quest), address(mission), address(impactCurve));
+
+        impactCurve.curve(CurveType.LINEAR, address(hacakathonSupportToken), alice, 0.001 ether, 0, 2, 0, 0, 1, 0);
     }
 
     function setTask(address creator, uint256 deadline, string memory title, string memory description) internal {
@@ -623,8 +624,8 @@ contract MissionTest is Test {
         // uint256 prevBalance = address(dao).balance;
 
         uint256 amount = impactCurve.getCurvePrice(true, 1, 0);
-        uint256 tokenSupply = mst.totalSupply();
-        uint256 tokenBalance = mst.balanceOf(user);
+        uint256 tokenSupply = hacakathonSupportToken.totalSupply();
+        uint256 tokenBalance = hacakathonSupportToken.balanceOf(user);
 
         // Set up task.
         vm.prank(user);
@@ -644,8 +645,8 @@ contract MissionTest is Test {
         // assertEq(address(dao).balance, prevBalance + amount);
         assertEq(address(mission).balance, 0);
         assertEq(address(impactCurve).balance, amount);
-        assertEq(mst.totalSupply(), tokenSupply + 1);
-        assertEq(mst.balanceOf(user), tokenBalance + 1);
+        assertEq(hacakathonSupportToken.totalSupply(), tokenSupply + 1);
+        assertEq(hacakathonSupportToken.balanceOf(user), tokenBalance + 1);
     }
 
     function setMission(address creator, string memory title, string memory _detail) internal {

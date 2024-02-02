@@ -48,8 +48,6 @@ contract Quest is Storage {
     bytes32 public constant RESPOND_TYPEHASH = keccak256(
         "Respond(address signer,address missions,uint256 missionId,uint256 taskId,uint256 response,string feedback)"
     );
-    // bytes32 public constant REVIEW_TYPEHASH =
-    //     keccak256("Review(address signer,address user,bytes32 taskKey,uint256 response,string feedback)");
 
     /// -----------------------------------------------------------------------
     /// Modifier
