@@ -746,12 +746,12 @@ contract Quest is Storage {
 
     /// @notice Update, and finalize when appropriate, the Quest detail.
     function finalizeQuest(address user, address missions, uint256 missionId, uint256 taskId) internal {
-        // Update Task-related stats.
-        updateTaskStats(missions, missionId, taskId);
-
         if (!this.isTaskAccomplished(user, missions, missionId, taskId)) {
             // Finalize task.
             setIsTaskAccomplished(user, missions, missionId, taskId);
+
+            // Update Task-related stats.
+            updateTaskStats(missions, missionId, taskId);
 
             // Update the number of tasks completed in mission.
             uint256 completionCount = incrementNumOfCompletedTasksInMission(user, missions, missionId);
