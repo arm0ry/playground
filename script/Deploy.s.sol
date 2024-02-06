@@ -21,10 +21,10 @@ contract Deploy is Script {
     uint256 constant future = 2527482181;
 
     // Contracts.
-    address mContract;
-    address qContract;
+    address mContract = address(0x6bD61d1eECc74AD82a88Eb3930bef8Db1FC007e9);
+    address qContract = address(0x8e509B46a2f856364aE8eE21947917768763D340);
     address fContract;
-    address payable icContract = payable(address(0x80179A82472F950e3ae5235D7934E5A5BC161170));
+    address payable icContract = payable(address(0x5529dF0489801B52d81966C714980fA06Da01D50));
 
     // Tokens.
     address hackathonContract;
@@ -51,8 +51,8 @@ contract Deploy is Script {
 
         vm.startBroadcast(privateKey);
 
-        deployG0vPlayground(account, user1, user2);
-        // deployOnboardingSupportToken(user1, mContract, 1, qContract, icContract);
+        // deployG0vPlayground(account, user1, user2);
+        deployOnboardingSupportToken(user1, mContract, 1, qContract, icContract);
         // deployFoodList(user2);
         // deployMeditationJourney(user1);
 
@@ -97,22 +97,11 @@ contract Deploy is Script {
 
         // 10. Submit mock user input.
         Quest(qContract).start(address(mContract), 1);
-        Quest(qContract).respond(address(mContract), 1, 1, 1, "First Task Done!");
-        Quest(qContract).respond(address(mContract), 1, 1, 1, "First Task Done!");
-        Quest(qContract).respond(address(mContract), 1, 1, 1, "First Task Done!");
-        Quest(qContract).respond(address(mContract), 1, 1, 1, "First Task Done!");
-        Quest(qContract).respond(address(mContract), 1, 1, 1, "First Task Done!");
-        Quest(qContract).respond(address(mContract), 1, 1, 1, "First Task Done!");
-        Quest(qContract).respond(address(mContract), 1, 2, 2, "Second Task Done!");
-        Quest(qContract).respond(address(mContract), 1, 2, 2, "Second Task Done!");
-        Quest(qContract).respond(address(mContract), 1, 2, 2, "Second Task Done!");
-        Quest(qContract).respond(address(mContract), 1, 3, 2, "Third Task Done!");
-        Quest(qContract).respond(address(mContract), 1, 3, 2, "Third Task Done!");
-        Quest(qContract).respond(address(mContract), 1, 4, 2, "Fourth Task Done!");
-        Quest(qContract).respond(address(mContract), 1, 4, 2, "Fourth Task Done!");
-        Quest(qContract).respond(address(mContract), 1, 4, 2, "Fourth Task Done!");
-        Quest(qContract).respond(address(mContract), 1, 4, 2, "Fourth Task Done!");
-        Quest(qContract).respond(address(mContract), 1, 5, 2, "Fifth Task Done!");
+        Quest(qContract).respond(address(mContract), 1, 1, 1010111, "First Task Done!");
+        Quest(qContract).respond(address(mContract), 1, 2, 1010111, "Second Task Done!");
+        Quest(qContract).respond(address(mContract), 1, 3, 1010111, "Third Task Done!");
+        Quest(qContract).respond(address(mContract), 1, 4, 1010111, "Fourth Task Done!");
+        Quest(qContract).respond(address(mContract), 1, 5, 1010111, "Fifth Task Done!");
 
         // 11. Submit mock patron support.
         uint256 price = ImpactCurve(icContract).getCurvePrice(true, 1, 0);
@@ -151,10 +140,17 @@ contract Deploy is Script {
         new OnboardingSupportToken("g0v Onboarding Support Token", "g0vOST", _qContract, _mContract, _missionId, _icContract);
         onboardingContract = address(supportToken);
 
-        ImpactCurve(_icContract).curve(CurveType.LINEAR, onboardingContract, _user, 0.001 ether, 0, 10, 0, 0, 5, 0);
+        ImpactCurve(_icContract).curve(CurveType.LINEAR, onboardingContract, _user, 0.001 ether, 0, 10, 0, 0, 2, 0);
     }
 
     function deployFoodList(address creator) internal {
+        // Clear arrarys.
+        delete taskCreators;
+        delete taskDeadlines;
+        delete taskTitles;
+        delete taskDetail;
+        delete taskIds;
+
         // Add first task.
         taskCreators.push(creator);
         taskDeadlines.push(future);
@@ -185,6 +181,13 @@ contract Deploy is Script {
     }
 
     function deployMeditationJourney(address creator) internal {
+        // Clear arrarys.
+        delete taskCreators;
+        delete taskDeadlines;
+        delete taskTitles;
+        delete taskDetail;
+        delete taskIds;
+
         // Add first task.
         taskCreators.push(creator);
         taskDeadlines.push(future);
@@ -239,6 +242,13 @@ contract Deploy is Script {
     }
 
     function deployHackath0n(address user, address user2) internal {
+        // Clear arrarys.
+        delete taskCreators;
+        delete taskDeadlines;
+        delete taskTitles;
+        delete taskDetail;
+        delete taskIds;
+
         // Add first task.
         taskCreators.push(user);
         taskDeadlines.push(future);
@@ -281,6 +291,13 @@ contract Deploy is Script {
     }
 
     function deployHackath0nLunch(address user) internal {
+        // Clear arrarys.
+        delete taskCreators;
+        delete taskDeadlines;
+        delete taskTitles;
+        delete taskDetail;
+        delete taskIds;
+
         // Add first task.
         taskCreators.push(user);
         taskDeadlines.push(future);
@@ -323,12 +340,6 @@ contract Deploy is Script {
     }
 
     function _createNewTask(address user, uint256 expiration, string calldata title, string calldata detail) internal {
-        // Clear arrarys.
-        delete taskCreators;
-        delete taskDeadlines;
-        delete taskTitles;
-        delete taskDetail;
-
         // Add one task.
         taskCreators.push(user);
         taskDeadlines.push(expiration);
@@ -347,13 +358,6 @@ contract Deploy is Script {
         string[] memory titles,
         string[] memory detail
     ) internal returns (uint256[] memory) {
-        // Clear arrarys.
-        delete taskCreators;
-        delete taskDeadlines;
-        delete taskTitles;
-        delete taskDetail;
-        delete taskIds;
-
         // Retrieve task id.
         uint256 taskId = Mission(mContract).getTaskId();
 
