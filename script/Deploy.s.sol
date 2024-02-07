@@ -12,12 +12,14 @@ import {ImpactCurve} from "src/ImpactCurve.sol";
 import {IImpactCurve, CurveType} from "../src/interface/IImpactCurve.sol";
 import {OnboardingSupportToken} from "src/tokens/g0v/OnboardingSupportToken.sol";
 import {HackathonSupportToken} from "src/tokens/g0v/HackathonSupportToken.sol";
+import {ParticipantSupportToken} from "src/tokens/g0v/ParticipantSupportToken.sol";
 
 /// @notice A very simple deployment script
 contract Deploy is Script {
     error Invalid();
 
     // Constant.
+    uint256 constant past = 100000;
     uint256 constant future = 2527482181;
 
     // Contracts.
@@ -29,6 +31,7 @@ contract Deploy is Script {
     // Tokens.
     address hackathonContract;
     address onboardingContract;
+    address participantContract;
 
     // Prep for task submission.
     address[] taskCreators;
@@ -52,7 +55,10 @@ contract Deploy is Script {
         vm.startBroadcast(privateKey);
 
         // deployG0vPlayground(account, user1, user2);
-        deployOnboardingSupportToken(user1, mContract, 1, qContract, icContract);
+        // deployOnboardingSupportToken(user1, mContract, 1, qContract, icContract);
+        uint256 count = ImpactCurve(icContract).getCurveId();
+        deployParticipantSupportToken(user1, qContract, icContract);
+        support(count + 1, account);
         // deployFoodList(user2);
         // deployMeditationJourney(user1);
 
@@ -141,6 +147,19 @@ contract Deploy is Script {
         onboardingContract = address(supportToken);
 
         ImpactCurve(_icContract).curve(CurveType.LINEAR, onboardingContract, _user, 0.001 ether, 0, 10, 0, 0, 2, 0);
+    }
+
+    function deployParticipantSupportToken(address _user, address _qContract, address payable _icContract) internal {
+        ParticipantSupportToken supportToken =
+            new ParticipantSupportToken("g0v Participant Support Token", "g0vPST", _qContract, _icContract);
+        participantContract = address(supportToken);
+
+        ImpactCurve(_icContract).curve(CurveType.POLY, participantContract, _user, 0.0001 ether, 10, 20, 0, 5, 20, 0);
+    }
+
+    function support(uint256 curveId, address patron) internal {
+        uint256 price = ImpactCurve(icContract).getCurvePrice(true, curveId, 0);
+        ImpactCurve(icContract).support{value: price}(curveId, patron, price);
     }
 
     function deployFoodList(address creator) internal {
@@ -251,25 +270,25 @@ contract Deploy is Script {
 
         // Add first task.
         taskCreators.push(user);
-        taskDeadlines.push(future);
+        taskDeadlines.push(past);
         taskTitles.push(unicode"台灣零時政府第伍拾柒次開源普渡黑客松");
         taskDetail.push(unicode"活動流程...");
 
         // Add second task.
         taskCreators.push(user);
-        taskDeadlines.push(future);
+        taskDeadlines.push(past);
         taskTitles.push(unicode"台灣零時政府第伍拾捌次 11 歲生日快樂黑客松");
         taskDetail.push(unicode"活動流程...");
 
         // Add third task.
         taskCreators.push(user2);
-        taskDeadlines.push(future);
+        taskDeadlines.push(past);
         taskTitles.push(unicode"台灣零時政府第伍拾玖次輪班寫 code 救台灣黑客松");
         taskDetail.push(unicode"活動流程...");
 
         // Add fourth task.
         taskCreators.push(user);
-        taskDeadlines.push(future);
+        taskDeadlines.push(past);
         taskTitles.push(unicode"台灣零時政府第陸拾次記得投票黑客松");
         taskDetail.push(unicode"活動流程...");
 
