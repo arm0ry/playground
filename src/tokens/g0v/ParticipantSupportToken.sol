@@ -12,47 +12,31 @@ import {IQuest} from "../../interface/IQuest.sol";
 /// @notice SVG NFTs displaying impact generated from quests.
 contract ParticipantSupportToken is SupportToken {
     /// -----------------------------------------------------------------------
-    /// SVG Storage
+    /// Errors
     /// -----------------------------------------------------------------------
 
-    uint8[7] public counters;
+    error InvalidQuest();
 
     /// -----------------------------------------------------------------------
     /// Core Storage
     /// -----------------------------------------------------------------------
 
-    bool public isInitialized;
     address public quest;
-    address public mission;
-    uint256 public missionId;
     address public curve;
     uint256 public totalSupply;
+
+    // tokenId => questId
+    mapping(uint256 => uint256) public registry;
 
     /// -----------------------------------------------------------------------
     /// Constructor & Modifier
     /// -----------------------------------------------------------------------
 
-    function init(
-        string memory _name,
-        string memory _symbol,
-        address _quest,
-        address _mission,
-        uint256 _missionId,
-        address _curve
-    ) external payable {
+    constructor(string memory _name, string memory _symbol, address _quest, address _curve) {
         _init(_name, _symbol);
 
         quest = _quest;
-        mission = _mission;
-        missionId = _missionId;
         curve = _curve;
-
-        isInitialized = true;
-    }
-
-    modifier initialized() {
-        if (!isInitialized) revert Unauthorized();
-        _;
     }
 
     modifier onlyCurve() {
@@ -70,15 +54,19 @@ contract ParticipantSupportToken is SupportToken {
     /// Mint / Burn Logic
     /// -----------------------------------------------------------------------
 
-    function mint(address to) external payable initialized onlyCurve {
+    function mint(address to, uint256 questId) external payable onlyCurve {
+        if (questId > IQuest(quest).getQuestId()) revert InvalidQuest();
+
         unchecked {
             ++totalSupply;
         }
 
         _safeMint(to, totalSupply);
+
+        _setRegistry(totalSupply, questId);
     }
 
-    function burn(uint256 id) external payable initialized onlyOwnerOrCurve(id) {
+    function burn(uint256 id) external payable onlyOwnerOrCurve(id) {
         unchecked {
             --totalSupply;
         }
@@ -89,6 +77,10 @@ contract ParticipantSupportToken is SupportToken {
     /// -----------------------------------------------------------------------
     /// Metadata Storage & Logic
     /// -----------------------------------------------------------------------
+
+    function _setRegistry(uint256 tokenId, uint256 questId) internal {
+        registry[tokenId] = questId;
+    }
 
     function tokenURI(uint256 id) public view override returns (string memory) {
         return _buildURI(id);
@@ -109,54 +101,61 @@ contract ParticipantSupportToken is SupportToken {
                     SVG._prop("font-size", "20"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat(unicode"沒有人 #", SVG._uint2str(id))
+                string.concat(unicode"台灣零時政府黑客松")
             ),
             SVG._rect(
                 string.concat(
                     SVG._prop("fill", "#FFBE0B"),
                     SVG._prop("x", "20"),
                     SVG._prop("y", "50"),
-                    SVG._prop("width", SVG._uint2str(160)),
-                    SVG._prop("height", SVG._uint2str(5))
+                    SVG._prop("width", "200"),
+                    SVG._prop("height", "5")
                 ),
                 SVG.NULL
             ),
-            buildSvgData(),
+            buildSvgData(id),
             "</svg>"
         );
     }
 
-    function buildSvgData() public view returns (string memory) {
-        // Okay to use dynamic taskId as intent is to showcase latest attendance.
-        uint256 taskId = IMission(mission).getTaskId();
-
-        // The number of hackath0ns hosted by g0v.
-        uint256 hackathonCount = 60 + IMission(mission).getMissionTaskCount(missionId);
+    function buildSvgData(uint256 id) public view returns (string memory) {
+        (address user, address mission, uint256 missionId) = IQuest(quest).getQuest(registry[id]);
+        uint256 taskCount = IMission(mission).getMissionTaskCount(missionId);
+        uint256 taskId = IMission(mission).getMissionTaskId(missionId, taskCount);
+        string memory feedback = IQuest(quest).getTaskFeedback(registry[id], taskId);
 
         return string.concat(
             SVG._text(
                 string.concat(
                     SVG._prop("x", "20"),
                     SVG._prop("y", "100"),
-                    SVG._prop("font-size", "20"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat(unicode"黑客松新參者一日求生小錦囊")
-            ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "140"),
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
+                unicode"參加過"
+            ),
+            SVG._text(
                 string.concat(
-                    unicode"第 ",
-                    SVG._uint2str(hackathonCount),
-                    unicode" 次參與人數： ",
-                    SVG._uint2str(IMission(mission).getTotalTaskCompletionsByMission(missionId, taskId)),
-                    unicode" 人"
-                )
+                    SVG._prop("x", "65"),
+                    SVG._prop("y", "100"),
+                    SVG._prop("font-size", "12"),
+                    SVG._prop("font-weight", "bolder"),
+                    SVG._prop("fill", "#018edf")
+                ),
+                SVG._uint2str(IQuest(quest).getNumOfCompletedTasksInMission(user, mission, missionId))
+            ),
+            SVG._image(
+                IQuest(quest).getProfilePicture(user),
+                string.concat(SVG._prop("x", "150"), SVG._prop("y", "70"), SVG._prop("width", "40"))
+            ),
+            SVG._text(
+                string.concat(
+                    SVG._prop("x", "200"),
+                    SVG._prop("y", "100"),
+                    SVG._prop("font-size", "12"),
+                    SVG._prop("fill", "#00040a")
+                ),
+                unicode"，在"
             ),
             SVG._text(
                 string.concat(
@@ -165,92 +164,44 @@ contract ParticipantSupportToken is SupportToken {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat(unicode"👍 幫 g0v 粉專按讚： ", SVG._uint2str(counters[0]), unicode" 人")
+                unicode"最近的第"
+            ),
+            SVG._text(
+                string.concat(
+                    SVG._prop("x", "110"),
+                    SVG._prop("y", "160"),
+                    SVG._prop("font-size", "40"),
+                    SVG._prop("fill", "#018edf")
+                ),
+                SVG._uint2str(60 + taskCount)
+            ),
+            SVG._text(
+                string.concat(
+                    SVG._prop("x", "190"),
+                    SVG._prop("y", "160"),
+                    SVG._prop("font-size", "12"),
+                    SVG._prop("fill", "#00040a")
+                ),
+                unicode"次零時政府黑客松"
             ),
             SVG._text(
                 string.concat(
                     SVG._prop("x", "20"),
-                    SVG._prop("y", "180"),
+                    SVG._prop("y", "210"),
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat(unicode"🔔 打開專案頻道通知： ", SVG._uint2str(counters[1]), unicode" 人")
+                unicode"發表了以下的感言："
             ),
             SVG._text(
                 string.concat(
                     SVG._prop("x", "20"),
-                    SVG._prop("y", "200"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
+                    SVG._prop("y", "255"),
+                    SVG._prop("font-size", "16"),
+                    SVG._prop("fill", "#FFBE0B")
                 ),
-                string.concat(
-                    unicode"📝 截圖任一提案的專案共筆： ", SVG._uint2str(counters[2]), unicode" 人"
-                )
-            ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "220"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat(
-                    unicode"🧐 加入三個你有興趣的頻道： ", SVG._uint2str(counters[3]), unicode" 人"
-                )
-            ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "240"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat(
-                    unicode"👀 瀏覽並截圖最新社群九分鐘： ", SVG._uint2str(counters[4]), unicode" 人"
-                )
-            ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "260"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat(
-                    unicode"🏷️ 拿三張符合你身份的技能貼紙：",
-                    SVG._uint2str(counters[5]),
-                    unicode" 人"
-                )
-            ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "280"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat(
-                    unicode"🎙️ 在有興趣的專案共筆上介紹自己： ",
-                    SVG._uint2str(counters[6]),
-                    unicode" 人"
-                )
+                feedback
             )
         );
-    }
-
-    function tally(uint256 taskId) external initialized {
-        uint256 response;
-        uint256 questId = IQuest(quest).getQuestId();
-
-        if (questId > 0) {
-            for (uint256 i = 1; i <= questId; ++i) {
-                response = IQuest(quest).getTaskResponse(i, taskId);
-                for (uint256 j; j < 7; ++j) {
-                    if ((response / (10 ** j)) % 10 == 1) ++counters[j];
-                }
-            }
-        } else {
-            revert Unauthorized();
-        }
     }
 }
