@@ -8,6 +8,14 @@ import {Mission} from "../../Mission.sol";
 import {IMission} from "../../interface/IMission.sol";
 import {IQuest} from "../../interface/IQuest.sol";
 
+struct QuestData {
+    address user;
+    address mission;
+    uint256 missionId;
+    uint256 taskCount;
+    string feedback;
+}
+
 /// @title Support SVG NFTs.
 /// @notice SVG NFTs displaying impact generated from quests.
 contract ParticipantSupportToken is SupportToken {
@@ -26,7 +34,7 @@ contract ParticipantSupportToken is SupportToken {
     uint256 public totalSupply;
 
     // tokenId => questId
-    mapping(uint256 => uint256) public registry;
+    mapping(uint256 => QuestData) public data;
 
     /// -----------------------------------------------------------------------
     /// Constructor & Modifier
@@ -54,16 +62,12 @@ contract ParticipantSupportToken is SupportToken {
     /// Mint / Burn Logic
     /// -----------------------------------------------------------------------
 
-    function mint(address to, uint256 questId) external payable onlyCurve {
-        if (questId > IQuest(quest).getQuestId()) revert InvalidQuest();
-
+    function mint(address to) external payable onlyCurve {
         unchecked {
             ++totalSupply;
         }
 
         _safeMint(to, totalSupply);
-
-        _setRegistry(totalSupply, questId);
     }
 
     function burn(uint256 id) external payable onlyOwnerOrCurve(id) {
@@ -78,8 +82,21 @@ contract ParticipantSupportToken is SupportToken {
     /// Metadata Storage & Logic
     /// -----------------------------------------------------------------------
 
-    function _setRegistry(uint256 tokenId, uint256 questId) internal {
-        registry[tokenId] = questId;
+    function populate(uint256 tokenId, uint256 questId) external payable {
+        if (msg.sender != ownerOf(tokenId)) revert Unauthorized();
+
+        (address user, address mission, uint256 missionId) = IQuest(quest).getQuest(questId);
+        if (user == address(0) || questId > IQuest(quest).getQuestId()) revert InvalidQuest();
+
+        uint256 taskCount = IMission(mission).getMissionTaskCount(missionId);
+        uint256 taskId = IMission(mission).getMissionTaskId(missionId, taskCount);
+        string memory feedback = IQuest(quest).getTaskFeedback(questId, taskId);
+
+        data[tokenId].user = user;
+        data[tokenId].mission = mission;
+        data[tokenId].missionId = missionId;
+        data[tokenId].taskCount = taskCount;
+        data[tokenId].feedback = feedback;
     }
 
     function tokenURI(uint256 id) public view override returns (string memory) {
@@ -119,11 +136,6 @@ contract ParticipantSupportToken is SupportToken {
     }
 
     function buildSvgData(uint256 id) public view returns (string memory) {
-        (address user, address mission, uint256 missionId) = IQuest(quest).getQuest(registry[id]);
-        uint256 taskCount = IMission(mission).getMissionTaskCount(missionId);
-        uint256 taskId = IMission(mission).getMissionTaskId(missionId, taskCount);
-        string memory feedback = IQuest(quest).getTaskFeedback(registry[id], taskId);
-
         return string.concat(
             SVG._text(
                 string.concat(
@@ -142,12 +154,36 @@ contract ParticipantSupportToken is SupportToken {
                     SVG._prop("font-weight", "bolder"),
                     SVG._prop("fill", "#018edf")
                 ),
-                SVG._uint2str(IQuest(quest).getNumOfCompletedTasksInMission(user, mission, missionId))
+                SVG._uint2str(
+                    IQuest(quest).getNumOfCompletedTasksInMission(data[id].user, data[id].mission, data[id].missionId)
+                )
             ),
-            SVG._image(
-                IQuest(quest).getProfilePicture(user),
-                string.concat(SVG._prop("x", "150"), SVG._prop("y", "70"), SVG._prop("width", "40"))
+            SVG._text(
+                string.concat(
+                    SVG._prop("x", "90"),
+                    SVG._prop("y", "100"),
+                    SVG._prop("font-size", "12"),
+                    SVG._prop("fill", "#00040a")
+                ),
+                unicode"次大松的"
             ),
+            (data[id].user != address(0))
+                ? SVG._image(
+                    IQuest(quest).getProfilePicture(data[id].user),
+                    string.concat(SVG._prop("x", "150"), SVG._prop("y", "70"), SVG._prop("width", "40"))
+                )
+                : SVG._rect(
+                    string.concat(
+                        SVG._prop("fill", "#FFBE0B"),
+                        SVG._prop("x", "150"),
+                        SVG._prop("y", "70"),
+                        SVG._prop("rx", "10"),
+                        SVG._prop("ry", "10"),
+                        SVG._prop("width", "40"),
+                        SVG._prop("height", "40")
+                    ),
+                    SVG.NULL
+                ),
             SVG._text(
                 string.concat(
                     SVG._prop("x", "200"),
@@ -168,16 +204,16 @@ contract ParticipantSupportToken is SupportToken {
             ),
             SVG._text(
                 string.concat(
-                    SVG._prop("x", "110"),
+                    SVG._prop("x", "90"),
                     SVG._prop("y", "160"),
                     SVG._prop("font-size", "40"),
                     SVG._prop("fill", "#018edf")
                 ),
-                SVG._uint2str(60 + taskCount)
+                SVG._uint2str(60 + data[id].taskCount)
             ),
             SVG._text(
                 string.concat(
-                    SVG._prop("x", "190"),
+                    SVG._prop("x", "160"),
                     SVG._prop("y", "160"),
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
@@ -191,7 +227,7 @@ contract ParticipantSupportToken is SupportToken {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                unicode"發表了以下的感言："
+                unicode"發表了以下的言論："
             ),
             SVG._text(
                 string.concat(
@@ -200,7 +236,7 @@ contract ParticipantSupportToken is SupportToken {
                     SVG._prop("font-size", "16"),
                     SVG._prop("fill", "#FFBE0B")
                 ),
-                feedback
+                (bytes(data[id].feedback).length == 0) ? unicode"等待中..." : data[id].feedback
             )
         );
     }
