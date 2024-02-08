@@ -23,10 +23,10 @@ contract Deploy is Script {
     uint256 constant future = 2527482181;
 
     // Contracts.
-    address mContract = address(0x6bD61d1eECc74AD82a88Eb3930bef8Db1FC007e9);
-    address qContract = address(0x8e509B46a2f856364aE8eE21947917768763D340);
+    address mContract = address(0);
+    address qContract = address(0);
     address fContract;
-    address payable icContract = payable(address(0x5529dF0489801B52d81966C714980fA06Da01D50));
+    address payable icContract = payable(address(0));
 
     // Tokens.
     address hackathonContract;
@@ -54,11 +54,8 @@ contract Deploy is Script {
 
         vm.startBroadcast(privateKey);
 
-        // deployG0vPlayground(account, user1, user2);
-        // deployOnboardingSupportToken(user1, mContract, 1, qContract, icContract);
-        uint256 count = ImpactCurve(icContract).getCurveId();
-        deployParticipantSupportToken(user1, qContract, icContract);
-        support(count + 1, account);
+        deployG0vPlayground(account, user1, user2);
+
         // deployFoodList(user2);
         // deployMeditationJourney(user1);
 
@@ -80,38 +77,43 @@ contract Deploy is Script {
         // 3. Deploy curves.
         deployImpactCurve(user);
 
-        // 4. Deploy mission contract.
+        // 4. Deploy mission contract, and set bonding curve as pricing model for paying to set tasks and missions.
         deployMission(patron);
         Mission(mContract).setPriceCurve(icContract, 1);
 
-        // 5. Deploy support token.
+        // 5. Deploy support tokens.
         deployHackathonSupportToken(mContract, qContract, icContract);
-        HackathonSupportToken(hackathonContract).setSvgInputs(1, 5);
+        deployOnboardingSupportToken(mContract, 1, qContract, icContract);
+        deployParticipantSupportToken(user, qContract, icContract);
 
-        // 6. Set curve.
+        // 6. Set curves.
         ImpactCurve(icContract).curve(CurveType.LINEAR, hackathonContract, user, 0.0001 ether, 0, 10, 0, 0, 5, 0);
+        ImpactCurve(icContract).curve(CurveType.LINEAR, onboardingContract, user, 0.001 ether, 0, 10, 0, 0, 2, 0);
+        ImpactCurve(icContract).curve(CurveType.POLY, participantContract, user, 0.0001 ether, 10, 20, 0, 5, 20, 0);
 
-        // 7. Prepare hackathon.
+        // 6. Prepare hackathon.
         deployHackath0n(user, user2);
         deployHackath0nLunch(user);
 
-        // 8. Authorize quest contract to record stats in mission contract.
+        // 7. Authorize quest contract to record stats in mission contract.
         Mission(mContract).authorizeQuest(qContract, true);
 
-        // 9. Update admin.
+        // 8. Update admin.
+        // Need this only if deployer account is different from account operating the contract
         Mission(mContract).setDao(user);
 
-        // 10. Submit mock user input.
+        // 9. Submit mock user input.
         Quest(qContract).start(address(mContract), 1);
-        Quest(qContract).respond(address(mContract), 1, 1, 1010111, "First Task Done!");
-        Quest(qContract).respond(address(mContract), 1, 2, 1010111, "Second Task Done!");
-        Quest(qContract).respond(address(mContract), 1, 3, 1010111, "Third Task Done!");
-        Quest(qContract).respond(address(mContract), 1, 4, 1010111, "Fourth Task Done!");
-        Quest(qContract).respond(address(mContract), 1, 5, 1010111, "Fifth Task Done!");
+        Quest(qContract).respond(address(mContract), 1, 5, 10001, "I went to 61th hackathon YAY!");
+        Quest(qContract).respond(address(mContract), 1, 5, 1100111, "I went to 61th hackathon YAY!");
 
-        // 11. Submit mock patron support.
-        uint256 price = ImpactCurve(icContract).getCurvePrice(true, 1, 0);
-        ImpactCurve(icContract).support{value: price}(1, patron, price);
+        // 6. Configure support tokens.
+        HackathonSupportToken(hackathonContract).setSvgInputs(1, 5);
+
+        // 10. Mint support.
+        support(1, patron);
+        support(2, patron);
+        support(3, patron);
     }
 
     function deployMission(address user) internal {
@@ -136,7 +138,6 @@ contract Deploy is Script {
     }
 
     function deployOnboardingSupportToken(
-        address _user,
         address _mContract,
         uint256 _missionId,
         address _qContract,
@@ -145,16 +146,12 @@ contract Deploy is Script {
         OnboardingSupportToken supportToken =
         new OnboardingSupportToken("g0v Onboarding Support Token", "g0vOST", _qContract, _mContract, _missionId, _icContract);
         onboardingContract = address(supportToken);
-
-        ImpactCurve(_icContract).curve(CurveType.LINEAR, onboardingContract, _user, 0.001 ether, 0, 10, 0, 0, 2, 0);
     }
 
     function deployParticipantSupportToken(address _user, address _qContract, address payable _icContract) internal {
         ParticipantSupportToken supportToken =
             new ParticipantSupportToken("g0v Participant Support Token", "g0vPST", _qContract, _icContract);
         participantContract = address(supportToken);
-
-        ImpactCurve(_icContract).curve(CurveType.POLY, participantContract, _user, 0.0001 ether, 10, 20, 0, 5, 20, 0);
     }
 
     function support(uint256 curveId, address patron) internal {
