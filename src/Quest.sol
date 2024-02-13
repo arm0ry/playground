@@ -645,7 +645,7 @@ contract Quest is Storage {
 
         // When review is not required, update quest progress and related stats.
         if (!this.getReviewStatus()) {
-            finalizeQuest(user, missions, missionId, taskId);
+            finalizeTask(user, missions, missionId, taskId);
         }
 
         emit Responded(user, missions, missionId, taskId, response, feedback);
@@ -707,7 +707,7 @@ contract Quest is Storage {
         setReview(reviewer, this.getQuestIdByUserAndMission(user, missions, missionId), response, feedback);
 
         // Update quest detail.
-        finalizeQuest(user, missions, missionId, taskId);
+        finalizeTask(user, missions, missionId, taskId);
 
         emit Reviewed(reviewer, user, missions, missionId, taskId, response, feedback);
     }
@@ -745,7 +745,7 @@ contract Quest is Storage {
     }
 
     /// @notice Update, and finalize when appropriate, the Quest detail.
-    function finalizeQuest(address user, address missions, uint256 missionId, uint256 taskId) internal {
+    function finalizeTask(address user, address missions, uint256 missionId, uint256 taskId) internal {
         if (!this.isTaskAccomplished(user, missions, missionId, taskId)) {
             // Finalize task.
             setIsTaskAccomplished(user, missions, missionId, taskId);

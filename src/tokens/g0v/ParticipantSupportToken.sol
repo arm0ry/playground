@@ -86,7 +86,7 @@ contract ParticipantSupportToken is SupportToken {
         if (msg.sender != ownerOf(tokenId)) revert Unauthorized();
 
         (address user, address mission, uint256 missionId) = IQuest(quest).getQuest(questId);
-        if (user == address(0) || questId > IQuest(quest).getQuestId()) revert InvalidQuest();
+        if (user == address(0)) revert InvalidQuest();
 
         uint256 taskCount = IMission(mission).getMissionTaskCount(missionId);
         uint256 taskId = IMission(mission).getMissionTaskId(missionId, taskCount);
@@ -167,23 +167,7 @@ contract ParticipantSupportToken is SupportToken {
                 ),
                 unicode"次大松的"
             ),
-            (data[id].user != address(0))
-                ? SVG._image(
-                    IQuest(quest).getProfilePicture(data[id].user),
-                    string.concat(SVG._prop("x", "150"), SVG._prop("y", "70"), SVG._prop("width", "40"))
-                )
-                : SVG._rect(
-                    string.concat(
-                        SVG._prop("fill", "#FFBE0B"),
-                        SVG._prop("x", "150"),
-                        SVG._prop("y", "70"),
-                        SVG._prop("rx", "10"),
-                        SVG._prop("ry", "10"),
-                        SVG._prop("width", "40"),
-                        SVG._prop("height", "40")
-                    ),
-                    SVG.NULL
-                ),
+            getProfilePicture(data[id].user),
             SVG._text(
                 string.concat(
                     SVG._prop("x", "200"),
@@ -239,5 +223,17 @@ contract ParticipantSupportToken is SupportToken {
                 (bytes(data[id].feedback).length == 0) ? unicode"等待中..." : data[id].feedback
             )
         );
+    }
+
+    function getProfilePicture(address user) internal view returns (string memory) {
+        return (bytes(IQuest(quest).getProfilePicture(user)).length > 0)
+            ? SVG._image(
+                IQuest(quest).getProfilePicture(user),
+                string.concat(SVG._prop("x", "150"), SVG._prop("y", "70"), SVG._prop("width", "40"))
+            )
+            : SVG._image(
+                "https://arm0ry.g0v.tw/assets/dancing.cbe2e558.png",
+                string.concat(SVG._prop("x", "150"), SVG._prop("y", "70"), SVG._prop("width", "40"))
+            );
     }
 }

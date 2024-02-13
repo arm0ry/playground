@@ -127,7 +127,7 @@ contract OnboardingSupportToken is SupportToken {
                     SVG._prop("font-size", "20"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat(unicode"黑客松新參者一日求生小錦囊之影響力報告")
+                string.concat(unicode"黑客松新參者小紙條")
             ),
             SVG._text(
                 string.concat(
@@ -145,7 +145,9 @@ contract OnboardingSupportToken is SupportToken {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat(unicode"🔔 打開專案頻道通知： ", SVG._uint2str(counters[1]), unicode" 人")
+                string.concat(
+                    unicode"🔔 打開任一專案頻道通知： ", SVG._uint2str(counters[1]), unicode" 人"
+                )
             ),
             SVG._text(
                 string.concat(
@@ -166,7 +168,7 @@ contract OnboardingSupportToken is SupportToken {
                     SVG._prop("fill", "#00040a")
                 ),
                 string.concat(
-                    unicode"🧐 加入三個你有興趣的頻道： ", SVG._uint2str(counters[3]), unicode" 人"
+                    unicode"🏷️ 貼上三張符合你的技能貼紙：", SVG._uint2str(counters[3]), unicode" 人"
                 )
             ),
             SVG._text(
@@ -177,7 +179,7 @@ contract OnboardingSupportToken is SupportToken {
                     SVG._prop("fill", "#00040a")
                 ),
                 string.concat(
-                    unicode"👀 瀏覽並截圖最新社群九分鐘： ", SVG._uint2str(counters[4]), unicode" 人"
+                    unicode"🧐 加入三個有趣的 Slack 頻道： ", SVG._uint2str(counters[4]), unicode" 人"
                 )
             ),
             SVG._text(
@@ -188,7 +190,7 @@ contract OnboardingSupportToken is SupportToken {
                     SVG._prop("fill", "#00040a")
                 ),
                 string.concat(
-                    unicode"🏷️ 拿三張符合你身份的技能貼紙：",
+                    unicode"👀 瀏覽並截圖最新『社群九分鐘』： ",
                     SVG._uint2str(counters[5]),
                     unicode" 人"
                 )
@@ -201,7 +203,7 @@ contract OnboardingSupportToken is SupportToken {
                     SVG._prop("fill", "#00040a")
                 ),
                 string.concat(
-                    unicode"🎙️ 在有興趣的專案共筆上介紹自己： ",
+                    unicode"🎙️ 在有興趣的專案共筆上自我介紹： ",
                     SVG._uint2str(counters[6]),
                     unicode" 人"
                 )
