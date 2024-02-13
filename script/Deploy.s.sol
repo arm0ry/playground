@@ -51,10 +51,12 @@ contract Deploy is Script {
 
         address user1 = address(0x4744cda32bE7b3e75b9334001da9ED21789d4c0d);
         address user2 = address(0xFB12B6A543d986A1938d2b3C7d05848D8913AcC4);
+        address gasbot = address(0x7Cf60ec5A5541b7d4073F795a67A75E383F3FFFf);
 
         vm.startBroadcast(privateKey);
 
-        deployG0vPlayground(account, user1, user2);
+        deployG0vPlayground(account, user1, user2, gasbot);
+        // deployParticipantSupportToken(user1, qContract, icContract);
 
         // deployFoodList(user2);
         // deployMeditationJourney(user1);
@@ -62,7 +64,7 @@ contract Deploy is Script {
         vm.stopBroadcast();
     }
 
-    function deployG0vPlayground(address patron, address user, address user2) internal {
+    function deployG0vPlayground(address patron, address user, address user2, address gasbot) internal {
         // Templates for factory deployment.
         Quest qTemplate = new Quest();
         Mission mTemplate = new Mission();
@@ -71,8 +73,10 @@ contract Deploy is Script {
         Factory factory = new Factory(address(mTemplate),  address(qTemplate));
         fContract = address(factory);
 
-        // 2. Deploy quest contract and complete tasks.
-        deployQuest(user);
+        // 2. Deploy quest contract and set gasbot.
+        deployQuest(patron);
+        Quest(qContract).setGasbot(gasbot);
+        Quest(qContract).setDao(user);
 
         // 3. Deploy curves.
         deployImpactCurve(user);
@@ -88,29 +92,30 @@ contract Deploy is Script {
 
         // 6. Set curves.
         ImpactCurve(icContract).curve(CurveType.LINEAR, hackathonContract, user, 0.0001 ether, 0, 10, 0, 0, 5, 0);
-        ImpactCurve(icContract).curve(CurveType.LINEAR, onboardingContract, user, 0.001 ether, 0, 10, 0, 0, 2, 0);
+        ImpactCurve(icContract).curve(CurveType.LINEAR, onboardingContract, user, 0.0001 ether, 0, 10, 0, 0, 2, 0);
         ImpactCurve(icContract).curve(CurveType.POLY, participantContract, user, 0.0001 ether, 10, 20, 0, 5, 20, 0);
 
-        // 6. Prepare hackathon.
+        // 7. Prepare hackathon.
         deployHackath0n(user, user2);
         deployHackath0nLunch(user);
 
-        // 7. Authorize quest contract to record stats in mission contract.
+        // 8. Authorize quest contract to record stats in mission contract.
         Mission(mContract).authorizeQuest(qContract, true);
 
-        // 8. Update admin.
+        // 9. Update admin.
         // Need this only if deployer account is different from account operating the contract
         Mission(mContract).setDao(user);
 
-        // 9. Submit mock user input.
+        // 10. Submit mock user input.
         Quest(qContract).start(address(mContract), 1);
-        Quest(qContract).respond(address(mContract), 1, 5, 10001, "I went to 61th hackathon YAY!");
-        Quest(qContract).respond(address(mContract), 1, 5, 1100111, "I went to 61th hackathon YAY!");
+        Quest(qContract).respond(address(mContract), 1, 5, 10001, "I went to 61st hackathon YAY!");
+        Quest(qContract).respond(address(mContract), 1, 5, 1100111, "I went to 61st hackathon! It was so fun~");
 
-        // 6. Configure support tokens.
+        // 11. Configure support tokens.
         HackathonSupportToken(hackathonContract).setSvgInputs(1, 5);
+        OnboardingSupportToken(onboardingContract).tally(5);
 
-        // 10. Mint support.
+        // 12. Mint support.
         support(1, patron);
         support(2, patron);
         support(3, patron);
@@ -269,31 +274,31 @@ contract Deploy is Script {
         taskCreators.push(user);
         taskDeadlines.push(past);
         taskTitles.push(unicode"台灣零時政府第伍拾柒次開源普渡黑客松");
-        taskDetail.push(unicode"活動流程...");
+        taskDetail.push("https://g0v.hackmd.io/@jothon/HJtR_tpT3");
 
         // Add second task.
         taskCreators.push(user);
         taskDeadlines.push(past);
         taskTitles.push(unicode"台灣零時政府第伍拾捌次 11 歲生日快樂黑客松");
-        taskDetail.push(unicode"活動流程...");
+        taskDetail.push("https://g0v.hackmd.io/@jothon/S1fxd2HCh");
 
         // Add third task.
         taskCreators.push(user2);
         taskDeadlines.push(past);
         taskTitles.push(unicode"台灣零時政府第伍拾玖次輪班寫 code 救台灣黑客松");
-        taskDetail.push(unicode"活動流程...");
+        taskDetail.push("https://g0v.hackmd.io/@jothon/rktGJXOPa");
 
         // Add fourth task.
         taskCreators.push(user);
         taskDeadlines.push(past);
         taskTitles.push(unicode"台灣零時政府第陸拾次記得投票黑客松");
-        taskDetail.push(unicode"活動流程...");
+        taskDetail.push("https://g0v.hackmd.io/@jothon/B1IwtQNrT");
 
         // Add fifth task.
         taskCreators.push(user);
         taskDeadlines.push(future);
         taskTitles.push(unicode"台灣零時政府第陸拾壹次龍來 Open Data Day 黑客松");
-        taskDetail.push(unicode"活動流程...");
+        taskDetail.push("https://g0v.hackmd.io/@jothon/B1DqSeaK6");
 
         setNewTasksAndMission(
             taskCreators,
@@ -318,31 +323,31 @@ contract Deploy is Script {
         taskCreators.push(user);
         taskDeadlines.push(future);
         taskTitles.push(unicode"炸雞");
-        taskDetail.push(unicode"食材...");
+        taskDetail.push(unicode"食材... 產地...");
 
         // Add second task.
         taskCreators.push(user);
         taskDeadlines.push(future);
         taskTitles.push(unicode"冰紅茶");
-        taskDetail.push(unicode"食材...");
+        taskDetail.push(unicode"食材... 產地...");
 
         // Add third task.
         taskCreators.push(user);
         taskDeadlines.push(future);
         taskTitles.push(unicode"熱紅茶");
-        taskDetail.push(unicode"食材...");
+        taskDetail.push(unicode"食材... 產地...");
 
-        // Add fourth task.
+        // Add fourth task.j
         taskCreators.push(user);
         taskDeadlines.push(future);
         taskTitles.push(unicode"壽司");
-        taskDetail.push(unicode"食材...");
+        taskDetail.push(unicode"食材... 產地...");
 
         // Add fifth task.
         taskCreators.push(user);
         taskDeadlines.push(future);
         taskTitles.push(unicode"炒飯");
-        taskDetail.push(unicode"食材...");
+        taskDetail.push(unicode"食材... 產地...");
 
         setNewTasksAndMission(
             taskCreators,
