@@ -412,6 +412,53 @@ abstract contract ERC721TokenReceiver {
     }
 }
 
+enum CurveType {
+    NA,
+    LINEAR,
+    POLY
+}
+
+interface IImpactCurve {
+    /// @notice DAO logic.
+    function initialize(address dao) external payable;
+
+    /// @notice Curve logic.
+    function curve(
+        CurveType curveType,
+        address token,
+        address owner,
+        uint96 scale,
+        uint16 burnRatio, // Relative to mint price.
+        uint48 constant_a,
+        uint48 constant_b,
+        uint48 constant_c
+    ) external payable returns (uint256 curveId);
+
+    /// @notice Patron logic.
+    function claim() external payable;
+    function support(uint256 curveId, address patron, uint256 price) external payable;
+    function burn(uint256 curveId, address patron, uint256 tokenId) external payable;
+
+    /// @notice Getter logic.
+    function getCurveId() external view returns (uint256);
+    function getCurveOwner(uint256 curveId) external view returns (address);
+    function getCurveToken(uint256 curveId) external view returns (address);
+    function getCurveTreasury(uint256 curveId) external view returns (uint256);
+    function getCurveType(uint256 curveId) external view returns (CurveType);
+    function getCurveFormula(uint256 curveId) external view returns (uint256, uint256, uint256, uint256, uint256);
+    function getCurveBurned(uint256 curveId, address patron, bool burned) external view returns (bool);
+    function getCurvePrice(bool mint, uint256 curveId, uint256 supply) external view returns (uint256);
+    function getMintBurnDifference(uint256 curveId) external view returns (uint256);
+    function getUnclaimed(address user) external view returns (uint256);
+
+    /// @notice Helper logic.
+    function encodeCurveData(uint96 scale, uint16 burnRatio, uint48 constant_a, uint48 constant_b, uint48 constant_c)
+        external
+        pure
+        returns (uint256);
+    function decodeCurveData(uint256 key) external pure returns (uint256, uint256, uint256, uint256, uint256);
+}
+
 interface IMission {
     error InvalidMission();
 
@@ -640,8 +687,6 @@ contract Mission is Storage {
     error NotAuthorized();
     error InvalidTask();
     error InvalidMission();
-    error InvalidFee();
-    error TransferFailed();
 
     /// -----------------------------------------------------------------------
     /// Modifier
@@ -652,16 +697,12 @@ contract Mission is Storage {
         _;
     }
 
-    modifier priceCheck() {
-        uint256 fee = this.getFee();
-        if (fee > 0 && msg.value == this.getFee()) {
-            (bool success,) = this.getDao().call{value: msg.value}("");
-            if (!success) revert TransferFailed();
-            _;
-        } else if (fee == 0) {
-            _;
-        } else {
-            revert InvalidFee();
+    function priceCheck() internal {
+        uint256 fee;
+        (address curve, uint256 curveId) = this.getPriceCurve();
+        fee = IImpactCurve(curve).getCurvePrice(true, curveId, 0);
+        if (fee > 0) {
+            IImpactCurve(curve).support{value: fee}(curveId, msg.sender, fee);
         }
     }
 
@@ -686,12 +727,12 @@ contract Mission is Storage {
         return this.getBool(keccak256(abi.encode(address(this), target, ".authorized")));
     }
 
-    function setFee(uint256 fee) external payable onlyOperator {
-        _setUint(keccak256(abi.encode(address(this), ".fee")), fee);
+    function setPriceCurve(address curve, uint256 curveId) external payable onlyOperator {
+        _setUint(keccak256(abi.encode(address(this), ".fee")), this.getCurveKey(curve, curveId));
     }
 
-    function getFee() external view returns (uint256) {
-        return this.getUint(keccak256(abi.encode(address(this), ".fee")));
+    function getPriceCurve() external view returns (address, uint256) {
+        return this.decodeCurveKey(this.getUint(keccak256(abi.encode(address(this), ".fee"))));
     }
 
     /// -----------------------------------------------------------------------
@@ -699,21 +740,24 @@ contract Mission is Storage {
     /// -----------------------------------------------------------------------
 
     /// @notice  Create task by dao.
-    function setTasks(address[] calldata creators, uint256[] calldata deadlines, string[] calldata detail)
-        external
-        payable
-        onlyOperator
-    {
-        _setTasks(creators, deadlines, detail);
+    function setTasks(
+        address[] calldata creators,
+        uint256[] calldata deadlines,
+        string[] calldata titles,
+        string[] calldata detail
+    ) external payable onlyOperator {
+        _setTasks(creators, deadlines, titles, detail);
     }
 
     /// @notice  Create task with payment.
-    function payToSetTasks(address[] calldata creators, uint256[] calldata deadlines, string[] calldata detail)
-        external
-        payable
-        priceCheck
-    {
-        _setTasks(creators, deadlines, detail);
+    function payToSetTasks(
+        address[] calldata creators,
+        uint256[] calldata deadlines,
+        string[] calldata titles,
+        string[] calldata detail
+    ) external payable {
+        priceCheck();
+        _setTasks(creators, deadlines, titles, detail);
     }
 
     /// @notice Update creator of a task.
@@ -738,28 +782,39 @@ contract Mission is Storage {
         }
     }
 
+    /// @notice Update detail of a task.
+    function setTaskTitle(uint256 taskId, string calldata title) external payable onlyOperator {
+        _setTaskTitle(taskId, title);
+    }
+
+    /// @notice Update detail of a task.
+    function setTaskDetail(uint256 taskId, string calldata detail) external payable onlyOperator {
+        _setTaskDetail(taskId, detail);
+    }
+
     /// @notice  Internal function to create task.
-    function _setTasks(address[] calldata creators, uint256[] calldata deadlines, string[] calldata detail) internal {
+    function _setTasks(
+        address[] calldata creators,
+        uint256[] calldata deadlines,
+        string[] calldata titles,
+        string[] calldata detail
+    ) internal {
         uint256 taskId;
 
         // Confirm inputs are valid.
         uint256 length = creators.length;
-        if (length != deadlines.length || length != detail.length) revert LengthMismatch();
+        if (length != deadlines.length || length != titles.length || length != detail.length) revert LengthMismatch();
         if (length == 0) revert InvalidTask();
 
         // Set new task content.
         for (uint256 i = 0; i < length; ++i) {
             // Increment and retrieve taskId.
             taskId = incrementTaskId();
+            _setTaskTitle(taskId, titles[i]);
             _setTaskCreator(taskId, creators[i]);
             _setTaskDeadline(taskId, deadlines[i]);
             _setTaskDetail(taskId, detail[i]);
         }
-    }
-
-    /// @notice Update detail of a task.
-    function setTaskDetail(uint256 taskId, string calldata detail) external payable onlyOperator {
-        _setTaskDetail(taskId, detail);
     }
 
     /// @notice Internal function to set creator of a task.
@@ -772,6 +827,12 @@ contract Mission is Storage {
     function _setTaskDeadline(uint256 taskId, uint256 deadline) internal {
         if (deadline == 0) revert InvalidTask();
         _setUint(keccak256(abi.encode(address(this), ".tasks.", taskId, ".deadline")), deadline);
+    }
+
+    /// @notice Internal function to set detail of a task.
+    function _setTaskTitle(uint256 taskId, string calldata title) internal {
+        if (bytes(title).length == 0) deleteString(keccak256(abi.encode(address(this), ".tasks.", taskId, ".title")));
+        _setString(keccak256(abi.encode(address(this), ".tasks.", taskId, ".title")), title);
     }
 
     /// @notice Internal function to set detail of a task.
@@ -812,8 +873,8 @@ contract Mission is Storage {
     function payToSetMission(address creator, string calldata title, string calldata detail, uint256[] calldata taskIds)
         external
         payable
-        priceCheck
     {
+        priceCheck();
         _setMission(creator, title, detail, taskIds);
     }
 
@@ -1039,6 +1100,11 @@ contract Mission is Storage {
     }
 
     /// @notice Get detail of a task.
+    function getTaskTitle(uint256 taskId) external view returns (string memory) {
+        return this.getString(keccak256(abi.encode(address(this), ".tasks.", taskId, ".title")));
+    }
+
+    /// @notice Get detail of a task.
     function getTaskDetail(uint256 taskId) external view returns (string memory) {
         return this.getString(keccak256(abi.encode(address(this), ".tasks.", taskId, ".detail")));
     }
@@ -1138,6 +1204,33 @@ contract Mission is Storage {
         }
 
         return taskIds;
+    }
+
+    /// -----------------------------------------------------------------------
+    /// Helper Logic
+    /// -----------------------------------------------------------------------
+
+    /// @notice Encode address of mission, mission id and task id as type uint256.
+    function getCurveKey(address curve, uint256 curveId) external pure returns (uint256) {
+        return uint256(bytes32(abi.encodePacked(curve, uint96(curveId))));
+    }
+
+    /// @notice Decode uint256 into address of mission, mission id and task id.
+    function decodeCurveKey(uint256 curveKey) external pure returns (address, uint256) {
+        // Convert curveKey from type uint256 to bytes32.
+        bytes32 key = bytes32(curveKey);
+
+        // Declare variables to return later.
+        uint96 curveId;
+        address curve;
+
+        // Parse data via assembly.
+        assembly {
+            curveId := key
+            curve := shr(96, key)
+        }
+
+        return (curve, uint256(curveId));
     }
 }
 
@@ -1244,7 +1337,7 @@ interface IQuest {
 
 /// @title Support SVG NFTs.
 /// @notice SVG NFTs displaying impact generated from quests.
-contract qSupportToken is SupportToken {
+contract OnboardingSupportToken is SupportToken {
     /// -----------------------------------------------------------------------
     /// SVG Storage
     /// -----------------------------------------------------------------------
@@ -1255,38 +1348,30 @@ contract qSupportToken is SupportToken {
     /// Core Storage
     /// -----------------------------------------------------------------------
 
-    bool public isInitialized;
-    address public quest;
-    address public mission;
-    uint256 public missionId;
-    address public curve;
+    address public immutable quest;
+    address public immutable mission;
+    uint256 public immutable missionId;
+    address public immutable curve;
     uint256 public totalSupply;
 
     /// -----------------------------------------------------------------------
     /// Constructor & Modifier
     /// -----------------------------------------------------------------------
 
-    function init(
+    constructor(
         string memory _name,
         string memory _symbol,
         address _quest,
         address _mission,
         uint256 _missionId,
         address _curve
-    ) external payable {
+    ) {
         _init(_name, _symbol);
 
         quest = _quest;
         mission = _mission;
         missionId = _missionId;
         curve = _curve;
-
-        isInitialized = true;
-    }
-
-    modifier initialized() {
-        if (!isInitialized) revert Unauthorized();
-        _;
     }
 
     modifier onlyCurve() {
@@ -1304,7 +1389,7 @@ contract qSupportToken is SupportToken {
     /// Mint / Burn Logic
     /// -----------------------------------------------------------------------
 
-    function mint(address to) external payable initialized onlyCurve {
+    function mint(address to) external payable onlyCurve {
         unchecked {
             ++totalSupply;
         }
@@ -1312,7 +1397,7 @@ contract qSupportToken is SupportToken {
         _safeMint(to, totalSupply);
     }
 
-    function burn(uint256 id) external payable initialized onlyOwnerOrCurve(id) {
+    function burn(uint256 id) external payable onlyOwnerOrCurve(id) {
         unchecked {
             --totalSupply;
         }
@@ -1361,12 +1446,6 @@ contract qSupportToken is SupportToken {
     }
 
     function buildSvgData() public view returns (string memory) {
-        // Okay to use dynamic taskId as intent is to showcase latest attendance.
-        uint256 taskId = IMission(mission).getTaskId();
-
-        // The number of hackath0ns hosted by g0v.
-        uint256 hackathonCount = 60 + IMission(mission).getMissionTaskCount(missionId);
-
         return string.concat(
             SVG._text(
                 string.concat(
@@ -1375,22 +1454,7 @@ contract qSupportToken is SupportToken {
                     SVG._prop("font-size", "20"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat(unicode"零時政府第 ", SVG._uint2str(hackathonCount), unicode" 次 - 新手試煉")
-            ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "140"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat(
-                    unicode"第 ",
-                    SVG._uint2str(hackathonCount),
-                    unicode" 次參與人數： ",
-                    SVG._uint2str(IMission(mission).getTotalTaskCompletionsByMission(missionId, taskId)),
-                    unicode" 人"
-                )
+                string.concat(unicode"黑客松新參者小紙條")
             ),
             SVG._text(
                 string.concat(
@@ -1408,7 +1472,9 @@ contract qSupportToken is SupportToken {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat(unicode"🔔 打開專案頻道通知： ", SVG._uint2str(counters[1]), unicode" 人")
+                string.concat(
+                    unicode"🔔 打開任一專案頻道通知： ", SVG._uint2str(counters[1]), unicode" 人"
+                )
             ),
             SVG._text(
                 string.concat(
@@ -1429,7 +1495,7 @@ contract qSupportToken is SupportToken {
                     SVG._prop("fill", "#00040a")
                 ),
                 string.concat(
-                    unicode"🧐 加入三個你有興趣的頻道： ", SVG._uint2str(counters[3]), unicode" 人"
+                    unicode"🏷️ 貼上三張符合你的技能貼紙：", SVG._uint2str(counters[3]), unicode" 人"
                 )
             ),
             SVG._text(
@@ -1440,7 +1506,7 @@ contract qSupportToken is SupportToken {
                     SVG._prop("fill", "#00040a")
                 ),
                 string.concat(
-                    unicode"👀 瀏覽並截圖最新社群九分鐘： ", SVG._uint2str(counters[4]), unicode" 人"
+                    unicode"🧐 加入三個有趣的 Slack 頻道： ", SVG._uint2str(counters[4]), unicode" 人"
                 )
             ),
             SVG._text(
@@ -1451,7 +1517,7 @@ contract qSupportToken is SupportToken {
                     SVG._prop("fill", "#00040a")
                 ),
                 string.concat(
-                    unicode"🏷️ 拿三張符合你身份的技能貼紙：",
+                    unicode"👀 瀏覽並截圖最新『社群九分鐘』： ",
                     SVG._uint2str(counters[5]),
                     unicode" 人"
                 )
@@ -1464,7 +1530,7 @@ contract qSupportToken is SupportToken {
                     SVG._prop("fill", "#00040a")
                 ),
                 string.concat(
-                    unicode"🎙️ 在有興趣的專案共筆上介紹自己： ",
+                    unicode"🎙️ 在有興趣的專案共筆上自我介紹： ",
                     SVG._uint2str(counters[6]),
                     unicode" 人"
                 )
@@ -1472,7 +1538,7 @@ contract qSupportToken is SupportToken {
         );
     }
 
-    function tally(uint256 taskId) external initialized {
+    function tally(uint256 taskId) external {
         uint256 response;
         uint256 questId = IQuest(quest).getQuestId();
 

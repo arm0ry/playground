@@ -472,9 +472,11 @@ interface IQuest {
     function initialize(address dao) external payable;
     function setCooldown(uint40 cd) external payable;
     function getCooldown() external view returns (uint256);
+    function setGasbot(address bot) external payable;
+    function isGasBot(address bot) external view returns (bool);
 
     /// @notice Public logic.
-    function getPublicCount() external view returns (uint256);
+    function getNumOfPublicUsers() external view returns (uint256);
     function isPublicUser(string calldata username) external view returns (bool);
     function getNumOfStartsByMissionByPublic(address missions, uint256 missionId) external view returns (uint256);
 
@@ -485,21 +487,40 @@ interface IQuest {
     function startBySig(address signer, address missions, uint256 missionId, uint8 v, bytes32 r, bytes32 s)
         external
         payable;
-    function respond(address missions, uint256 missionId, uint256 taskId, string calldata feedback, uint256 response)
+    function sponsoredStart(string calldata username, address missions, uint256 missionId) external payable;
+    function respond(address missions, uint256 missionId, uint256 taskId, uint256 response, string calldata feedback)
         external
         payable;
     function respondBySig(
         address signer,
         uint256 taskKey,
-        string calldata feedback,
         uint256 response,
+        string calldata feedback,
         uint8 v,
         bytes32 r,
         bytes32 s
     ) external payable;
+    function sponsoredRespond(
+        string calldata username,
+        address missions,
+        uint256 missionId,
+        uint256 taskId,
+        uint256 response,
+        string calldata feedback
+    ) external payable;
+
+    /// @notice Quest logic.
+    function getQuestId() external view returns (uint256);
+    function getQuestIdByUserAndMission(address user, address missions, uint256 missionId)
+        external
+        view
+        returns (uint256);
     function getQuest(uint256 questId) external view returns (address, address, uint256);
-    function isQuestActive(address user, address missions, uint256 missionId) external view returns (bool);
-    function getQuestProgress(address user, address missions, uint256 missionId) external view returns (uint256);
+    function isTaskAccomplished(address user, address missions, uint256 missionId, uint256 taskId)
+        external
+        view
+        returns (bool);
+    function isMissionAccomplished(address user, address missions, uint256 missionId) external view returns (bool);
     function getNumOfCompletedTasksInMission(address user, address missions, uint256 missionId)
         external
         view
@@ -534,82 +555,42 @@ interface IQuest {
     ) external payable;
 
     /// @notice Get response & feedback.
-    function getUserResponse(address user, address missions, uint256 missionId, uint256 taskId)
-        external
-        view
-        returns (uint256);
-    function getUserFeedback(address user, address missions, uint256 missionId, uint256 taskId)
-        external
-        view
-        returns (string memory);
-    function getReviewResponse(address reviewer, address user, address missions, uint256 missionId, uint256 taskId)
-        external
-        view
-        returns (uint256);
-    function getReviewFeedback(address reviewer, address user, address missions, uint256 missionId, uint256 taskId)
-        external
-        view
-        returns (string memory);
-
-    /// @notice Get quest related counter.
-    function getMissionQuestedCount(address missions, uint256 missionId) external view returns (uint256, uint256);
-    function getResponseCountByUser(address user, address missions, uint256 missionId, uint256 taskId)
-        external
-        view
-        returns (uint256, uint256);
-    function getReviewCountByReviewer(address reviewer, address missions, uint256 missionId, uint256 taskId)
-        external
-        view
-        returns (uint256, uint256);
+    function getTaskResponse(uint256 questId, uint256 taskId) external view returns (uint256);
+    function getTaskFeedback(uint256 questId, uint256 taskId) external view returns (string memory);
+    function getReviewResponse(address reviewer, uint256 questId) external view returns (uint256);
+    function getReviewFeedback(address reviewer, uint256 questId) external view returns (string memory);
 
     /// @notice Get quest related stats.
     function getNumOfMissionsStarted() external view returns (uint256);
     function getNumOfMissionsCompleted() external view returns (uint256);
     function getNumOfTaskCompleted() external view returns (uint256);
-    function getNumOfMissionsStartedByUser(address user, address missions, uint256 missionId)
-        external
-        view
-        returns (uint256);
-    function getNumOfMissionsCompletedByUser(address user, address missions, uint256 missionId)
-        external
-        view
-        returns (uint256);
-    function getNumOfTasksCompletedByUser(address user, address missions, uint256 missionId, uint256 taskId)
-        external
-        view
-        returns (uint256);
+    function getNumOfTimesQuestedByUser(address user) external view returns (uint256);
+    function getNumOfMissionQuested(address missions, uint256 missionId) external view returns (uint256, uint256);
 }
 
 /// @title Impact NFTs
 /// @notice SVG NFTs displaying impact results and metrics.
-contract mSupportToken is SupportToken {
+contract HackathonSupportToken is SupportToken {
     /// -----------------------------------------------------------------------
     /// Storage
     /// -----------------------------------------------------------------------
 
-    address public quest;
-    address public mission;
+    address public immutable quest;
+    address public immutable mission;
     uint256 public missionId;
-    address public curve;
+    uint256 public taskId;
+    address public immutable curve;
     uint256 public totalSupply;
 
     /// -----------------------------------------------------------------------
     /// Constructor & Modifier
     /// -----------------------------------------------------------------------
 
-    function init(
-        string memory _name,
-        string memory _symbol,
-        address _quest,
-        address _mission,
-        uint256 _missionId,
-        address _curve
-    ) external payable {
+    constructor(string memory _name, string memory _symbol, address _quest, address _mission, address _curve) {
         _init(_name, _symbol);
 
         quest = _quest;
         mission = _mission;
-        missionId = _missionId;
         curve = _curve;
     }
 
@@ -620,7 +601,6 @@ contract mSupportToken is SupportToken {
 
     modifier onlyOwnerOrCurve(uint256 id) {
         if (msg.sender != ownerOf(id) && msg.sender != curve) revert Unauthorized();
-
         _;
     }
 
@@ -642,6 +622,15 @@ contract mSupportToken is SupportToken {
         }
 
         _burn(id);
+    }
+
+    /// -----------------------------------------------------------------------
+    /// SVG Inputs
+    /// -----------------------------------------------------------------------
+
+    function setSvgInputs(uint256 _missionId, uint256 _taskId) external payable {
+        missionId = _missionId;
+        taskId = _taskId;
     }
 
     /// -----------------------------------------------------------------------
@@ -686,9 +675,6 @@ contract mSupportToken is SupportToken {
     }
 
     function buildSvgData() public view returns (string memory) {
-        // Okay to use dynamic taskId as intent is to showcase latest attendance.
-        uint256 taskId = IMission(mission).getTaskId();
-
         // The number of hackath0ns hosted by g0v.
         uint256 hackathonCount = 60 + IMission(mission).getMissionTaskCount(missionId);
 
@@ -702,15 +688,6 @@ contract mSupportToken is SupportToken {
                 ),
                 IMission(mission).getMissionTitle(missionId)
             ),
-            // SVG._text(
-            //     string.concat(
-            //         SVG._prop("x", "20"),
-            //         SVG._prop("y", "210"),
-            //         SVG._prop("font-size", "12"),
-            //         SVG._prop("fill", "#00040a")
-            //     ),
-            //     string.concat(unicode"黑客松次數：", SVG._uint2str(hackathonCount), unicode" 次")
-            // ),
             SVG._text(
                 string.concat(
                     SVG._prop("x", "20"),
