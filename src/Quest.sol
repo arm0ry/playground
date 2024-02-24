@@ -132,15 +132,6 @@ contract Quest is Storage {
     }
 
     /// -----------------------------------------------------------------------
-    /// User Logic - Profile Picture
-    /// -----------------------------------------------------------------------
-
-    /// @notice Set profile picture.
-    function setProfilePicture(string calldata url) external payable {
-        _setString(keccak256(abi.encode(address(this), ".users.", msg.sender, ".profile")), url);
-    }
-
-    /// -----------------------------------------------------------------------
     /// User Logic - Start
     /// -----------------------------------------------------------------------
 
@@ -254,11 +245,6 @@ contract Quest is Storage {
     /// -----------------------------------------------------------------------
     /// User Logic - Getter
     /// -----------------------------------------------------------------------
-
-    /// @notice Retrieve profile picture.
-    function getProfilePicture(address user) external view returns (string memory) {
-        return this.getString(keccak256(abi.encode(address(this), ".users.", user, ".profile")));
-    }
 
     /// @notice Increment number of tasks completed by a user in this quest contract.
     function isTaskAccomplished(address user, address missions, uint256 missionId, uint256 taskId)
