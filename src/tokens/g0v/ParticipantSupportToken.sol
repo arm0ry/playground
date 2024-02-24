@@ -167,7 +167,7 @@ contract ParticipantSupportToken is SupportToken {
                 ),
                 unicode"次大松的"
             ),
-            getProfilePicture(data[id].user),
+            shorten(data[id].user),
             SVG._text(
                 string.concat(
                     SVG._prop("x", "200"),
@@ -218,22 +218,32 @@ contract ParticipantSupportToken is SupportToken {
                     SVG._prop("x", "20"),
                     SVG._prop("y", "255"),
                     SVG._prop("font-size", "16"),
-                    SVG._prop("fill", "#FFBE0B")
+                    SVG._prop("fill", "#018edf")
                 ),
-                (bytes(data[id].feedback).length == 0) ? unicode"等待中..." : data[id].feedback
+                (bytes(data[id].feedback).length == 0) ? unicode"等待發言中..." : data[id].feedback
             )
         );
     }
 
-    function getProfilePicture(address user) internal view returns (string memory) {
-        return (bytes(IQuest(quest).getProfilePicture(user)).length > 0)
-            ? SVG._image(
-                IQuest(quest).getProfilePicture(user),
-                string.concat(SVG._prop("x", "150"), SVG._prop("y", "70"), SVG._prop("width", "40"))
-            )
-            : SVG._image(
-                "https://arm0ry.g0v.tw/assets/dancing.cbe2e558.png",
-                string.concat(SVG._prop("x", "150"), SVG._prop("y", "70"), SVG._prop("width", "40"))
-            );
+    function shorten(address user) internal pure returns (string memory) {
+        bytes4 _address = bytes4(abi.encodePacked(user));
+
+        bytes memory result = new bytes(10);
+        result[0] = bytes1("0");
+        result[1] = bytes1("x");
+        for (uint256 i = 0; i < 4; ++i) {
+            result[2 * i + 2] = toHexDigit(uint8(_address[i]) / 16);
+            result[2 * i + 3] = toHexDigit(uint8(_address[i]) % 16);
+        }
+        return string(result);
+    }
+
+    function toHexDigit(uint8 d) internal pure returns (bytes1) {
+        if (0 <= d && d <= 9) {
+            return bytes1(uint8(bytes1("0")) + d);
+        } else if (10 <= uint8(d) && uint8(d) <= 15) {
+            return bytes1(uint8(bytes1("a")) + d - 10);
+        }
+        revert();
     }
 }
