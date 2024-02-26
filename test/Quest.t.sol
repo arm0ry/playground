@@ -114,16 +114,6 @@ contract QuestTest is Test {
     }
 
     /// -----------------------------------------------------------------------
-    /// User Test
-    /// ----------------------------------------------------------------------
-
-    function testSetProfilePicture(string memory image) public payable {
-        vm.prank(alice);
-        quest.setProfilePicture(image);
-        assertEq(quest.getProfilePicture(alice), image);
-    }
-
-    /// -----------------------------------------------------------------------
     /// Single-Task Mission Tests
     /// ----------------------------------------------------------------------
 

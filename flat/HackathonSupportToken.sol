@@ -481,8 +481,6 @@ interface IQuest {
     function getNumOfStartsByMissionByPublic(address missions, uint256 missionId) external view returns (uint256);
 
     /// @notice User logic.
-    function setProfilePicture(string calldata url) external payable;
-    function getProfilePicture(address user) external view returns (string memory);
     function start(address missions, uint256 missionId) external payable;
     function startBySig(address signer, address missions, uint256 missionId, uint8 v, bytes32 r, bytes32 s)
         external
@@ -676,7 +674,7 @@ contract HackathonSupportToken is SupportToken {
 
     function buildSvgData() public view returns (string memory) {
         // The number of hackath0ns hosted by g0v.
-        uint256 hackathonCount = 60 + IMission(mission).getMissionTaskCount(missionId);
+        uint256 hackathonCount = 59 + IMission(mission).getMissionTaskCount(missionId);
 
         return string.concat(
             SVG._text(

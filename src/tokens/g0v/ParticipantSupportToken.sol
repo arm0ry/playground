@@ -151,7 +151,6 @@ contract ParticipantSupportToken is SupportToken {
                     SVG._prop("x", "65"),
                     SVG._prop("y", "100"),
                     SVG._prop("font-size", "12"),
-                    SVG._prop("font-weight", "bolder"),
                     SVG._prop("fill", "#018edf")
                 ),
                 SVG._uint2str(
@@ -167,15 +166,14 @@ contract ParticipantSupportToken is SupportToken {
                 ),
                 unicode"次大松的"
             ),
-            shorten(data[id].user),
             SVG._text(
                 string.concat(
-                    SVG._prop("x", "200"),
+                    SVG._prop("x", "150"),
                     SVG._prop("y", "100"),
                     SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
+                    SVG._prop("fill", "#018edf")
                 ),
-                unicode"，在"
+                shorten(data[id].user)
             ),
             SVG._text(
                 string.concat(
@@ -184,7 +182,7 @@ contract ParticipantSupportToken is SupportToken {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                unicode"最近的第"
+                unicode"在最近的第"
             ),
             SVG._text(
                 string.concat(
@@ -225,6 +223,7 @@ contract ParticipantSupportToken is SupportToken {
         );
     }
 
+    // credit: https://ethereum.stackexchange.com/questions/46321/store-literal-bytes4-as-string
     function shorten(address user) internal pure returns (string memory) {
         bytes4 _address = bytes4(abi.encodePacked(user));
 

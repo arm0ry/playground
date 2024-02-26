@@ -1248,8 +1248,6 @@ interface IQuest {
     function getNumOfStartsByMissionByPublic(address missions, uint256 missionId) external view returns (uint256);
 
     /// @notice User logic.
-    function setProfilePicture(string calldata url) external payable;
-    function getProfilePicture(address user) external view returns (string memory);
     function start(address missions, uint256 missionId) external payable;
     function startBySig(address signer, address missions, uint256 missionId, uint8 v, bytes32 r, bytes32 s)
         external
@@ -1539,6 +1537,8 @@ contract OnboardingSupportToken is SupportToken {
     }
 
     function tally(uint256 taskId) external {
+        delete counters;
+
         uint256 response;
         uint256 questId = IQuest(quest).getQuestId();
 
@@ -1546,7 +1546,11 @@ contract OnboardingSupportToken is SupportToken {
             for (uint256 i = 1; i <= questId; ++i) {
                 response = IQuest(quest).getTaskResponse(i, taskId);
                 for (uint256 j; j < 7; ++j) {
-                    if ((response / (10 ** j)) % 10 == 1) ++counters[j];
+                    if ((response / (10 ** j)) % 10 == 1) {
+                        unchecked {
+                            ++counters[j];
+                        }
+                    }
                 }
             }
         } else {

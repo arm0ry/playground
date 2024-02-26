@@ -1248,8 +1248,6 @@ interface IQuest {
     function getNumOfStartsByMissionByPublic(address missions, uint256 missionId) external view returns (uint256);
 
     /// @notice User logic.
-    function setProfilePicture(string calldata url) external payable;
-    function getProfilePicture(address user) external view returns (string memory);
     function start(address missions, uint256 missionId) external payable;
     function startBySig(address signer, address missions, uint256 missionId, uint8 v, bytes32 r, bytes32 s)
         external
@@ -1478,7 +1476,6 @@ contract ParticipantSupportToken is SupportToken {
                     SVG._prop("x", "65"),
                     SVG._prop("y", "100"),
                     SVG._prop("font-size", "12"),
-                    SVG._prop("font-weight", "bolder"),
                     SVG._prop("fill", "#018edf")
                 ),
                 SVG._uint2str(
@@ -1494,30 +1491,14 @@ contract ParticipantSupportToken is SupportToken {
                 ),
                 unicode"次大松的"
             ),
-            (
-                bytes(
-                    SVG._image(
-                        IQuest(quest).getProfilePicture(data[id].user),
-                        string.concat(SVG._prop("x", "150"), SVG._prop("y", "70"), SVG._prop("width", "40"))
-                    )
-                ).length > 0
-            )
-                ? SVG._image(
-                    IQuest(quest).getProfilePicture(data[id].user),
-                    string.concat(SVG._prop("x", "150"), SVG._prop("y", "70"), SVG._prop("width", "40"))
-                )
-                : SVG._image(
-                    "https://arm0ry.g0v.tw/assets/dancing.cbe2e558.png",
-                    string.concat(SVG._prop("x", "150"), SVG._prop("y", "70"), SVG._prop("width", "40"))
-                ),
             SVG._text(
                 string.concat(
-                    SVG._prop("x", "200"),
+                    SVG._prop("x", "150"),
                     SVG._prop("y", "100"),
                     SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
+                    SVG._prop("fill", "#018edf")
                 ),
-                unicode"，在"
+                shorten(data[id].user)
             ),
             SVG._text(
                 string.concat(
@@ -1526,7 +1507,7 @@ contract ParticipantSupportToken is SupportToken {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                unicode"最近的第"
+                unicode"在最近的第"
             ),
             SVG._text(
                 string.concat(
@@ -1560,10 +1541,33 @@ contract ParticipantSupportToken is SupportToken {
                     SVG._prop("x", "20"),
                     SVG._prop("y", "255"),
                     SVG._prop("font-size", "16"),
-                    SVG._prop("fill", "#FFBE0B")
+                    SVG._prop("fill", "#018edf")
                 ),
-                (bytes(data[id].feedback).length == 0) ? unicode"等待中..." : data[id].feedback
+                (bytes(data[id].feedback).length == 0) ? unicode"等待發言中..." : data[id].feedback
             )
         );
+    }
+
+    // credit: https://ethereum.stackexchange.com/questions/46321/store-literal-bytes4-as-string
+    function shorten(address user) internal pure returns (string memory) {
+        bytes4 _address = bytes4(abi.encodePacked(user));
+
+        bytes memory result = new bytes(10);
+        result[0] = bytes1("0");
+        result[1] = bytes1("x");
+        for (uint256 i = 0; i < 4; ++i) {
+            result[2 * i + 2] = toHexDigit(uint8(_address[i]) / 16);
+            result[2 * i + 3] = toHexDigit(uint8(_address[i]) % 16);
+        }
+        return string(result);
+    }
+
+    function toHexDigit(uint8 d) internal pure returns (bytes1) {
+        if (0 <= d && d <= 9) {
+            return bytes1(uint8(bytes1("0")) + d);
+        } else if (10 <= uint8(d) && uint8(d) <= 15) {
+            return bytes1(uint8(bytes1("a")) + d - 10);
+        }
+        revert();
     }
 }

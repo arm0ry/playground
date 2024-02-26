@@ -23,7 +23,7 @@ contract Deploy is Script {
     uint256 constant future = 2527482181;
 
     // Contracts.
-    address mContract = address(0);
+    address mContract = address(0x63695B447E02D2D36FB2178b964CA8ce20bBF99B);
     address qContract = address(0);
     address fContract;
     address payable icContract = payable(address(0));
@@ -108,12 +108,12 @@ contract Deploy is Script {
 
         // 10. Submit mock user input.
         Quest(qContract).start(address(mContract), 1);
-        Quest(qContract).respond(address(mContract), 1, 5, 10001, "I went to 61st hackathon YAY!");
-        Quest(qContract).respond(address(mContract), 1, 5, 1100111, "I went to 61st hackathon! It was so fun~");
+        Quest(qContract).respond(address(mContract), 1, 2, 1100111, "I went to 61st hackathon! It was so fun~");
 
         // 11. Configure support tokens.
-        HackathonSupportToken(hackathonContract).setSvgInputs(1, 5);
-        OnboardingSupportToken(onboardingContract).tally(5);
+        HackathonSupportToken(hackathonContract).setSvgInputs(1, 2);
+        OnboardingSupportToken(onboardingContract).tally(2);
+        ParticipantSupportToken(participantContract).populate(1, 1);
 
         // 12. Mint support.
         support(1, patron);
@@ -273,31 +273,13 @@ contract Deploy is Script {
         // Add first task.
         taskCreators.push(user);
         taskDeadlines.push(past);
-        taskTitles.push(unicode"台灣零時政府第伍拾柒次開源普渡黑客松");
-        taskDetail.push("https://g0v.hackmd.io/@jothon/HJtR_tpT3");
+        taskTitles.push(unicode"第陸拾次記得投票黑客松 － 60th Hackath0n");
+        taskDetail.push("https://g0v.hackmd.io/@jothon/B1IwtQNrT");
 
         // Add second task.
         taskCreators.push(user);
-        taskDeadlines.push(past);
-        taskTitles.push(unicode"台灣零時政府第伍拾捌次 11 歲生日快樂黑客松");
-        taskDetail.push("https://g0v.hackmd.io/@jothon/S1fxd2HCh");
-
-        // Add third task.
-        taskCreators.push(user2);
-        taskDeadlines.push(past);
-        taskTitles.push(unicode"台灣零時政府第伍拾玖次輪班寫 code 救台灣黑客松");
-        taskDetail.push("https://g0v.hackmd.io/@jothon/rktGJXOPa");
-
-        // Add fourth task.
-        taskCreators.push(user);
-        taskDeadlines.push(past);
-        taskTitles.push(unicode"台灣零時政府第陸拾次記得投票黑客松");
-        taskDetail.push("https://g0v.hackmd.io/@jothon/B1IwtQNrT");
-
-        // Add fifth task.
-        taskCreators.push(user);
         taskDeadlines.push(future);
-        taskTitles.push(unicode"台灣零時政府第陸拾壹次龍來 Open Data Day 黑客松");
+        taskTitles.push(unicode"第陸拾壹次龍來 Open Data Day 黑客松 － 61st Hackath0n");
         taskDetail.push("https://g0v.hackmd.io/@jothon/B1DqSeaK6");
 
         setNewTasksAndMission(
@@ -307,7 +289,7 @@ contract Deploy is Script {
             taskDetail,
             user,
             unicode"台灣零時政府黑客松",
-            unicode"自台灣發起、多中心化的公民科技社群「零時政府」，以資訊透明、開放成果、開放協作為核心，透過群眾草根的力量來關心公共事務。"
+            unicode"自台灣發起、多中心化的公民科技社群「零時政府」，以資訊透明、開放成果、開放協作為核心，透過群眾草根的力量來關心公共事務。 Founded in Taiwan, 'g0v' (gov-zero) is a decentralised civic tech community with information transparency, open results and open cooperation as its core values. g0v engages in public affairs by drawing from the grassroot power of the community."
         );
     }
 
@@ -322,32 +304,32 @@ contract Deploy is Script {
         // Add first task.
         taskCreators.push(user);
         taskDeadlines.push(future);
-        taskTitles.push(unicode"炸雞");
-        taskDetail.push(unicode"食材... 產地...");
+        taskTitles.push(unicode"炸雞 － Fried Chicken");
+        taskDetail.push(unicode"食材(Ingredients)... 產地(From)...");
 
         // Add second task.
         taskCreators.push(user);
         taskDeadlines.push(future);
-        taskTitles.push(unicode"冰紅茶");
-        taskDetail.push(unicode"食材... 產地...");
+        taskTitles.push(unicode"冰紅茶 - Iced Black Tea");
+        taskDetail.push(unicode"食材(Ingredients)... 產地(From)...");
 
         // Add third task.
         taskCreators.push(user);
         taskDeadlines.push(future);
-        taskTitles.push(unicode"熱紅茶");
-        taskDetail.push(unicode"食材... 產地...");
+        taskTitles.push(unicode"熱紅茶 － Hot Black Tea");
+        taskDetail.push(unicode"食材(Ingredients)... 產地(From)...");
 
         // Add fourth task.j
         taskCreators.push(user);
         taskDeadlines.push(future);
-        taskTitles.push(unicode"壽司");
-        taskDetail.push(unicode"食材... 產地...");
+        taskTitles.push(unicode"壽司  － Sushi");
+        taskDetail.push(unicode"食材(Ingredients)... 產地(From)...");
 
         // Add fifth task.
         taskCreators.push(user);
         taskDeadlines.push(future);
-        taskTitles.push(unicode"炒飯");
-        taskDetail.push(unicode"食材... 產地...");
+        taskTitles.push(unicode"炒飯 － Fried Rice");
+        taskDetail.push(unicode"食材(Ingredients)... 產地(From)...");
 
         setNewTasksAndMission(
             taskCreators,
@@ -356,7 +338,7 @@ contract Deploy is Script {
             taskDetail,
             user,
             unicode"台灣零時政府當次黑客松之午餐",
-            unicode"自台灣發起、多中心化的公民科技社群「零時政府」，以資訊透明、開放成果、開放協作為核心，透過群眾草根的力量來關心公共事務。"
+            unicode"自台灣發起、多中心化的公民科技社群「零時政府」，以資訊透明、開放成果、開放協作為核心，透過群眾草根的力量來關心公共事務。 Founded in Taiwan, 'g0v' (gov-zero) is a decentralised civic tech community with information transparency, open results and open cooperation as its core values. g0v engages in public affairs by drawing from the grassroot power of the community."
         );
     }
 

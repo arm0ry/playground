@@ -115,7 +115,7 @@ contract HackathonSupportToken is SupportToken {
 
     function buildSvgData() public view returns (string memory) {
         // The number of hackath0ns hosted by g0v.
-        uint256 hackathonCount = 60 + IMission(mission).getMissionTaskCount(missionId);
+        uint256 hackathonCount = 59 + IMission(mission).getMissionTaskCount(missionId);
 
         return string.concat(
             SVG._text(
