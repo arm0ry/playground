@@ -16,6 +16,11 @@ import {ParticipantSupportToken} from "src/tokens/g0v/ParticipantSupportToken.so
 
 /// @notice A very simple deployment script
 contract Deploy is Script {
+    event Tasks(
+        address[] _taskCreators, uint256[] _taskDeadlines, string[] _taskTitles, string[] taskDetail, uint256[] taskIds
+    );
+    event TaskArray(address[] _taskCreators, uint256[] _taskDeadlines, string[] _taskTitles, string[] taskDetail);
+
     error Invalid();
 
     // Constant.
@@ -23,9 +28,9 @@ contract Deploy is Script {
     uint256 constant future = 2527482181;
 
     // Contracts.
-    address mContract = address(0x63695B447E02D2D36FB2178b964CA8ce20bBF99B);
+    address mContract = address(0);
     address qContract = address(0);
-    address fContract;
+    address fContract = address(0xBB2C34Aad1f5925b0a5C66f0AFcfed36443213c5);
     address payable icContract = payable(address(0));
 
     // Tokens.
@@ -58,8 +63,9 @@ contract Deploy is Script {
         deployG0vPlayground(account, user1, user2, gasbot);
         // deployParticipantSupportToken(user1, qContract, icContract);
 
-        // deployFoodList(user2);
-        // deployMeditationJourney(user1);
+        // deployHackath0n(user1);
+        // deployHackath0nLunch(user1);
+        // deployBoringStation(account);
 
         vm.stopBroadcast();
     }
@@ -70,8 +76,8 @@ contract Deploy is Script {
         Mission mTemplate = new Mission();
 
         // 1. Deploy factory.
-        Factory factory = new Factory(address(mTemplate),  address(qTemplate));
-        fContract = address(factory);
+        // Factory factory = new Factory(address(mTemplate),  address(qTemplate));
+        // fContract = address(factory);
 
         // 2. Deploy quest contract and set gasbot.
         deployQuest(patron);
@@ -91,13 +97,14 @@ contract Deploy is Script {
         deployParticipantSupportToken(user, qContract, icContract);
 
         // 6. Set curves.
-        ImpactCurve(icContract).curve(CurveType.LINEAR, hackathonContract, user, 0.0001 ether, 0, 10, 0, 0, 5, 0);
-        ImpactCurve(icContract).curve(CurveType.LINEAR, onboardingContract, user, 0.0001 ether, 0, 10, 0, 0, 2, 0);
-        ImpactCurve(icContract).curve(CurveType.POLY, participantContract, user, 0.0001 ether, 10, 20, 0, 5, 20, 0);
+        ImpactCurve(icContract).curve(CurveType.LINEAR, hackathonContract, user, 0.00001 ether, 0, 10, 0, 0, 5, 0);
+        ImpactCurve(icContract).curve(CurveType.LINEAR, onboardingContract, user, 0.00001 ether, 0, 10, 0, 0, 2, 0);
+        ImpactCurve(icContract).curve(CurveType.POLY, participantContract, user, 0.00001 ether, 10, 20, 0, 5, 20, 0);
 
         // 7. Prepare hackathon.
-        deployHackath0n(user, user2);
+        deployHackath0n(user);
         deployHackath0nLunch(user);
+        deployBoringStation(user);
 
         // 8. Authorize quest contract to record stats in mission contract.
         Mission(mContract).authorizeQuest(qContract, true);
@@ -113,12 +120,14 @@ contract Deploy is Script {
         // 11. Configure support tokens.
         HackathonSupportToken(hackathonContract).setSvgInputs(1, 2);
         OnboardingSupportToken(onboardingContract).tally(2);
-        ParticipantSupportToken(participantContract).populate(1, 1);
 
         // 12. Mint support.
         support(1, patron);
         support(2, patron);
         support(3, patron);
+
+        // 13. Customize support tokens.
+        ParticipantSupportToken(participantContract).populate(1, 1);
     }
 
     function deployMission(address user) internal {
@@ -164,7 +173,7 @@ contract Deploy is Script {
         ImpactCurve(icContract).support{value: price}(curveId, patron, price);
     }
 
-    function deployFoodList(address creator) internal {
+    function deployBoringStation(address creator) internal {
         // Clear arrarys.
         delete taskCreators;
         delete taskDeadlines;
@@ -175,94 +184,42 @@ contract Deploy is Script {
         // Add first task.
         taskCreators.push(creator);
         taskDeadlines.push(future);
-        taskTitles.push(unicode"滷肉飯");
-        taskDetail.push(unicode"食材...");
-
-        // Add second task.
-        taskCreators.push(creator);
-        taskDeadlines.push(future);
-        taskTitles.push(unicode"瀨尿牛肉丸");
-        taskDetail.push(unicode"食材...");
-
-        // Add third task.
-        taskCreators.push(creator);
-        taskDeadlines.push(future);
-        taskTitles.push(unicode"臭豆腐");
-        taskDetail.push(unicode"食材...");
-
-        setNewTasksAndMission(
-            taskCreators,
-            taskDeadlines,
-            taskTitles,
-            taskDetail,
-            creator,
-            unicode"臭豆腐大王",
-            unicode"好吃，新奇又好玩！ 食神好棒～"
-        );
-    }
-
-    function deployMeditationJourney(address creator) internal {
-        // Clear arrarys.
-        delete taskCreators;
-        delete taskDeadlines;
-        delete taskTitles;
-        delete taskDetail;
-        delete taskIds;
-
-        // Add first task.
-        taskCreators.push(creator);
-        taskDeadlines.push(future);
-        taskTitles.push("Day 1. Peace flows where mindfulness goes.");
+        taskTitles.push(unicode"冥想三分鐘 | 3 min meditation");
         taskDetail.push("Guided meditation...");
 
         // Add second task.
         taskCreators.push(creator);
         taskDeadlines.push(future);
-        taskDetail.push("Day 2. Silence is the language of the soul.");
+        taskTitles.push(unicode"冥想五分鐘 | 5 min meditation");
         taskDetail.push("Guided meditation...");
 
         // Add third task.
         taskCreators.push(creator);
         taskDeadlines.push(future);
-        taskTitles.push("Day 3. Breathe in calm, breathe out chaos.");
+        taskTitles.push(unicode"冥想十五分鐘 | 15 min meditation");
         taskDetail.push("Guided meditation...");
 
         // Add fourth task.
         taskCreators.push(creator);
         taskDeadlines.push(future);
-        taskTitles.push("Day 4. Stillness is the key to understanding.");
-        taskDetail.push("Guided meditation...");
+        taskTitles.push(unicode"自由伸展 | stretch");
+        taskDetail.push("Ways to stretch for max relaxation");
 
         // Add fifth task.
         taskCreators.push(creator);
         taskDeadlines.push(future);
-        taskTitles.push("Day 5. In quietude, truth whispers.");
-        taskDetail.push("Guided meditation...");
-
-        // Add sixth task.
-        taskCreators.push(creator);
-        taskDeadlines.push(future);
-        taskTitles.push("Day 6. Let go, and let flow in meditation.");
-        taskDetail.push("Guided meditation...");
-
-        // Add seventh task.
-        taskCreators.push(creator);
-        taskDeadlines.push(future);
-        taskTitles.push("Day 7. Rooted in silence, blossoming in peace.");
-        taskDetail.push("Guided meditation...");
+        taskTitles.push(unicode"拼拼圖 | help with jigsaw puzzle");
+        taskDetail.push(unicode"找 Zoey");
 
         setNewTasksAndMission(
-            taskCreators,
-            taskDeadlines,
-            taskTitles,
-            taskDetail,
+            taskCreators.length,
             creator,
-            "Days of Mindful Living",
-            "An onchain journey to infuse daily life with mindfulness practices. Inhale deeply, feeling calmness spread, and exhale slowly, letting all stress melt away. Sink deeper with each breath, letting peace envelop your being."
+            unicode"無聊小站 | Bored Station",
+            unicode"休息一下，站起來走一走，等等回來再繼續！ Move around, take a break, and touch some grass!"
         );
     }
 
-    function deployHackath0n(address user, address user2) internal {
+    function deployHackath0n(address _user) internal {
         // Clear arrarys.
         delete taskCreators;
         delete taskDeadlines;
@@ -270,24 +227,19 @@ contract Deploy is Script {
         delete taskDetail;
         delete taskIds;
 
-        // Add first task.
-        taskCreators.push(user);
+        taskCreators.push(_user);
         taskDeadlines.push(past);
         taskTitles.push(unicode"第陸拾次記得投票黑客松 － 60th Hackath0n");
         taskDetail.push("https://g0v.hackmd.io/@jothon/B1IwtQNrT");
 
-        // Add second task.
-        taskCreators.push(user);
+        taskCreators.push(_user);
         taskDeadlines.push(future);
         taskTitles.push(unicode"第陸拾壹次龍來 Open Data Day 黑客松 － 61st Hackath0n");
         taskDetail.push("https://g0v.hackmd.io/@jothon/B1DqSeaK6");
 
         setNewTasksAndMission(
-            taskCreators,
-            taskDeadlines,
-            taskTitles,
-            taskDetail,
-            user,
+            taskCreators.length,
+            _user,
             unicode"台灣零時政府黑客松",
             unicode"自台灣發起、多中心化的公民科技社群「零時政府」，以資訊透明、開放成果、開放協作為核心，透過群眾草根的力量來關心公共事務。 Founded in Taiwan, 'g0v' (gov-zero) is a decentralised civic tech community with information transparency, open results and open cooperation as its core values. g0v engages in public affairs by drawing from the grassroot power of the community."
         );
@@ -301,41 +253,55 @@ contract Deploy is Script {
         delete taskDetail;
         delete taskIds;
 
-        // Add first task.
         taskCreators.push(user);
         taskDeadlines.push(future);
-        taskTitles.push(unicode"炸雞 － Fried Chicken");
+        taskTitles.push(unicode"🍲 素 - 什錦炒飯 ｜ Vegetarian - Mixed Vegetable Fried Rice");
         taskDetail.push(unicode"食材(Ingredients)... 產地(From)...");
 
-        // Add second task.
         taskCreators.push(user);
         taskDeadlines.push(future);
-        taskTitles.push(unicode"冰紅茶 - Iced Black Tea");
+        taskTitles.push(
+            unicode"🍲 素 - 時蔬炒米粉 ｜ Vegetarian - Stir-Fried Rice Vermicelli with Seasonal Vegetables"
+        );
         taskDetail.push(unicode"食材(Ingredients)... 產地(From)...");
 
-        // Add third task.
         taskCreators.push(user);
         taskDeadlines.push(future);
-        taskTitles.push(unicode"熱紅茶 － Hot Black Tea");
+        taskTitles.push(unicode"🍲 素 - 青江燴菇 ｜ Vegetarian - Braised Mushrooms with Choy Sum ");
         taskDetail.push(unicode"食材(Ingredients)... 產地(From)...");
 
-        // Add fourth task.j
         taskCreators.push(user);
         taskDeadlines.push(future);
-        taskTitles.push(unicode"壽司  － Sushi");
+        taskTitles.push(unicode"🥘 XO醬彩椒雞柳 ｜ XO Sauce Bell Pepper Chicken Fillet ");
         taskDetail.push(unicode"食材(Ingredients)... 產地(From)...");
 
-        // Add fifth task.
         taskCreators.push(user);
         taskDeadlines.push(future);
-        taskTitles.push(unicode"炒飯 － Fried Rice");
+        taskTitles.push(unicode"🥘 奶油檸檬魚排 ｜ Creamy Lemon Fish Fillet ");
         taskDetail.push(unicode"食材(Ingredients)... 產地(From)...");
+
+        taskCreators.push(user);
+        taskDeadlines.push(future);
+        taskTitles.push(unicode"🫕 熱 - 芋頭西米露 ｜ Hot - Taro Sago Dessert");
+        taskDetail.push(unicode"食材(Ingredients)... 產地(From)...");
+
+        taskCreators.push(user);
+        taskDeadlines.push(future);
+        taskTitles.push(unicode"🍖 炸雞 ｜ Fried Chicken ");
+        taskDetail.push(unicode"食材(Ingredients)... 產地(From)...");
+
+        taskCreators.push(user);
+        taskDeadlines.push(future);
+        taskTitles.push(unicode"🍕 Pizza");
+        taskDetail.push(unicode"請 also 在心得欄分享你 pizza 的選擇！");
+
+        taskCreators.push(user);
+        taskDeadlines.push(future);
+        taskTitles.push(unicode"🥤 飲料 ｜ Beverage ");
+        taskDetail.push(unicode"請 also 在心得欄分享你喝了哪些飲料！");
 
         setNewTasksAndMission(
-            taskCreators,
-            taskDeadlines,
-            taskTitles,
-            taskDetail,
+            taskCreators.length,
             user,
             unicode"台灣零時政府當次黑客松之午餐",
             unicode"自台灣發起、多中心化的公民科技社群「零時政府」，以資訊透明、開放成果、開放協作為核心，透過群眾草根的力量來關心公共事務。 Founded in Taiwan, 'g0v' (gov-zero) is a decentralised civic tech community with information transparency, open results and open cooperation as its core values. g0v engages in public affairs by drawing from the grassroot power of the community."
@@ -355,35 +321,23 @@ contract Deploy is Script {
         );
     }
 
-    function _createNewTasks(
-        address[] memory users,
-        uint256[] memory expirations,
-        string[] memory titles,
-        string[] memory detail
-    ) internal returns (uint256[] memory) {
+    function _createNewTasks(uint256 taskCount) internal returns (uint256[] memory) {
         // Retrieve task id.
         uint256 taskId = Mission(mContract).getTaskId();
 
-        if (users.length == expirations.length && expirations.length == detail.length && titles.length == detail.length)
-        {
-            for (uint256 i; i < users.length; i++) {
-                taskCreators.push(users[i]);
-                taskDeadlines.push(expirations[i]);
-                taskTitles.push(titles[i]);
-                taskDetail.push(detail[i]);
-
-                taskIds.push(taskId + i + 1);
-            }
-
-            // Submit tasks onchain.
-            Mission(mContract).payToSetTasks{value: ImpactCurve(icContract).getCurvePrice(true, 1, 0)}(
-                taskCreators, taskDeadlines, taskTitles, taskDetail
-            );
-
-            return taskIds;
-        } else {
-            revert Invalid();
+        // Build task id array.
+        for (uint256 i; i < taskCount; i++) {
+            taskIds.push(taskId + i + 1);
         }
+
+        // Submit tasks onchain.
+        Mission(mContract).payToSetTasks{value: ImpactCurve(icContract).getCurvePrice(true, 1, 0)}(
+            taskCreators, taskDeadlines, taskTitles, taskDetail
+        );
+
+        emit TaskArray(taskCreators, taskDeadlines, taskTitles, taskDetail);
+
+        return taskIds;
     }
 
     function _createNewMission(address creator, string memory title, string memory detail, uint256[] memory _taskIds)
@@ -396,15 +350,12 @@ contract Deploy is Script {
     }
 
     function setNewTasksAndMission(
-        address[] memory _taskCreators,
-        uint256[] memory _expirations,
-        string[] memory _taskTitles,
-        string[] memory _taskDetail,
+        uint256 taskCount,
         address _missionCreator,
         string memory _title,
         string memory _missionDetail
     ) internal {
-        taskIds = _createNewTasks(_taskCreators, _expirations, _taskTitles, _taskDetail);
+        taskIds = _createNewTasks(taskCount);
         _createNewMission(_missionCreator, _title, _missionDetail, taskIds);
     }
 }
