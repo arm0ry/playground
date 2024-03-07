@@ -16,3 +16,6 @@ broadcast
 # Ignore local misc files
 .DS_Store
 *.pem
+
+.gitmodules
+foundry.toml
