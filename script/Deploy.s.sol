@@ -30,7 +30,7 @@ contract Deploy is Script {
     // Contracts.
     address mContract = address(0);
     address qContract = address(0);
-    address fContract = address(0xBB2C34Aad1f5925b0a5C66f0AFcfed36443213c5);
+    address fContract = address(0);
     address payable icContract = payable(address(0));
 
     // Tokens.
@@ -60,12 +60,16 @@ contract Deploy is Script {
 
         vm.startBroadcast(privateKey);
 
-        deployG0vPlayground(account, user1, user2, gasbot);
+        // TODO: g0v
+        // deployG0vPlayground(account, user1, user2, gasbot);
         // deployParticipantSupportToken(user1, qContract, icContract);
 
         // deployHackath0n(user1);
         // deployHackath0nLunch(user1);
         // deployBoringStation(account);
+
+        // TODO: commons
+        deployCommons(account, user1, gasbot);
 
         vm.stopBroadcast();
     }
@@ -89,7 +93,7 @@ contract Deploy is Script {
 
         // 4. Deploy mission contract, and set bonding curve as pricing model for paying to set tasks and missions.
         deployMission(patron);
-        Mission(mContract).setPriceCurve(icContract, 1);
+        // Mission(mContract).setFee(0);
 
         // 5. Deploy support tokens.
         deployHackathonSupportToken(mContract, qContract, icContract);
@@ -128,6 +132,66 @@ contract Deploy is Script {
 
         // 13. Customize support tokens.
         ParticipantSupportToken(participantContract).populate(1, 1);
+    }
+
+    function deployCommons(address patron, address user, address gasbot) internal {
+        // Templates for factory deployment.
+        Quest qTemplate = new Quest();
+        Mission mTemplate = new Mission();
+
+        // 1. Deploy factory.
+        Factory factory = new Factory(address(mTemplate),  address(qTemplate));
+        fContract = address(factory);
+
+        // 2. Deploy quest contract and set gasbot.
+        deployQuest(patron);
+        Quest(qContract).setGasbot(gasbot);
+        Quest(qContract).setDao(user);
+
+        // 3. Deploy curves.
+        // deployImpactCurve(user);
+
+        // 4. Deploy mission contract, and set bonding curve as pricing model for paying to set tasks and missions.
+        deployMission(patron);
+        // Mission(mContract).setFee(0);
+
+        // 5. Deploy support tokens.
+        // deployHackathonSupportToken(mContract, qContract, icContract);
+        // deployOnboardingSupportToken(mContract, 1, qContract, icContract);
+        // deployParticipantSupportToken(user, qContract, icContract);
+
+        // 6. Set curves.
+        // ImpactCurve(icContract).curve(CurveType.LINEAR, hackathonContract, user, 0.00001 ether, 0, 10, 0, 0, 5, 0);
+        // ImpactCurve(icContract).curve(CurveType.LINEAR, onboardingContract, user, 0.00001 ether, 0, 10, 0, 0, 2, 0);
+        // ImpactCurve(icContract).curve(CurveType.POLY, participantContract, user, 0.00001 ether, 10, 20, 0, 5, 20, 0);
+
+        // 7. Prepare hackathon.
+        // deployHackath0n(user);
+        // deployHackath0nLunch(user);
+        // deployBoringStation(user);
+
+        // 8. Authorize quest contract to record stats in mission contract.
+        Mission(mContract).authorizeQuest(qContract, true);
+
+        // 9. Update admin.
+        // Need this only if deployer account is different from account operating the contract
+        Mission(mContract).setDao(user);
+
+        // 10. Submit mock user input.
+        // Quest(qContract).start(address(mContract), 1);
+        // Quest(qContract).respond(address(mContract), 1, 2, 1100111, "I went to 61st hackathon! It was so fun~");
+
+        // 11. Configure support tokens.
+        // HackathonSupportToken(hackathonContract).setSvgInputs(1, 2);
+        // OnboardingSupportToken(onboardingContract).tally(2);
+
+        // 12. Mint support.
+        // support(1, patron);
+        // support(2, patron);
+        // support(3, patron);
+
+        // 13. Customize support tokens.
+        // ParticipantSupportToken(participantContract).populate(1, 1);
     }
 
     function deployMission(address user) internal {
