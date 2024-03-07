@@ -26,13 +26,14 @@ contract Mission is Storage {
         _;
     }
 
-    function priceCheck() internal {
-        uint256 fee;
-        (address curve, uint256 curveId) = this.getPriceCurve();
-        fee = IImpactCurve(curve).getCurvePrice(true, curveId, 0);
+    modifier feeCheck() {
+        uint256 fee = this.getFee();
         if (fee > 0) {
-            IImpactCurve(curve).support{value: fee}(curveId, msg.sender, fee);
+            (bool success,) = this.getDao().call{value: fee}("");
+            if (!success) revert NotAuthorized();
         }
+
+        _;
     }
 
     /// -----------------------------------------------------------------------
@@ -56,12 +57,12 @@ contract Mission is Storage {
         return this.getBool(keccak256(abi.encode(address(this), target, ".authorized")));
     }
 
-    function setPriceCurve(address curve, uint256 curveId) external payable onlyOperator {
-        _setUint(keccak256(abi.encode(address(this), ".fee")), this.getCurveKey(curve, curveId));
+    function setFee(uint256 fee) external payable onlyOperator {
+        _setUint(keccak256(abi.encode(address(this), ".fee")), fee);
     }
 
-    function getPriceCurve() external view returns (address, uint256) {
-        return this.decodeCurveKey(this.getUint(keccak256(abi.encode(address(this), ".fee"))));
+    function getFee() external view returns (uint256) {
+        return this.getUint(keccak256(abi.encode(address(this), ".fee")));
     }
 
     /// -----------------------------------------------------------------------
@@ -84,8 +85,7 @@ contract Mission is Storage {
         uint256[] calldata deadlines,
         string[] calldata titles,
         string[] calldata detail
-    ) external payable {
-        priceCheck();
+    ) external payable feeCheck {
         _setTasks(creators, deadlines, titles, detail);
     }
 
@@ -202,8 +202,8 @@ contract Mission is Storage {
     function payToSetMission(address creator, string calldata title, string calldata detail, uint256[] calldata taskIds)
         external
         payable
+        feeCheck
     {
-        priceCheck();
         _setMission(creator, title, detail, taskIds);
     }
 
@@ -533,32 +533,5 @@ contract Mission is Storage {
         }
 
         return taskIds;
-    }
-
-    /// -----------------------------------------------------------------------
-    /// Helper Logic
-    /// -----------------------------------------------------------------------
-
-    /// @notice Encode address of mission, mission id and task id as type uint256.
-    function getCurveKey(address curve, uint256 curveId) external pure returns (uint256) {
-        return uint256(bytes32(abi.encodePacked(curve, uint96(curveId))));
-    }
-
-    /// @notice Decode uint256 into address of mission, mission id and task id.
-    function decodeCurveKey(uint256 curveKey) external pure returns (address, uint256) {
-        // Convert curveKey from type uint256 to bytes32.
-        bytes32 key = bytes32(curveKey);
-
-        // Declare variables to return later.
-        uint96 curveId;
-        address curve;
-
-        // Parse data via assembly.
-        assembly {
-            curveId := key
-            curve := shr(96, key)
-        }
-
-        return (curve, uint256(curveId));
     }
 }
