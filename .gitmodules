@@ -7,3 +7,6 @@
 [submodule "lib/solbase"]
 	path = lib/solbase
 	url = https://github.com/Sol-DAO/solbase
+[submodule "lib/kali-markets"]
+	path = lib/kali-markets
+	url = https://github.com/kalidao/kali-markets
