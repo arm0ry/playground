@@ -9,6 +9,13 @@ import {LibClone} from "solbase/utils/LibClone.sol";
 
 contract Factory {
     /// -----------------------------------------------------------------------
+    /// Events
+    /// -----------------------------------------------------------------------
+
+    event MissionDeployed(address mission);
+    event QuestDeployed(address quest);
+
+    /// -----------------------------------------------------------------------
     /// Library Usage
     /// -----------------------------------------------------------------------
 
@@ -52,6 +59,7 @@ contract Factory {
     ) public payable virtual returns (address) {
         address m = mission.cloneDeterministic(abi.encodePacked(user), keccak256(abi.encode(user, ++nonces[user])));
         IMission(m).initialize(user);
+        emit MissionDeployed(m);
         return (m);
     }
 
@@ -60,6 +68,7 @@ contract Factory {
     ) public payable virtual returns (address) {
         address q = quest.cloneDeterministic(abi.encodePacked(user), keccak256(abi.encode(user, ++nonces[user])));
         IQuest(q).initialize(user);
+        emit QuestDeployed(q);
         return (q);
     }
 }
