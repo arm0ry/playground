@@ -4,3 +4,6 @@ solbase/=lib/solbase/src/
 solmate/=lib/solmate/src/
 kali-markets/=lib/kali-markets/src/
 svg/=lib/hot-chain-svg/contracts
+interface/=src/interface
+tokens/=src/tokens
+utils/=src/utils
