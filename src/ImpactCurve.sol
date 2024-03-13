@@ -93,7 +93,7 @@ contract ImpactCurve is Storage {
         // Initialize curve data.
         if (curveType == CurveType.LINEAR) {
             setCurveFormula(curveId, scale, 0, mint_b, mint_c, 0, burn_b, burn_c);
-        } else if (curveType == CurveType.POLY) {
+        } else if (curveType == CurveType.QUADRATIC) {
             setCurveFormula(curveId, scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
         }
 
@@ -280,7 +280,7 @@ contract ImpactCurve is Storage {
             if (curveType == CurveType.LINEAR) {
                 // Return linear pricing based on, a * b * x + b.
                 return this.calculatePrice(supply, scale, 0, mint_b, mint_c);
-            } else if (curveType == CurveType.POLY) {
+            } else if (curveType == CurveType.QUADRATIC) {
                 // Return curve pricing based on, a * c * x^2 + b * c * x + c.
                 return this.calculatePrice(supply, scale, mint_a, mint_b, mint_c);
             } else {
@@ -291,7 +291,7 @@ contract ImpactCurve is Storage {
             if (curveType == CurveType.LINEAR) {
                 // Return linear pricing based on, a * b * x + b.
                 return this.calculatePrice(supply, scale, 0, burn_b, burn_c);
-            } else if (curveType == CurveType.POLY) {
+            } else if (curveType == CurveType.QUADRATIC) {
                 // Return curve pricing based on, a * c * x^2 + b * c * x + c.
                 return this.calculatePrice(supply, scale, burn_a, burn_b, burn_c);
             } else {

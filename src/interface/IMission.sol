@@ -25,6 +25,7 @@ interface IMission {
     function getTotalTaskCompletionsByMission(uint256 missionId, uint256 taskId) external view returns (uint256);
     function getTaskCreator(uint256 taskId) external view returns (address);
     function getTaskDeadline(uint256 taskId) external view returns (uint256);
+    function getTaskTitle(uint256 taskId) external view returns (string memory);
     function getTaskDetail(uint256 taskId) external view returns (string memory);
     function isTaskInMission(uint256 missionId, uint256 taskId) external view returns (bool);
 

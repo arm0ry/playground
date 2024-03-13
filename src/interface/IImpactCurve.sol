@@ -4,7 +4,7 @@ pragma solidity ^0.8.17;
 enum CurveType {
     NA,
     LINEAR,
-    POLY
+    QUADRATIC
 }
 
 interface IImpactCurve {
