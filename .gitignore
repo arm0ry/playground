@@ -19,3 +19,5 @@ broadcast
 
 .gitmodules
 foundry.toml
+report/
+lcov.info
