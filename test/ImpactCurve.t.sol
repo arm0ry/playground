@@ -597,7 +597,7 @@ contract ImpactCurveTest is Test {
         deployOnboardingSupportToken(user);
 
         uint256 id = setupCurve(
-            CurveType.POLY,
+            CurveType.QUADRATIC,
             address(onboardingSupportToken),
             alice,
             scale,
@@ -626,7 +626,7 @@ contract ImpactCurveTest is Test {
 
         vm.expectRevert(ImpactCurve.InvalidCurve.selector);
         uint256 id = ic.curve(
-            CurveType.POLY,
+            CurveType.QUADRATIC,
             address(onboardingSupportToken),
             alice,
             scale,
@@ -792,7 +792,7 @@ contract ImpactCurveTest is Test {
             // Linear @ supply2.
             assertEq(ic.getCurvePrice(true, curveId, supply2), ic.calculatePrice(supply2 + 1, scale, 0, mint_b, mint_c));
             assertEq(ic.getCurvePrice(false, curveId, supply2), ic.calculatePrice(supply2, scale, 0, burn_b, burn_c));
-        } else if (curveType == CurveType.POLY) {
+        } else if (curveType == CurveType.QUADRATIC) {
             // Poly @ supply.
             assertEq(
                 ic.getCurvePrice(true, curveId, supply), ic.calculatePrice(supply + 1, scale, mint_a, mint_b, mint_c)
