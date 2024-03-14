@@ -236,7 +236,21 @@ contract MissionToken is SupportToken {
         return (uint256(missionId), uint256(curveId));
     }
 
-    function convertToCurrencyForm(uint256 amount) external pure virtual returns (string memory) {
-        return string.concat(SVG._uint2str(amount / 1 ether), ".", SVG._uint2str(amount % 1 ether / 0.0001 ether));
+    function convertToCurrencyForm(uint256 amount) external view virtual returns (string memory) {
+        return string.concat(SVG._uint2str(amount / 1 ether), ".", this.handleDecimals(amount % 1 ether));
+    }
+
+    function handleDecimals(uint256 amount) external pure returns (string memory) {
+        string memory text;
+        for (uint256 i; i < 4; ++i) {
+            uint256 decimalPoint = 1 ether / (10 ** i);
+            if (amount % decimalPoint > 0) {
+                text = string.concat(text, SVG._uint2str(amount % decimalPoint / (decimalPoint / 10)));
+            } else {
+                text = string.concat(text, SVG._uint2str(0));
+            }
+        }
+
+        return text;
     }
 }
