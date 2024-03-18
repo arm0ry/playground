@@ -110,7 +110,6 @@ contract MissionToken is SupportToken {
                 ),
                 SVG.NULL
             ),
-            // buildTaskChart(),
             buildSvgData(id),
             "</svg>"
         );
@@ -168,14 +167,12 @@ contract MissionToken is SupportToken {
                             SVG._prop("x", "20"),
                             SVG._prop("y", SVG._uint2str(140 + 20 * i)),
                             SVG._prop("font-size", "12"),
-                            SVG._prop("fill", "#00040a")
+                            SVG._prop("fill", "#808080")
                         ),
                         string.concat(
-                            "'",
                             IMission(mission).getTaskTitle(taskIds[i]),
                             ": ",
-                            SVG._uint2str(IMission(mission).getTotalTaskCompletionsByMission(missionId, taskIds[i])),
-                            "'"
+                            SVG._uint2str(IMission(mission).getTotalTaskCompletionsByMission(missionId, taskIds[i]))
                         )
                     )
                 );
@@ -200,7 +197,7 @@ contract MissionToken is SupportToken {
                     SVG._prop("font-size", "9"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat(unicode"🪙  ", this.convertToCurrencyForm(priceToMint), unicode" Ξ")
+                string.concat(unicode"🪙  ", convertToCurrencyForm(priceToMint), unicode" Ξ")
             ),
             SVG._text(
                 string.concat(
@@ -209,7 +206,7 @@ contract MissionToken is SupportToken {
                     SVG._prop("font-size", "9"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat(unicode"🔥  ", this.convertToCurrencyForm(priceToBurn), unicode" Ξ")
+                string.concat(unicode"🔥  ", convertToCurrencyForm(priceToBurn), unicode" Ξ")
             )
         );
     }
@@ -236,21 +233,17 @@ contract MissionToken is SupportToken {
         return (uint256(missionId), uint256(curveId));
     }
 
-    function convertToCurrencyForm(uint256 amount) external view virtual returns (string memory) {
-        return string.concat(SVG._uint2str(amount / 1 ether), ".", this.handleDecimals(amount % 1 ether));
-    }
-
-    function handleDecimals(uint256 amount) external pure returns (string memory) {
-        string memory text;
+    function convertToCurrencyForm(uint256 amount) internal view virtual returns (string memory) {
+        string memory decimals;
         for (uint256 i; i < 4; ++i) {
             uint256 decimalPoint = 1 ether / (10 ** i);
             if (amount % decimalPoint > 0) {
-                text = string.concat(text, SVG._uint2str(amount % decimalPoint / (decimalPoint / 10)));
+                decimals = string.concat(decimals, SVG._uint2str(amount % decimalPoint / (decimalPoint / 10)));
             } else {
-                text = string.concat(text, SVG._uint2str(0));
+                decimals = string.concat(decimals, SVG._uint2str(0));
             }
         }
 
-        return text;
+        return string.concat(SVG._uint2str(amount / 1 ether), ".", decimals);
     }
 }
