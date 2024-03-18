@@ -335,6 +335,19 @@ contract MissionTest is Test {
         mission.setTaskDeadline(taskId, newDeadline);
     }
 
+    function testSetTaskTitle(string calldata newTitle) public payable {
+        // Set tasks.
+        testSetTasks();
+        vm.warp(block.timestamp + 1000);
+
+        // Update creator.
+        vm.prank(dao);
+        mission.setTaskTitle(taskId, newTitle);
+
+        // Validate.
+        assertEq(mission.getTaskTitle(taskId), newTitle);
+    }
+
     function testSetTaskDetail(string calldata newDetail) public payable {
         // Set tasks.
         testSetTasks();
