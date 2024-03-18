@@ -160,7 +160,6 @@ contract Mission is Storage {
 
     /// @notice Internal function to set detail of a task.
     function _setTaskTitle(uint256 taskId, string calldata title) internal {
-        if (bytes(title).length == 0) deleteString(keccak256(abi.encode(address(this), ".tasks.", taskId, ".title")));
         _setString(keccak256(abi.encode(address(this), ".tasks.", taskId, ".title")), title);
     }
 
@@ -336,24 +335,6 @@ contract Mission is Storage {
         _setString(keccak256(abi.encode(address(this), ".missions.", missionId, ".title")), title);
     }
 
-    // /// @notice Set mission deadline.
-    // function setMissionDeadline(uint256 missionId) internal returns (uint256) {
-    //     uint256 deadline = this.getMissionDeadline(missionId);
-
-    //     // Confirm deadline is initialized.
-    //     if (deadline == 0) {
-    //         // If not, confirm mission is initialized.
-    //         if (this.getMissionTaskCount(missionId) > 0) {
-    //             // If so, set mission deadline.
-    //             return _setMissionDeadline(missionId);
-    //         } else {
-    //             return 0;
-    //         }
-    //     } else {
-    //         return deadline;
-    //     }
-    // }
-
     /// @notice Internal function to retrieve and set deadline of mission by using the latest task deadline.
     function _setMissionDeadline(uint256 missionId, uint256[] calldata taskIds) internal returns (uint256) {
         uint256 deadline;
@@ -378,21 +359,6 @@ contract Mission is Storage {
         uint256 _deadline = this.getTaskDeadline(newTaskId);
         if (_deadline > deadline) __setMissionDeadline(missionId, _deadline);
     }
-
-    // /// @notice Internal function to retrieve and set deadline of mission by using the latest task deadline.
-    // function _setMissionDeadline(uint256 missionId) internal returns (uint256) {
-    //     uint256 deadline;
-    //     uint256[] memory taskIds = this.getMissionTaskIds(missionId);
-
-    //     uint256 _deadline;
-    //     for (uint256 i = 0; i < taskIds.length; ++i) {
-    //         _deadline = this.getTaskDeadline(taskIds[i]);
-    //         if (_deadline > deadline) deadline = _deadline;
-    //     }
-
-    //     __setMissionDeadline(missionId, deadline);
-    //     return deadline;
-    // }
 
     /// @notice Increment number of mission starts by mission id by authorized Quest contracts only.
     function incrementMissionStarts(uint256 missionId) external payable onlyQuest {
