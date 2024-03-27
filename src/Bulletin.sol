@@ -28,6 +28,7 @@ contract Bulletin {
     event ListUpdated(uint256 id, List list);
 
     error NotAuthorized();
+    error InvalidList();
 
     /// -----------------------------------------------------------------------
     /// Storage
@@ -95,6 +96,8 @@ contract Bulletin {
     /// -----------------------------------------------------------------------
 
     function registerItem(Item calldata item) public payable payFee {
+        if (item.owner == address(0)) revert NotAuthorized();
+
         unchecked {
             ++itemId;
         }
@@ -126,11 +129,14 @@ contract Bulletin {
     /// -----------------------------------------------------------------------
 
     function registerList(List calldata list) public payable payFee {
+        uint256 length = list.itemIds.length;
+        if (list.owner == address(0)) revert NotAuthorized();
+        if (length == 0) revert InvalidList();
+
         unchecked {
             ++listId;
         }
 
-        uint256 length = list.itemIds.length;
         for (uint256 i; i < length; ++i) {
             isItemInList[list.itemIds[i]][listId] = true;
         }
