@@ -117,29 +117,35 @@ contract Log {
     /// -----------------------------------------------------------------------
 
     function interact(address bulletin, uint256 listId, uint256 itemId, bytes calldata data) external payable {
-        if (IBulletin(bulletin).hasItemExpired(itemId)) revert InvalidItem();
-        if (!IBulletin(bulletin).isItemInList(itemId, listId) || IBulletin(bulletin).hasListExpired(listId)) {
-            revert InvalidList();
-        }
+        // if (IBulletin(bulletin).hasItemExpired(itemId)) revert InvalidItem();
+        // if (!IBulletin(bulletin).isItemInList(itemId, listId) || IBulletin(bulletin).hasListExpired(listId)) {
+        //     revert InvalidList();
+        // }
 
-        uint256 nonce;
         uint256 id = userActivityLookup[msg.sender][keccak256(abi.encodePacked(bulletin, listId))];
 
         if (id == 0) {
             unchecked {
                 ++activityId;
-
-                nonce = ++activities[activityId].nonce;
             }
 
             activities[activityId].user = msg.sender;
             activities[activityId].bulletin = bulletin;
             activities[activityId].listId = listId;
 
-            activities[activityId].interactions[nonce] = Interaction({pass: false, itemId: itemId, data: data});
+            activities[activityId].interactions[activities[activityId].nonce] =
+                Interaction({pass: false, itemId: itemId, data: data});
+
+            unchecked {
+                ++activities[activityId].nonce;
+            }
         } else {
-            nonce = ++activities[id].nonce;
-            activities[id].interactions[nonce] = Interaction({pass: false, itemId: itemId, data: data});
+            activities[id].interactions[activities[activityId].nonce] =
+                Interaction({pass: false, itemId: itemId, data: data});
+
+            unchecked {
+                ++activities[activityId].nonce;
+            }
         }
     }
 
@@ -156,9 +162,9 @@ contract Log {
         payable
         onlyReviewer(msg.sender, bulletin, listId)
     {
-        if (!IBulletin(bulletin).isItemInList(itemId, listId) || IBulletin(bulletin).hasListExpired(listId)) {
-            revert InvalidList();
-        }
+        // if (!IBulletin(bulletin).isItemInList(itemId, listId) || IBulletin(bulletin).hasListExpired(listId)) {
+        //     revert InvalidList();
+        // }
 
         if (nonce == 0) revert InvalidEvaluation();
         if (pass) activities[id].interactions[nonce].pass = pass;
@@ -168,9 +174,30 @@ contract Log {
     /// Activity - Getter
     /// -----------------------------------------------------------------------
 
-    function getActvitiyData(uint256 id) external view {}
+    function getActvitiyData(uint256 id)
+        external
+        view
+        returns (address user, address bulletin, uint256 listId, uint256 nonce)
+    {
+        user = activities[id].user;
+        bulletin = activities[id].bulletin;
+        listId = activities[id].listId;
+        nonce = activities[id].nonce;
+    }
 
-    function getActvitiyInteractions(uint256 id) external view {}
+    function getActvitiyInteractions(uint256 id, uint256 nonce)
+        external
+        view
+        returns (Interaction[] memory interactions)
+    {
+        if (nonce == 0) {
+            interactions[0] = activities[id].interactions[0];
+        } else {
+            for (uint256 i; i < nonce; ++i) {
+                interactions[i] = activities[id].interactions[i];
+            }
+        }
+    }
 
     function getActvitiyEvaluations(uint256 id) external view {}
 }
