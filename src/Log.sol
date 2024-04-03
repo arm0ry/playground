@@ -1,32 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.4;
 
-struct Activity {
-    address user;
-    address bulletin;
-    uint256 listId;
-    uint256 nonce;
-    mapping(uint256 => Interaction) interactions;
-}
-// mapping(uint256 => bool[]) evaluations;
+import {ILog, Activity, Touchpoint} from "./interface/ILog.sol";
+import {IBulletin, List, Item} from "./interface/IBulletin.sol";
 
-struct Interaction {
-    bool pass;
-    uint256 itemId;
-    bytes data;
-}
-
+/// @title Log
+/// @notice A database management system to log data from interacting with Bulletin.
+/// @author audsssy.eth
 contract Log {
-    event Responded();
-    event Reviewed();
+    event Logged(address user, address bulletin, uint256 listId, uint256 itemId, bytes data);
+    event Evaluated(uint256 activityId, address bulletin, uint256 listId, uint256 nonce, bool pass);
 
     error NotAuthorized();
     error InvalidEvaluation();
     error InvalidReviewer();
-
     error InvalidBot();
-    error InvalidMission();
-    error InvalidTask();
 
     /// -----------------------------------------------------------------------
     /// Activity Storage
@@ -42,7 +30,7 @@ contract Log {
     // Mapping of activities by user.
     mapping(address => mapping(bytes32 => uint256)) public userActivityLookup;
 
-    // Mapping of eligible activities by reviewer.
+    // Mapping of eligible activities for review by reviewer.
     mapping(address => mapping(bytes32 => bool)) public isReviewer;
 
     /// -----------------------------------------------------------------------
@@ -51,8 +39,8 @@ contract Log {
 
     uint256 internal INITIAL_CHAIN_ID;
     bytes32 internal INITIAL_DOMAIN_SEPARATOR;
-    bytes32 public constant INTERACT_TYPEHASH =
-        keccak256("Interact(uint256 activityId,address bulletin, uint256 listId ,uint256 itemId, bytes data)");
+    bytes32 public constant LOG_TYPEHASH =
+        keccak256("Log(address bulletin, uint256 listId ,uint256 itemId, bytes data)");
 
     /// -----------------------------------------------------------------------
     /// EIP-2612 LOGIC
@@ -88,6 +76,11 @@ contract Log {
         _;
     }
 
+    modifier onlyGasBuddy() {
+        if (gasBuddy != msg.sender) revert NotAuthorized();
+        _;
+    }
+
     /// -----------------------------------------------------------------------
     /// Constructor
     /// -----------------------------------------------------------------------
@@ -113,61 +106,104 @@ contract Log {
     }
 
     /// -----------------------------------------------------------------------
-    /// Interact with an activity
+    /// Log Logic
     /// -----------------------------------------------------------------------
 
-    function interact(address bulletin, uint256 listId, uint256 itemId, bytes calldata data) external payable {
+    function log(address bulletin, uint256 listId, uint256 itemId, bytes calldata data) external payable {
         // if (IBulletin(bulletin).hasItemExpired(itemId)) revert InvalidItem();
         // if (!IBulletin(bulletin).isItemInList(itemId, listId) || IBulletin(bulletin).hasListExpired(listId)) {
         //     revert InvalidList();
         // }
 
-        uint256 id = userActivityLookup[msg.sender][keccak256(abi.encodePacked(bulletin, listId))];
+        _log(msg.sender, bulletin, listId, itemId, data);
+    }
+
+    function logBySig(
+        address signer,
+        address bulletin,
+        uint256 listId,
+        uint256 itemId,
+        bytes calldata data,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external payable {
+        // Validate signed message.
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                DOMAIN_SEPARATOR(),
+                keccak256(abi.encode(LOG_TYPEHASH, signer, bulletin, listId, itemId, data))
+            )
+        );
+
+        address recoveredAddress = ecrecover(digest, v, r, s);
+        if (recoveredAddress == address(0) || recoveredAddress != signer) revert NotAuthorized();
+
+        _log(signer, bulletin, listId, itemId, data);
+    }
+
+    function sponsoredLog(address bulletin, uint256 listId, uint256 itemId, bytes calldata data)
+        external
+        payable
+        onlyGasBuddy
+    {
+        _log(address(0), bulletin, listId, itemId, data);
+    }
+
+    function _log(address user, address bulletin, uint256 listId, uint256 itemId, bytes calldata data) internal {
+        uint256 id = userActivityLookup[user][keccak256(abi.encodePacked(bulletin, listId))];
 
         if (id == 0) {
             unchecked {
                 ++activityId;
             }
 
-            activities[activityId].user = msg.sender;
+            if (user == address(0)) user = address(uint160(uint256(bytes32(abi.encodePacked(activityId)))));
+            activities[activityId].user = user;
             activities[activityId].bulletin = bulletin;
             activities[activityId].listId = listId;
 
-            activities[activityId].interactions[activities[activityId].nonce] =
-                Interaction({pass: false, itemId: itemId, data: data});
+            Item memory item = IBulletin(bulletin).getItem(itemId);
+
+            activities[activityId].touchpoints[activities[activityId].nonce] =
+                Touchpoint({pass: (item.review) ? false : true, itemId: itemId, data: data});
 
             unchecked {
                 ++activities[activityId].nonce;
             }
         } else {
-            activities[id].interactions[activities[activityId].nonce] =
-                Interaction({pass: false, itemId: itemId, data: data});
+            activities[id].touchpoints[activities[activityId].nonce] =
+                Touchpoint({pass: false, itemId: itemId, data: data});
 
             unchecked {
                 ++activities[activityId].nonce;
             }
         }
+
+        emit Logged(user, bulletin, listId, itemId, data);
     }
-
-    function interactBySig() external payable {}
-
-    function sponsoredInteract() external payable {}
 
     /// -----------------------------------------------------------------------
     /// Evaluate
     /// -----------------------------------------------------------------------
 
-    function evaluate(uint256 id, address bulletin, uint256 listId, uint256 nonce, bool pass)
+    function evaluate(uint256 id, address bulletin, uint256 listId, uint256 order, bool pass)
         external
         payable
         onlyReviewer(msg.sender, bulletin, listId)
     {
+        (, address _bulletin, uint256 _listId, uint256 nonce) = getActvitiyData(id);
+        if (order > nonce || bulletin != _bulletin || listId != _listId) revert InvalidEvaluation();
+
         // if (!IBulletin(bulletin).isItemInList(itemId, listId) || IBulletin(bulletin).hasListExpired(listId)) {
         //     revert InvalidList();
         // }
 
-        if (nonce == 0) revert InvalidEvaluation();
-        if (pass) activities[id].interactions[nonce].pass = pass;
+        if (order == 0) revert InvalidEvaluation();
+        activities[id].touchpoints[order].pass = pass;
+
+        emit Evaluated(id, bulletin, listId, order, pass);
     }
 
     /// -----------------------------------------------------------------------
@@ -175,7 +211,7 @@ contract Log {
     /// -----------------------------------------------------------------------
 
     function getActvitiyData(uint256 id)
-        external
+        public
         view
         returns (address user, address bulletin, uint256 listId, uint256 nonce)
     {
@@ -185,19 +221,26 @@ contract Log {
         nonce = activities[id].nonce;
     }
 
-    function getActvitiyInteractions(uint256 id, uint256 nonce)
+    function getActvitiyTouchpoints(uint256 id)
         external
         view
-        returns (Interaction[] memory interactions)
+        returns (Touchpoint[] memory touchpoints, uint256 percentageOfCompletion)
     {
-        if (nonce == 0) {
-            interactions[0] = activities[id].interactions[0];
-        } else {
-            for (uint256 i; i < nonce; ++i) {
-                interactions[i] = activities[id].interactions[i];
-            }
-        }
-    }
+        uint256 progress;
 
-    function getActvitiyEvaluations(uint256 id) external view {}
+        (, address bulletin, uint256 listId, uint256 nonce) = getActvitiyData(id);
+        List memory list = IBulletin(bulletin).getList(listId);
+        uint256 itemCount = list.itemIds.length;
+
+        for (uint256 i; i <= nonce; ++i) {
+            for (uint256 j; j <= itemCount; ++j) {
+                if (activities[id].touchpoints[i].itemId == list.itemIds[j]) {
+                    ++progress;
+                }
+            }
+            touchpoints[i] = activities[id].touchpoints[i];
+        }
+
+        percentageOfCompletion = progress * 100 / itemCount;
+    }
 }
