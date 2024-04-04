@@ -175,11 +175,10 @@ contract Log {
                 ++activities[activityId].nonce;
             }
         } else {
-            activities[id].touchpoints[activities[activityId].nonce] =
-                Touchpoint({pass: false, itemId: itemId, data: data});
+            activities[id].touchpoints[activities[id].nonce] = Touchpoint({pass: false, itemId: itemId, data: data});
 
             unchecked {
-                ++activities[activityId].nonce;
+                ++activities[id].nonce;
             }
         }
 

@@ -27,12 +27,26 @@ contract Bulletin {
     // @notice itemId => listId => bool
     mapping(uint256 => mapping(uint256 => bool)) isItemInList;
 
+    // @notice Log contract => bool
+    mapping(address => bool) isLoggerAuthorized;
+
+    // @notice itemId => number of interactions produced
+    mapping(uint256 => uint256) public numOfInteractionsByItem;
+
+    // @notice listId => number of interactions produced
+    mapping(uint256 => uint256) public numOfInteractionsByList;
+
     /// -----------------------------------------------------------------------
     /// Modifier
     /// -----------------------------------------------------------------------
 
     modifier onlyDao() {
         if (dao != msg.sender) revert NotAuthorized();
+        _;
+    }
+
+    modifier onlyAuthorizedLogger() {
+        if (!isLoggerAuthorized[msg.sender]) revert NotAuthorized();
         _;
     }
 
