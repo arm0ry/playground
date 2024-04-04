@@ -17,12 +17,14 @@ struct Touchpoint {
 }
 
 interface ILog {
-    function getActvitiyData(uint256 id)
+    function activityId() external view returns (uint256);
+
+    function getActivityData(uint256 id)
         external
         view
         returns (address user, address bulletin, uint256 listId, uint256 nonce);
 
-    function getActvitiyTouchpoints(uint256 id, uint256 nonce)
+    function getActivityTouchpoints(uint256 id, uint256 nonce)
         external
         view
         returns (Touchpoint[] memory touchpoints);

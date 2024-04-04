@@ -24,4 +24,6 @@ interface IBulletin {
     function getItem(uint256 id) external view returns (Item memory);
     function getList(uint256 id) external view returns (List memory);
     function hasListExpired(uint256 id) external view returns (bool);
+    function hasItemExpired(uint256 id) external view returns (bool);
+    function getIsItemInList(uint256 itemId, uint256 listId) external view returns (bool);
 }

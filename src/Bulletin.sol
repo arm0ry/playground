@@ -24,7 +24,8 @@ contract Bulletin {
     mapping(uint256 => Item) public items;
     mapping(uint256 => List) public lists;
 
-    mapping(uint256 => mapping(uint256 => bool)) public isItemInList;
+    // @notice itemId => listId => bool
+    mapping(uint256 => mapping(uint256 => bool)) isItemInList;
 
     /// -----------------------------------------------------------------------
     /// Modifier
@@ -150,6 +151,10 @@ contract Bulletin {
     function hasItemExpired(uint256 id) public view returns (bool) {
         if (block.timestamp > items[id].expire) return true;
         else return false;
+    }
+
+    function getIsItemInList(uint256 _itemId, uint256 _listId) public view returns (bool) {
+        return isItemInList[_itemId][_listId];
     }
 
     /// -----------------------------------------------------------------------

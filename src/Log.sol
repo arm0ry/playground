@@ -15,6 +15,8 @@ contract Log {
     error InvalidEvaluation();
     error InvalidReviewer();
     error InvalidBot();
+    error InvalidList();
+    error InvalidItem();
 
     /// -----------------------------------------------------------------------
     /// Activity Storage
@@ -110,10 +112,10 @@ contract Log {
     /// -----------------------------------------------------------------------
 
     function log(address bulletin, uint256 listId, uint256 itemId, bytes calldata data) external payable {
-        // if (IBulletin(bulletin).hasItemExpired(itemId)) revert InvalidItem();
-        // if (!IBulletin(bulletin).isItemInList(itemId, listId) || IBulletin(bulletin).hasListExpired(listId)) {
-        //     revert InvalidList();
-        // }
+        if (IBulletin(bulletin).hasItemExpired(itemId)) revert InvalidItem();
+        if (!IBulletin(bulletin).getIsItemInList(itemId, listId) || IBulletin(bulletin).hasListExpired(listId)) {
+            revert InvalidList();
+        }
 
         _log(msg.sender, bulletin, listId, itemId, data);
     }
@@ -188,17 +190,19 @@ contract Log {
     /// Evaluate
     /// -----------------------------------------------------------------------
 
-    function evaluate(uint256 id, address bulletin, uint256 listId, uint256 order, bool pass)
+    function evaluate(uint256 id, address bulletin, uint256 listId, uint256 order, uint256 itemId, bool pass)
         external
         payable
         onlyReviewer(msg.sender, bulletin, listId)
     {
-        (, address _bulletin, uint256 _listId, uint256 nonce) = getActvitiyData(id);
+        (, address _bulletin, uint256 _listId, uint256 nonce) = getActivityData(id);
+
+        // TODO: require itemId retrieved from order matches supplied itemId
         if (order > nonce || bulletin != _bulletin || listId != _listId) revert InvalidEvaluation();
 
-        // if (!IBulletin(bulletin).isItemInList(itemId, listId) || IBulletin(bulletin).hasListExpired(listId)) {
-        //     revert InvalidList();
-        // }
+        if (!IBulletin(bulletin).getIsItemInList(itemId, listId) || IBulletin(bulletin).hasListExpired(listId)) {
+            revert InvalidList();
+        }
 
         if (order == 0) revert InvalidEvaluation();
         activities[id].touchpoints[order].pass = pass;
@@ -210,7 +214,7 @@ contract Log {
     /// Activity - Getter
     /// -----------------------------------------------------------------------
 
-    function getActvitiyData(uint256 id)
+    function getActivityData(uint256 id)
         public
         view
         returns (address user, address bulletin, uint256 listId, uint256 nonce)
@@ -221,14 +225,14 @@ contract Log {
         nonce = activities[id].nonce;
     }
 
-    function getActvitiyTouchpoints(uint256 id)
+    function getActivityTouchpoints(uint256 id)
         external
         view
         returns (Touchpoint[] memory touchpoints, uint256 percentageOfCompletion)
     {
         uint256 progress;
 
-        (, address bulletin, uint256 listId, uint256 nonce) = getActvitiyData(id);
+        (, address bulletin, uint256 listId, uint256 nonce) = getActivityData(id);
         List memory list = IBulletin(bulletin).getList(listId);
         uint256 itemCount = list.itemIds.length;
 
@@ -241,6 +245,8 @@ contract Log {
             touchpoints[i] = activities[id].touchpoints[i];
         }
 
-        percentageOfCompletion = progress * 100 / itemCount;
+        unchecked {
+            percentageOfCompletion = progress * 100 / itemCount;
+        }
     }
 }

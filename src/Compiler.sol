@@ -12,15 +12,26 @@ contract Compiler {
     function progress() public view returns (uint256) {}
 
     // @notice Compile data related to the requested activity.
-    function _compile(address log, uint256 activityId) internal view returns (uint256) {
-        (address user, address bulletin, uint256 listId, uint256 nonce) = ILog(log).getActvitiyData(activityId);
+    function compileNumOfRuns(address log, address bulletin, uint256 listId) internal view returns (uint256) {
+        uint256 activityCount = ILog(log).activityId();
 
-        // Retrieve review flag from Item to check for completion and then compute number of tasks completed over total number of tasks
-        Touchpoint[] memory touchpoints = ILog(log).getActvitiyTouchpoints(listId, nonce);
+        address aUser;
+        address aBulletin;
+        uint256 aListId;
+        uint256 aNonce;
 
-        uint256 length = touchpoints.length;
-        for (uint256 i; i < length; ++i) {
-          if (touchpoints[i].)
+        for (uint256 i; i < activityCount; ++i) {
+            (aUser, aBulletin, aListId, aNonce) = ILog(log).getActivityData(i);
+
+            if (bulletin == aBulletin && listId == aListId) {} // TODO: Do something.
+
+            // Retrieve review flag from Item to check for completion and then compute number of tasks completed over total number of tasks
+            Touchpoint[] memory touchpoints = ILog(log).getActivityTouchpoints(aListId, aNonce);
+
+            uint256 length = touchpoints.length;
+            for (uint256 i; i < length; ++i) {
+                // if (touchpoints[i].)
+            }
         }
     }
 }
