@@ -113,7 +113,7 @@ contract Log {
 
     function log(address bulletin, uint256 listId, uint256 itemId, bytes calldata data) external payable {
         if (IBulletin(bulletin).hasItemExpired(itemId)) revert InvalidItem();
-        if (!IBulletin(bulletin).getIsItemInList(itemId, listId) || IBulletin(bulletin).hasListExpired(listId)) {
+        if (!IBulletin(bulletin).checkIsItemInList(itemId, listId) || IBulletin(bulletin).hasListExpired(listId)) {
             revert InvalidList();
         }
 
@@ -182,6 +182,8 @@ contract Log {
             }
         }
 
+        IBulletin(bulletin).submit(itemId);
+
         emit Logged(user, bulletin, listId, itemId, data);
     }
 
@@ -199,7 +201,7 @@ contract Log {
         // TODO: require itemId retrieved from order matches supplied itemId
         if (order > nonce || bulletin != _bulletin || listId != _listId) revert InvalidEvaluation();
 
-        if (!IBulletin(bulletin).getIsItemInList(itemId, listId) || IBulletin(bulletin).hasListExpired(listId)) {
+        if (!IBulletin(bulletin).checkIsItemInList(itemId, listId) || IBulletin(bulletin).hasListExpired(listId)) {
             revert InvalidList();
         }
 

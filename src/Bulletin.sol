@@ -33,9 +33,6 @@ contract Bulletin {
     // @notice itemId => number of interactions produced
     mapping(uint256 => uint256) public numOfInteractionsByItem;
 
-    // @notice listId => number of interactions produced
-    mapping(uint256 => uint256) public numOfInteractionsByList;
-
     /// -----------------------------------------------------------------------
     /// Modifier
     /// -----------------------------------------------------------------------
@@ -155,6 +152,22 @@ contract Bulletin {
     }
 
     /// -----------------------------------------------------------------------
+    /// Log Logic - Setter
+    /// -----------------------------------------------------------------------
+
+    function authorizeLog(address log) external onlyDao {
+        isLoggerAuthorized[log] = true;
+    }
+
+    function submit(uint256 _itemId) external onlyAuthorizedLogger {
+        if (_itemId > 0) {
+            unchecked {
+                ++numOfInteractionsByItem[_itemId];
+            }
+        }
+    }
+
+    /// -----------------------------------------------------------------------
     /// Item Logic - Getter
     /// -----------------------------------------------------------------------
 
@@ -167,7 +180,7 @@ contract Bulletin {
         else return false;
     }
 
-    function getIsItemInList(uint256 _itemId, uint256 _listId) public view returns (bool) {
+    function checkIsItemInList(uint256 _itemId, uint256 _listId) public view returns (bool) {
         return isItemInList[_itemId][_listId];
     }
 
