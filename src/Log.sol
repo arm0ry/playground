@@ -232,18 +232,24 @@ contract Log {
         returns (Touchpoint[] memory touchpoints, uint256 percentageOfCompletion)
     {
         uint256 progress;
+        uint256[1000] memory itemBitmap;
 
         (, address bulletin, uint256 listId, uint256 nonce) = getActivityData(id);
         List memory list = IBulletin(bulletin).getList(listId);
         uint256 itemCount = list.itemIds.length;
 
-        for (uint256 i; i <= nonce; ++i) {
-            for (uint256 j; j <= itemCount; ++j) {
-                if (activities[id].touchpoints[i].itemId == list.itemIds[j]) {
-                    ++progress;
+        for (uint256 i; i <= itemCount; ++i) {
+            for (uint256 j; j <= nonce; ++j) {
+                if (activities[id].touchpoints[j].itemId == list.itemIds[i]) {
+                    if (itemBitmap[list.itemIds[i]] == 0) {
+                        unchecked {
+                            ++itemBitmap[list.itemIds[i]];
+                            ++progress;
+                        }
+                    }
                 }
+                (nonce != touchpoints.length) ? touchpoints[j] = activities[id].touchpoints[j] : touchpoints[j];
             }
-            touchpoints[i] = activities[id].touchpoints[i];
         }
 
         unchecked {

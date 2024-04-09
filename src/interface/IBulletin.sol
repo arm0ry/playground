@@ -31,5 +31,5 @@ interface IBulletin {
     function authorizeLog(address log) external;
     function submit(uint256 itemId) external;
     function isLoggerAuthorized(address log) external view returns (bool);
-    function numOfInteractionsByItem(uint256 itemId) external view returns (uint256);
+    function runsByItem(uint256 itemId) external view returns (uint256);
 }

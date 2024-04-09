@@ -31,7 +31,7 @@ contract Bulletin {
     mapping(address => bool) isLoggerAuthorized;
 
     // @notice itemId => number of interactions produced
-    mapping(uint256 => uint256) public numOfInteractionsByItem;
+    mapping(uint256 => uint256) public runsByItem;
 
     /// -----------------------------------------------------------------------
     /// Modifier
@@ -162,7 +162,7 @@ contract Bulletin {
     function submit(uint256 _itemId) external onlyAuthorizedLogger {
         if (_itemId > 0) {
             unchecked {
-                ++numOfInteractionsByItem[_itemId];
+                ++runsByItem[_itemId];
             }
         }
     }
