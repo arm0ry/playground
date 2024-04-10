@@ -240,6 +240,7 @@ contract Log {
 
         for (uint256 i; i <= itemCount; ++i) {
             for (uint256 j; j <= nonce; ++j) {
+                /// @dev Calculate percentage of completion.
                 if (activities[id].touchpoints[j].itemId == list.itemIds[i]) {
                     if (itemBitmap[list.itemIds[i]] == 0) {
                         unchecked {
@@ -248,6 +249,8 @@ contract Log {
                         }
                     }
                 }
+
+                /// @dev Retrieve touchpoints.
                 (nonce != touchpoints.length) ? touchpoints[j] = activities[id].touchpoints[j] : touchpoints[j];
             }
         }

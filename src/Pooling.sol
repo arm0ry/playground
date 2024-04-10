@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.4;
 
-import {ILog, Touchpoint} from "./interface/ILog.sol";
+import {ILog, Activity, Touchpoint} from "./interface/ILog.sol";
 import {IBulletin, List} from "./interface/IBulletin.sol";
 
 /// @title Compiler
@@ -15,10 +15,10 @@ library Pooling {
     error Invalid();
 
     /// -----------------------------------------------------------------------
-    /// Sponsored Users
+    /// Public Users
     /// -----------------------------------------------------------------------
 
-    /// @notice Query the number of activities in a log by sponsored users.
+    /// @notice Query the number of activities in a log by users via sponsoredLog().
     function activityRunsByLogByPublic(address log) external view returns (uint256 runs) {
         address user;
         address aUser;
@@ -31,7 +31,7 @@ library Pooling {
         }
     }
 
-    /// @notice Query the number of touchpoints in a log by sponsored users.
+    /// @notice Query the number of touchpoints in a log by users via sponsoredLog().
     function touchpointRunsByLogByPublic(address log) external view returns (uint256 runs) {
         address user;
         address aUser;
@@ -49,28 +49,15 @@ library Pooling {
     /// Mean & Runs
     /// -----------------------------------------------------------------------
 
-    /// @notice Query the number of times users have completed a list on a bulletin.
-    function runsByList(address bulletin, uint256 listId) external view returns (uint256 runs) {
-        List memory list;
-        uint256 itemCount;
-        uint256 runsPerItem;
-
-        // @notice Count number of times completed per activity.
-        if (bulletin != address(0) && listId != 0) {
-            list = IBulletin(bulletin).getList(listId);
-            itemCount = list.itemIds.length;
-
-            for (uint256 i; i < itemCount; ++i) {
-                runsPerItem = IBulletin(bulletin).runsByItem(list.itemIds[i]);
-
-                (runsPerItem > 0)
-                    ? ((runs > runsPerItem) ? runs = runsPerItem : (runs == 0) ? runs = runsPerItem : runs)
-                    : runs = 0;
-            }
-        } else {
-            revert Invalid();
-        }
-    }
+    function listRunsByLog(address log, address bulletin, uint256 listId) public view returns (uint256 starts) {}
+    function averageNonceByListByLog(address log, address bulletin, uint256 listId)
+        public
+        view
+        returns (uint256 starts)
+    {}
+    function averageNonceByLog(address log) public view returns (uint256 starts) {}
+    function mostFrequentedListByLog(address log) public view returns (uint256 starts) {}
+    function touchpointRunsByLog(address log, address user) public view returns (uint256 runs) {}
 
     /// @notice Query the number of activities started in a log by a user.
     function activityStartsByLogByUser(address log, address user) public view returns (uint256 starts) {
@@ -122,6 +109,26 @@ library Pooling {
         }
     }
 
+    function passingTouchpointsByActivityByUser(address log, uint256 activityId, address user)
+        public
+        view
+        returns (uint256 passingTouchpoints)
+    {}
+
+    function itemFrequencyByActivityByUser(address log, uint256 activityId, uint256 itemId, address user)
+        public
+        view
+        returns (uint256 frequency)
+    {}
+
+    function mostFrequentedItemByActivityByUser(address log, uint256 activityId, address user)
+        public
+        view
+        returns (uint256 itemId, uint256 frequency)
+    {}
+
+    function dataByTouchpointByUser(address log, uint256 activityId, address user) public view returns (bytes memory) {}
+
     function meanPercentageOfCompletionByLogByUser(address log, address user)
         public
         view
@@ -152,7 +159,7 @@ library Pooling {
     }
 
     /// -----------------------------------------------------------------------
-    ///
+    /// MultipleRretrieval
     /// -----------------------------------------------------------------------
 
     function touchpointRunsByLogsByUser(address[] calldata logs, address user) public view returns (uint256 runs) {

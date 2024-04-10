@@ -202,5 +202,28 @@ contract Bulletin {
         return false;
     }
 
+    /// @notice Query the number of times users have completed a list on a bulletin.
+    function runsByList(uint256 id) external view returns (uint256 runs) {
+        List memory list;
+        uint256 itemCount;
+        uint256 runsPerItem;
+
+        // @notice Count number of times completed per activity.
+        if (id != 0) {
+            list = lists[id];
+            itemCount = list.itemIds.length;
+
+            for (uint256 i; i < itemCount; ++i) {
+                runsPerItem = runsByItem[lists[id].itemIds[i]];
+
+                (runsPerItem > 0)
+                    ? ((runs > runsPerItem) ? runs = runsPerItem : (runs == 0) ? runs = runsPerItem : runs)
+                    : runs = 0;
+            }
+        } else {
+            revert InvalidList();
+        }
+    }
+
     receive() external payable virtual {}
 }
