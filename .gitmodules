@@ -10,3 +10,6 @@
 [submodule "lib/kali-markets"]
 	path = lib/kali-markets
 	url = https://github.com/kalidao/kali-markets
+[submodule "lib/solady"]
+	path = lib/solady
+	url = https://github.com/vectorized/solady

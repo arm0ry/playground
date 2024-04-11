@@ -17,7 +17,6 @@ broadcast
 .DS_Store
 *.pem
 
-.gitmodules
 foundry.toml
 report/
 lcov.info
