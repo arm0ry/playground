@@ -17,8 +17,8 @@ contract Bulletin {
     /// Storage
     /// -----------------------------------------------------------------------
 
-    address dao;
-    uint256 fee;
+    address public dao;
+    uint256 public fee;
     uint256 public itemId;
     uint256 public listId;
     mapping(uint256 => Item) public items;
@@ -48,7 +48,7 @@ contract Bulletin {
     }
 
     modifier payFee() {
-        (bool success,) = dao.call{value: getFee()}("");
+        (bool success,) = dao.call{value: fee}("");
         if (!success) revert NotAuthorized();
         _;
     }
@@ -67,23 +67,6 @@ contract Bulletin {
 
     function setFee(uint256 _fee) external payable onlyDao {
         fee = _fee;
-    }
-
-    function getFee() public view returns (uint256) {
-        return fee;
-    }
-
-    function tally(address contributor) public view returns (uint256) {
-        uint256 count;
-        for (uint256 i; i < itemId; i++) {
-            if (items[i].owner == contributor) ++count;
-        }
-
-        for (uint256 i; i < listId; i++) {
-            if (lists[i].owner == contributor) ++count;
-        }
-
-        return count;
     }
 
     /// -----------------------------------------------------------------------
