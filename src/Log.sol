@@ -9,6 +9,8 @@ import {LibBitmap} from "solady/utils/LibBitmap.sol";
 /// @notice A database management system to log data from interacting with Bulletin.
 /// @author audsssy.eth
 contract Log {
+    using LibBitmap for LibBitmap.Bitmap;
+
     event Logged(address user, address bulletin, uint256 listId, uint256 itemId, bytes data);
     event Evaluated(uint256 activityId, address bulletin, uint256 listId, uint256 nonce, bool pass);
 
@@ -22,8 +24,6 @@ contract Log {
     /// -----------------------------------------------------------------------
     /// Activity Storage
     /// -----------------------------------------------------------------------
-
-    using LibBitmap for LibBitmap.Bitmap;
 
     LibBitmap.Bitmap bitmap;
 

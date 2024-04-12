@@ -3,16 +3,11 @@ pragma solidity >=0.8.4;
 
 import {ILog, Activity, Touchpoint} from "./interface/ILog.sol";
 import {IBulletin, List, Item} from "./interface/IBulletin.sol";
-import {LibMap} from "solady/utils/LibMap.sol";
-import {LibBitmap} from "solady/utils/LibBitmap.sol";
 
-/// @title Compiler
-/// @notice The Compiler contract compiles Log data for easy retrieval by SupportToken.
+/// @title Pooling
+/// @notice The Pooling library pools Log data for easy retrieval by tokens.
 /// @author audsssy.eth
-contract Pooling {
-    LibBitmap.Bitmap bitmap;
-    LibMap.Uint8Map uint8Map;
-
+library Pooling {
     /// -----------------------------------------------------------------------
     /// Error
     /// -----------------------------------------------------------------------
@@ -128,16 +123,6 @@ contract Pooling {
         for (uint256 i = 1; i <= count; ++i) {
             (,,, aNonce) = ILog(log).getActivityData(i);
             nonce = (nonce + aNonce) / count;
-        }
-    }
-
-    function mostFrequentedListByLog(address log) public view returns (uint256 runs) {
-        uint256 count = ILog(log).activityId();
-
-        address aBulletin;
-        uint256 aListId;
-        for (uint256 i = 1; i <= count; ++i) {
-            (, aBulletin, aListId,) = ILog(log).getActivityData(i);
         }
     }
 
