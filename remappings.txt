@@ -2,6 +2,7 @@ ds-test/=lib/forge-std/lib/ds-test/src/
 forge-std/=lib/forge-std/src/
 solbase/=lib/solbase/src/
 solmate/=lib/solmate/src/
+solady/=lib/solady/src/
 kali-markets/=lib/kali-markets/src/
 svg/=lib/hot-chain-svg/contracts
 interface/=src/interface
