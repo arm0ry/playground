@@ -4,12 +4,14 @@ pragma solidity >=0.8.4;
 import {ILog, Activity, Touchpoint} from "./interface/ILog.sol";
 import {IBulletin, List, Item} from "./interface/IBulletin.sol";
 import {LibMap} from "solady/utils/LibMap.sol";
+import {LibBitmap} from "solady/utils/LibBitmap.sol";
 
 /// @title Compiler
 /// @notice The Compiler contract compiles Log data for easy retrieval by SupportToken.
 /// @author audsssy.eth
-library Pooling {
-    using LibMap for LibMap.Uint8Map;
+contract Pooling {
+    LibBitmap.Bitmap bitmap;
+    LibMap.Uint8Map uint8Map;
 
     /// -----------------------------------------------------------------------
     /// Error
@@ -45,7 +47,7 @@ library Pooling {
     /// Public Users
     /// -----------------------------------------------------------------------
 
-    /// @notice Query the number of activities in a log by users via sponsoredLog().
+    /// @notice Query the num`ber of activities in a log by users via sponsoredLog().
     function activityRunsByLogByPublic(address log) external view returns (uint256 runs) {
         address user;
         address aUser;

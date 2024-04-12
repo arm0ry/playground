@@ -3,6 +3,7 @@ pragma solidity >=0.8.4;
 
 import {ILog, Activity, Touchpoint} from "./interface/ILog.sol";
 import {IBulletin, List, Item} from "./interface/IBulletin.sol";
+import {LibBitmap} from "solady/utils/LibBitmap.sol";
 
 /// @title Log
 /// @notice A database management system to log data from interacting with Bulletin.
@@ -21,6 +22,10 @@ contract Log {
     /// -----------------------------------------------------------------------
     /// Activity Storage
     /// -----------------------------------------------------------------------
+
+    using LibBitmap for LibBitmap.Bitmap;
+
+    LibBitmap.Bitmap bitmap;
 
     address public dao;
     address public gasBuddy;
@@ -228,11 +233,9 @@ contract Log {
 
     function getActivityTouchpoints(uint256 id)
         external
-        view
         returns (Touchpoint[] memory touchpoints, uint256 percentageOfCompletion)
     {
         uint256 progress;
-        uint256[1000] memory itemBitmap;
 
         (, address bulletin, uint256 listId, uint256 nonce) = getActivityData(id);
         List memory list = IBulletin(bulletin).getList(listId);
@@ -242,9 +245,9 @@ contract Log {
             for (uint256 j; j <= nonce; ++j) {
                 /// @dev Calculate percentage of completion.
                 if (activities[id].touchpoints[j].itemId == list.itemIds[i]) {
-                    if (itemBitmap[list.itemIds[i]] == 0) {
+                    if (!bitmap.get(i)) {
+                        bitmap.set(i);
                         unchecked {
-                            ++itemBitmap[list.itemIds[i]];
                             ++progress;
                         }
                     }
