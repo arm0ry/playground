@@ -10,7 +10,9 @@ contract Bulletin {
     event ItemUpdated(uint256 id, Item item);
     event ListUpdated(uint256 id, List list);
 
+    error TransferFailed();
     error NotAuthorized();
+    error InvalidItem();
     error InvalidList();
 
     /// -----------------------------------------------------------------------
@@ -25,10 +27,10 @@ contract Bulletin {
     mapping(uint256 => List) public lists;
 
     // @notice itemId => listId => bool
-    mapping(uint256 => mapping(uint256 => bool)) isItemInList;
+    mapping(uint256 => mapping(uint256 => bool)) public isItemInList;
 
     // @notice Log contract => bool
-    mapping(address => bool) isLoggerAuthorized;
+    mapping(address => bool) public isLoggerAuthorized;
 
     // @notice itemId => number of interactions produced
     mapping(uint256 => uint256) public runsByItem;
@@ -49,7 +51,7 @@ contract Bulletin {
 
     modifier payFee() {
         (bool success,) = dao.call{value: fee}("");
-        if (!success) revert NotAuthorized();
+        if (!success) revert TransferFailed();
         _;
     }
 
@@ -74,7 +76,7 @@ contract Bulletin {
     /// -----------------------------------------------------------------------
 
     function registerItem(Item calldata item) public payable payFee {
-        if (item.owner == address(0)) revert NotAuthorized();
+        if (item.owner == address(0)) revert InvalidItem();
 
         unchecked {
             ++itemId;
@@ -92,12 +94,19 @@ contract Bulletin {
     }
 
     function updateItem(uint256 id, Item calldata item) external payable onlyDao {
-        if (id > itemId) revert NotAuthorized();
-        items[id] = item;
-        emit ItemUpdated(itemId, item);
+        if (id > 0) {
+            if (item.owner == address(0)) {
+                removeItem(id);
+            } else {
+                items[id] = item;
+                emit ItemUpdated(itemId, item);
+            }
+        } else {
+            revert InvalidItem();
+        }
     }
 
-    function removeItem(uint256 id) external payable onlyDao {
+    function removeItem(uint256 id) private {
         delete items[id];
         emit ItemUpdated(itemId, items[id]);
     }
@@ -124,7 +133,7 @@ contract Bulletin {
     }
 
     function updateList(uint256 id, List calldata list) external payable onlyDao {
-        if (id > listId) revert NotAuthorized();
+        if (id > listId) revert InvalidList();
         lists[id] = list;
         emit ListUpdated(listId, list);
     }
@@ -138,8 +147,8 @@ contract Bulletin {
     /// Log Logic - Setter
     /// -----------------------------------------------------------------------
 
-    function authorizeLog(address log) external onlyDao {
-        isLoggerAuthorized[log] = true;
+    function authorizeLogger(address logger, bool auth) external onlyDao {
+        isLoggerAuthorized[logger] = auth;
     }
 
     function submit(uint256 _itemId) external onlyAuthorizedLogger {
