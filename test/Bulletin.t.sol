@@ -25,20 +25,13 @@ contract BulletinTest is Test {
     ImpactCurve impactCurve;
     HackathonSupportToken hacakathonSupportToken;
 
-    bool[] reviews;
-    address[] owners;
-    uint40[] expires;
-    string[] titles;
-    string[] detail;
-    bytes[] schemas;
     uint256[] itemIds;
-    uint256[] newitemIds;
 
     /// @dev Mock Users.
-    address immutable ALICE = makeAddr("alice");
-    address immutable BOB = makeAddr("bob");
-    address immutable CHARLIE = makeAddr("charlie");
-    address immutable DAO = makeAddr("dao");
+    address immutable alice = makeAddr("alice");
+    address immutable bob = makeAddr("bob");
+    address immutable charlie = makeAddr("charlie");
+    address immutable dao = makeAddr("dao");
 
     /// @dev Mock Data.
     uint40 constant PAST = 100000;
@@ -51,11 +44,12 @@ contract BulletinTest is Test {
     Item item2 = Item({review: true, expire: FUTURE, owner: makeAddr("bob"), title: TEST, detail: TEST, schema: BYTES});
     Item item3 =
         Item({review: false, expire: FUTURE, owner: makeAddr("charlie"), title: TEST, detail: TEST, schema: BYTES});
-
-    /// @dev Helpers.
-    uint256 itemId;
-    uint256 listId;
-    uint256 curveId;
+    Item item4 =
+        Item({review: true, expire: FUTURE, owner: makeAddr("charlie"), title: TEST, detail: TEST, schema: BYTES});
+    Item item5 =
+        Item({review: true, expire: FUTURE, owner: makeAddr("charlie"), title: TEST, detail: TEST, schema: BYTES});
+    Item item6 =
+        Item({review: false, expire: FUTURE, owner: makeAddr("charlie"), title: TEST, detail: TEST, schema: BYTES});
 
     /// -----------------------------------------------------------------------
     /// Setup Tests
@@ -63,8 +57,8 @@ contract BulletinTest is Test {
 
     /// @notice Set up the testing suite.
     function setUp() public payable {
-        deployBulletin(DAO);
-        deployLogger(DAO);
+        deployBulletin(dao);
+        deployLogger(dao);
     }
 
     function testReceiveETH() public payable {
@@ -87,7 +81,7 @@ contract BulletinTest is Test {
     /// ----------------------------------------------------------------------
 
     function testAuthorizeLogger(bool auth) public payable {
-        vm.prank(DAO);
+        vm.prank(dao);
         bulletin.authorizeLogger(address(logger), auth);
         assertEq(bulletin.isLoggerAuthorized(address(logger)), auth);
     }
@@ -98,7 +92,7 @@ contract BulletinTest is Test {
     }
 
     function testSetFee(uint256 fee) public payable {
-        vm.prank(DAO);
+        vm.prank(dao);
         bulletin.setFee(fee);
         assertEq(fee, bulletin.fee());
     }
@@ -134,9 +128,9 @@ contract BulletinTest is Test {
     function testRegisterItem_TransferFailed() public payable {
         testSetFee(1 ether);
 
-        vm.deal(ALICE, 2 ether);
+        vm.deal(alice, 2 ether);
 
-        vm.prank(ALICE);
+        vm.prank(alice);
         vm.expectRevert(Bulletin.TransferFailed.selector);
         bulletin.registerItem{value: 0.1 ether}(item1);
     }
@@ -148,6 +142,9 @@ contract BulletinTest is Test {
         items.push(item1);
         items.push(item2);
         items.push(item3);
+        items.push(item4);
+        items.push(item5);
+        items.push(item6);
 
         bulletin.registerItems(items);
 
@@ -168,14 +165,14 @@ contract BulletinTest is Test {
         item1.owner = address(0);
 
         vm.expectRevert(Bulletin.InvalidItem.selector);
-        vm.prank(DAO);
+        vm.prank(dao);
         bulletin.registerItem(item1);
     }
 
     function testUpdateItem() public payable {
         testRegisterItems();
 
-        vm.prank(DAO);
+        vm.prank(dao);
         bulletin.updateItem(1, item2);
 
         Item memory _item = bulletin.getItem(1);
@@ -183,7 +180,7 @@ contract BulletinTest is Test {
     }
 
     function testUpdateItem_InvalidItem() public payable {
-        vm.prank(DAO);
+        vm.prank(dao);
         vm.expectRevert(Bulletin.InvalidItem.selector);
         bulletin.updateItem(0, item1);
     }
@@ -192,7 +189,7 @@ contract BulletinTest is Test {
         testRegisterItems();
         item1.owner = address(0);
 
-        vm.prank(DAO);
+        vm.prank(dao);
         bulletin.updateItem(1, item1);
         Item memory _item = bulletin.getItem(1);
         assertEq(_item.expire, 0);
@@ -208,9 +205,9 @@ contract BulletinTest is Test {
         itemIds.push(1);
         itemIds.push(2);
         itemIds.push(3);
-        uint256 id = bulletin.listId();
-        List memory list1 = List({owner: ALICE, title: TEST, detail: TEST, schema: BYTES, itemIds: itemIds});
+        List memory list1 = List({owner: alice, title: TEST, detail: TEST, schema: BYTES, itemIds: itemIds});
 
+        uint256 id = bulletin.listId();
         bulletin.registerList(list1);
 
         uint256 _id = bulletin.listId();
@@ -229,7 +226,7 @@ contract BulletinTest is Test {
     }
 
     function testRegisterList_InvalidList() public payable {
-        List memory list1 = List({owner: ALICE, title: TEST, detail: TEST, schema: BYTES, itemIds: itemIds});
+        List memory list1 = List({owner: alice, title: TEST, detail: TEST, schema: BYTES, itemIds: itemIds});
 
         vm.expectRevert(Bulletin.InvalidList.selector);
         bulletin.registerList(list1);
@@ -243,6 +240,61 @@ contract BulletinTest is Test {
 
         vm.expectRevert(Bulletin.NotAuthorized.selector);
         bulletin.registerList(list1);
+    }
+
+    function testUpdateList() public payable {
+        testRegisterList();
+
+        delete itemIds;
+        itemIds.push(4);
+        itemIds.push(5);
+        itemIds.push(6);
+        List memory list1 = List({owner: bob, title: TEST, detail: TEST, schema: BYTES, itemIds: itemIds});
+
+        uint256 id = bulletin.listId();
+        List memory list = bulletin.getList(id);
+
+        vm.prank(dao);
+        bulletin.updateList(id, list1);
+
+        uint256 _id = bulletin.listId();
+        assertEq(id, _id);
+
+        List memory _list = bulletin.getList(_id);
+        assertEq(_list.owner, list1.owner);
+        assertEq(_list.title, list1.title);
+        assertEq(_list.detail, list1.detail);
+        assertEq(_list.schema, list1.schema);
+
+        uint256 length = _list.itemIds.length;
+        for (uint256 i; i < length; i++) {
+            assertEq(_list.itemIds[i], itemIds[i]);
+
+            assertEq(bulletin.isItemInList(_list.itemIds[i], id), true);
+        }
+
+        length = list.itemIds.length;
+        for (uint256 i; i < length; i++) {
+            assertEq(bulletin.isItemInList(list.itemIds[i], id), false);
+        }
+    }
+
+    function testRemoveList() public payable {
+        testRegisterList();
+
+        vm.prank(dao);
+        bulletin.removeList(1);
+
+        List memory _list = bulletin.getList(1);
+        assertEq(_list.owner, address(0));
+        assertEq(_list.title, "");
+        assertEq(_list.detail, "");
+        assertEq(_list.schema, "");
+
+        uint256 length = _list.itemIds.length;
+        for (uint256 i; i < length; i++) {
+            assertEq(bulletin.isItemInList(_list.itemIds[i], 1), false);
+        }
     }
 
     /// -----------------------------------------------------------------------

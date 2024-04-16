@@ -134,11 +134,31 @@ contract Bulletin {
 
     function updateList(uint256 id, List calldata list) external payable onlyDao {
         if (id > listId) revert InvalidList();
+
+        // Clear out current list.
+        List memory _list = getList(id);
+        uint256 length = _list.itemIds.length;
+        for (uint256 i; i < length; ++i) {
+            delete isItemInList[_list.itemIds[i]][id];
+        }
+        delete lists[id];
+
+        // Update new list.
+        length = list.itemIds.length;
+        for (uint256 i; i < length; ++i) {
+            isItemInList[list.itemIds[i]][id] = true;
+        }
         lists[id] = list;
         emit ListUpdated(listId, list);
     }
 
     function removeList(uint256 id) external payable onlyDao {
+        List memory _list = getList(id);
+        uint256 length = _list.itemIds.length;
+        for (uint256 i; i < length; ++i) {
+            delete isItemInList[_list.itemIds[i]][id];
+        }
+
         delete lists[id];
         emit ListUpdated(id, lists[id]);
     }
@@ -180,7 +200,7 @@ contract Bulletin {
     /// List Logic - Getter
     /// -----------------------------------------------------------------------
 
-    function getList(uint256 id) external view returns (List memory) {
+    function getList(uint256 id) public view returns (List memory) {
         return lists[id];
     }
 
