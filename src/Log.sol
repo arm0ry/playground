@@ -167,7 +167,7 @@ contract Log {
 
         if (id == 0) {
             unchecked {
-                ++activityId;
+                userActivityLookup[user][keccak256(abi.encodePacked(bulletin, listId))] = ++activityId;
             }
 
             if (user == address(0)) user = address(uint160(uint256(bytes32(abi.encodePacked(activityId)))));
@@ -182,7 +182,7 @@ contract Log {
                 ++activities[activityId].nonce;
             }
         } else {
-            activities[id].touchpoints[activities[id].nonce] = Touchpoint({pass: false, itemId: itemId, data: data});
+            activities[id].touchpoints[activities[id].nonce] = Touchpoint({pass: review, itemId: itemId, data: data});
             unchecked {
                 ++activities[id].nonce;
             }
