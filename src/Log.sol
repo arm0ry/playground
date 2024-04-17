@@ -11,7 +11,9 @@ import {LibBitmap} from "solady/utils/LibBitmap.sol";
 contract Log {
     using LibBitmap for LibBitmap.Bitmap;
 
-    event Logged(address user, address bulletin, uint256 listId, uint256 itemId, bytes data);
+    event Logged(
+        address user, address bulletin, uint256 listId, uint256 itemId, uint256 nonce, bool review, bytes data
+    );
     event Evaluated(uint256 activityId, address bulletin, uint256 listId, uint256 nonce, bool pass);
 
     error NotAuthorized();
@@ -160,6 +162,8 @@ contract Log {
 
     function _log(address user, address bulletin, uint256 listId, uint256 itemId, bytes calldata data) internal {
         uint256 id = userActivityLookup[user][keccak256(abi.encodePacked(bulletin, listId))];
+        Item memory item = IBulletin(bulletin).getItem(itemId);
+        bool review = (item.review) ? false : true;
 
         if (id == 0) {
             unchecked {
@@ -171,25 +175,22 @@ contract Log {
             activities[activityId].bulletin = bulletin;
             activities[activityId].listId = listId;
 
-            Item memory item = IBulletin(bulletin).getItem(itemId);
-
             activities[activityId].touchpoints[activities[activityId].nonce] =
-                Touchpoint({pass: (item.review) ? false : true, itemId: itemId, data: data});
+                Touchpoint({pass: review, itemId: itemId, data: data});
 
             unchecked {
                 ++activities[activityId].nonce;
             }
         } else {
             activities[id].touchpoints[activities[id].nonce] = Touchpoint({pass: false, itemId: itemId, data: data});
-
             unchecked {
                 ++activities[id].nonce;
             }
         }
 
-        IBulletin(bulletin).submit(itemId);
+        if (IBulletin(bulletin).isLoggerAuthorized(address(this))) IBulletin(bulletin).submit(itemId);
 
-        emit Logged(user, bulletin, listId, itemId, data);
+        emit Logged(user, bulletin, listId, itemId, activities[activityId].nonce, review, data);
     }
 
     /// -----------------------------------------------------------------------
@@ -203,8 +204,10 @@ contract Log {
     {
         (, address _bulletin, uint256 _listId, uint256 nonce) = getActivityData(id);
 
-        // TODO: require itemId retrieved from order matches supplied itemId
-        if (order > nonce || bulletin != _bulletin || listId != _listId) revert InvalidEvaluation();
+        if (
+            order > nonce || bulletin != _bulletin || listId != _listId
+                || activities[id].touchpoints[order].itemId != itemId
+        ) revert InvalidEvaluation();
 
         if (!IBulletin(bulletin).checkIsItemInList(itemId, listId) || IBulletin(bulletin).hasListExpired(listId)) {
             revert InvalidList();
@@ -231,35 +234,35 @@ contract Log {
         nonce = activities[id].nonce;
     }
 
-    function getActivityTouchpoints(uint256 id)
-        external
-        returns (Touchpoint[] memory touchpoints, uint256 percentageOfCompletion)
-    {
+    function getActivityTouchpoints(uint256 id) external returns (Touchpoint[] memory, uint256) {
         uint256 progress;
+        (, address aBulletin, uint256 aListId, uint256 aNonce) = getActivityData(id);
+        Touchpoint[] memory tps = new Touchpoint[](aNonce);
+        List memory list = IBulletin(aBulletin).getList(aListId);
+        uint256 length = list.itemIds.length;
 
-        (, address bulletin, uint256 listId, uint256 nonce) = getActivityData(id);
-        List memory list = IBulletin(bulletin).getList(listId);
-        uint256 itemCount = list.itemIds.length;
+        for (uint256 i; i < aNonce; ++i) {
+            tps[i] = activities[id].touchpoints[i];
 
-        for (uint256 i; i <= itemCount; ++i) {
-            for (uint256 j; j <= nonce; ++j) {
-                /// @dev Calculate percentage of completion.
-                if (activities[id].touchpoints[j].itemId == list.itemIds[i]) {
-                    if (!bitmap.get(i)) {
-                        bitmap.set(i);
+            /// @dev Calculate percentage of completion.
+            for (uint256 j; j < length; ++j) {
+                if (activities[id].touchpoints[i].itemId == list.itemIds[j]) {
+                    if (!bitmap.get(j)) {
                         unchecked {
                             ++progress;
                         }
+                        bitmap.set(j);
                     }
+                } else {
+                    continue;
                 }
-
-                /// @dev Retrieve touchpoints.
-                (nonce != touchpoints.length) ? touchpoints[j] = activities[id].touchpoints[j] : touchpoints[j];
             }
         }
 
         unchecked {
-            percentageOfCompletion = progress * 100 / itemCount;
+            progress = progress * 100 / length;
         }
+
+        return (tps, progress);
     }
 }
