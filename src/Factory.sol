@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.4;
 
-import {IQuest} from "./interface/IQuest.sol";
-import {IMission} from "./interface/IMission.sol";
 import {ISupportToken} from "./interface/ISupportToken.sol";
 
 import {LibClone} from "solbase/utils/LibClone.sol";
@@ -58,7 +56,7 @@ contract Factory {
         address user // create2 salt.
     ) public payable virtual returns (address) {
         address m = mission.cloneDeterministic(abi.encodePacked(user), keccak256(abi.encode(user, ++nonces[user])));
-        IMission(m).initialize(user);
+        // IMission(m).initialize(user);
         emit MissionDeployed(m);
         return (m);
     }
@@ -67,7 +65,7 @@ contract Factory {
         address user // create2 salt.
     ) public payable virtual returns (address) {
         address q = quest.cloneDeterministic(abi.encodePacked(user), keccak256(abi.encode(user, ++nonces[user])));
-        IQuest(q).initialize(user);
+        // IQuest(q).initialize(user);
         emit QuestDeployed(q);
         return (q);
     }

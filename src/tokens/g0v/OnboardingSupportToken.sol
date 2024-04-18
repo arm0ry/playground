@@ -4,9 +4,6 @@ pragma solidity >=0.8.4;
 import {SVG} from "../../utils/SVG.sol";
 import {JSON} from "../../utils/JSON.sol";
 import {SupportToken} from "../SupportToken.sol";
-import {Mission} from "../../Mission.sol";
-import {IMission} from "../../interface/IMission.sol";
-import {IQuest} from "../../interface/IQuest.sol";
 
 /// @title Support SVG NFTs.
 /// @notice SVG NFTs displaying impact generated from quests.
@@ -145,9 +142,7 @@ contract OnboardingSupportToken is SupportToken {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat(
-                    unicode"🔔 打開任一專案頻道通知： ", SVG._uint2str(counters[1]), unicode" 人"
-                )
+                string.concat(unicode"🔔 打開任一專案頻道通知： ", SVG._uint2str(counters[1]), unicode" 人")
             ),
             SVG._text(
                 string.concat(
@@ -156,9 +151,7 @@ contract OnboardingSupportToken is SupportToken {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat(
-                    unicode"📝 截圖任一提案的專案共筆： ", SVG._uint2str(counters[2]), unicode" 人"
-                )
+                string.concat(unicode"📝 截圖任一提案的專案共筆： ", SVG._uint2str(counters[2]), unicode" 人")
             ),
             SVG._text(
                 string.concat(
@@ -167,9 +160,7 @@ contract OnboardingSupportToken is SupportToken {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat(
-                    unicode"🏷️ 貼上三張符合你的技能貼紙：", SVG._uint2str(counters[3]), unicode" 人"
-                )
+                string.concat(unicode"🏷️ 貼上三張符合你的技能貼紙：", SVG._uint2str(counters[3]), unicode" 人")
             ),
             SVG._text(
                 string.concat(
@@ -178,9 +169,7 @@ contract OnboardingSupportToken is SupportToken {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat(
-                    unicode"🧐 加入三個有趣的 Slack 頻道： ", SVG._uint2str(counters[4]), unicode" 人"
-                )
+                string.concat(unicode"🧐 加入三個有趣的 Slack 頻道： ", SVG._uint2str(counters[4]), unicode" 人")
             ),
             SVG._text(
                 string.concat(
@@ -189,11 +178,7 @@ contract OnboardingSupportToken is SupportToken {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat(
-                    unicode"👀 瀏覽並截圖最新『社群九分鐘』： ",
-                    SVG._uint2str(counters[5]),
-                    unicode" 人"
-                )
+                string.concat(unicode"👀 瀏覽並截圖最新『社群九分鐘』： ", SVG._uint2str(counters[5]), unicode" 人")
             ),
             SVG._text(
                 string.concat(
@@ -202,34 +187,30 @@ contract OnboardingSupportToken is SupportToken {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat(
-                    unicode"🎙️ 在有興趣的專案共筆上自我介紹： ",
-                    SVG._uint2str(counters[6]),
-                    unicode" 人"
-                )
+                string.concat(unicode"🎙️ 在有興趣的專案共筆上自我介紹： ", SVG._uint2str(counters[6]), unicode" 人")
             )
         );
     }
 
     function tally(uint256 taskId) external {
-        delete counters;
+        // delete counters;
 
-        uint256 response;
-        uint256 questId = IQuest(quest).getQuestId();
+        // uint256 response;
+        // uint256 questId = IQuest(quest).getQuestId();
 
-        if (questId > 0) {
-            for (uint256 i = 1; i <= questId; ++i) {
-                response = IQuest(quest).getTaskResponse(i, taskId);
-                for (uint256 j; j < 7; ++j) {
-                    if ((response / (10 ** j)) % 10 == 1) {
-                        unchecked {
-                            ++counters[j];
-                        }
-                    }
-                }
-            }
-        } else {
-            revert Unauthorized();
-        }
+        // if (questId > 0) {
+        //     for (uint256 i = 1; i <= questId; ++i) {
+        //         response = IQuest(quest).getTaskResponse(i, taskId);
+        //         for (uint256 j; j < 7; ++j) {
+        //             if ((response / (10 ** j)) % 10 == 1) {
+        //                 unchecked {
+        //                     ++counters[j];
+        //                 }
+        //             }
+        //         }
+        //     }
+        // } else {
+        //     revert Unauthorized();
+        // }
     }
 }

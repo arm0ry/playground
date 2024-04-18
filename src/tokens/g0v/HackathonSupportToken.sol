@@ -4,8 +4,6 @@ pragma solidity >=0.8.4;
 import {SVG} from "../../utils/SVG.sol";
 import {JSON} from "../../utils/JSON.sol";
 import {SupportToken} from "../SupportToken.sol";
-import {IMission} from "../../interface/IMission.sol";
-import {IQuest} from "../../interface/IQuest.sol";
 
 /// @title Impact NFTs
 /// @notice SVG NFTs displaying impact results and metrics.
@@ -115,7 +113,7 @@ contract HackathonSupportToken is SupportToken {
 
     function buildSvgData() public view returns (string memory) {
         // The number of hackath0ns hosted by g0v.
-        uint256 hackathonCount = 59 + IMission(mission).getMissionTaskCount(missionId);
+        // uint256 hackathonCount = 59 + IMission(mission).getMissionTaskCount(missionId);
 
         return string.concat(
             SVG._text(
@@ -125,7 +123,7 @@ contract HackathonSupportToken is SupportToken {
                     SVG._prop("font-size", "20"),
                     SVG._prop("fill", "#00040a")
                 ),
-                IMission(mission).getMissionTitle(missionId)
+                "IMission(mission).getMissionTitle(missionId)"
             ),
             SVG._text(
                 string.concat(
@@ -136,7 +134,7 @@ contract HackathonSupportToken is SupportToken {
                 ),
                 string.concat(
                     unicode"n0body 參與人數：",
-                    SVG._uint2str(IQuest(quest).getNumOfStartsByMissionByPublic(mission, missionId)),
+                    // SVG._uint2str(IQuest(quest).getNumOfStartsByMissionByPublic(mission, missionId)),
                     unicode" 人"
                 )
             ),
@@ -149,7 +147,7 @@ contract HackathonSupportToken is SupportToken {
                 ),
                 string.concat(
                     unicode"總參與人數：",
-                    SVG._uint2str(IMission(mission).getMissionStarts(missionId)),
+                    "SVG._uint2str(IMission(mission).getMissionStarts(missionId))",
                     unicode" 人"
                 )
             ),
@@ -162,7 +160,7 @@ contract HackathonSupportToken is SupportToken {
                 ),
                 string.concat(
                     unicode"100% 參與人數：",
-                    SVG._uint2str(IMission(mission).getMissionCompletions(missionId)),
+                    "SVG._uint2str(IMission(mission).getMissionCompletions(missionId))",
                     unicode" 人"
                 )
             ),
@@ -173,8 +171,9 @@ contract HackathonSupportToken is SupportToken {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat(unicode"第 ", SVG._uint2str(hackathonCount), unicode" 次參與人數：")
+                ""
             ),
+            // string.concat(unicode"第 ", SVG._uint2str(hackathonCount), unicode" 次參與人數：")
             SVG._text(
                 string.concat(
                     SVG._prop("x", "140"),
@@ -182,7 +181,7 @@ contract HackathonSupportToken is SupportToken {
                     SVG._prop("font-size", "40"),
                     SVG._prop("fill", "#00040a")
                 ),
-                SVG._uint2str(IMission(mission).getTotalTaskCompletionsByMission(missionId, taskId))
+                "SVG._uint2str(IMission(mission).getTotalTaskCompletionsByMission(missionId, taskId))"
             ),
             SVG._text(
                 string.concat(

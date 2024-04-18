@@ -8,22 +8,12 @@ import {KaliDAOfactory, KaliDAO} from "kali-markets/kalidao/KaliDAOfactory.sol";
 import {KaliCurve} from "kali-markets/KaliCurve.sol";
 import {IKaliCurve, CurveType} from "kali-markets/interface/IKaliCurve.sol";
 
-import {Mission} from "src/Mission.sol";
-import {IMission} from "src/interface/IMission.sol";
-import {Quest} from "src/Quest.sol";
-import {IQuest} from "src/interface/IQuest.sol";
 import {Storage} from "kali-markets/Storage.sol";
 import {IStorage} from "kali-markets/interface/IStorage.sol";
 import {MissionToken} from "src/tokens/MissionToken.sol";
 
 contract MissionTokenTest is Test {
-    Quest quest;
-    Mission mission;
-    Storage stor;
     MissionToken missionToken;
-
-    IQuest iQuest;
-    IStorage iStorage;
 
     /// @dev Users.
     address public immutable alice = makeAddr("alice");

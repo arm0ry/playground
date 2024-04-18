@@ -4,8 +4,6 @@ pragma solidity >=0.8.4;
 import {SVG} from "utils/SVG.sol";
 import {JSON} from "utils/JSON.sol";
 import {SupportToken} from "tokens/SupportToken.sol";
-import {IMission} from "interface/IMission.sol";
-import {IQuest} from "interface/IQuest.sol";
 import {IImpactCurve} from "interface/IImpactCurve.sol";
 
 /// @title Impact NFTs
@@ -126,7 +124,7 @@ contract MissionToken is SupportToken {
                     SVG._prop("font-size", "20"),
                     SVG._prop("fill", "#00040a")
                 ),
-                IMission(mission).getMissionTitle(missionId)
+                "" // IMission(mission).getMissionTitle(missionId)
             ),
             SVG._text(
                 string.concat(
@@ -135,7 +133,7 @@ contract MissionToken is SupportToken {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat("# of participants: ", SVG._uint2str(IMission(mission).getMissionStarts(missionId)))
+                "" // string.concat("# of participants: ", SVG._uint2str(IMission(mission).getMissionStarts(missionId)))
             ),
             SVG._text(
                 string.concat(
@@ -145,7 +143,7 @@ contract MissionToken is SupportToken {
                     SVG._prop("fill", "#00040a")
                 ),
                 string.concat(
-                    "# of 100% completions: ", SVG._uint2str(IMission(mission).getMissionCompletions(missionId))
+                    // "# of 100% completions: ", SVG._uint2str(IMission(mission).getMissionCompletions(missionId))
                 )
             ),
             buildTasksCompletions(missionId),
@@ -154,33 +152,33 @@ contract MissionToken is SupportToken {
     }
 
     function buildTasksCompletions(uint256 missionId) public view returns (string memory) {
-        if (missionId != 0) {
-            uint256[] memory taskIds = IMission(mission).getMissionTaskIds(missionId);
-            uint256 length = (taskIds.length > 5) ? 5 : taskIds.length;
-            string memory text;
+        // if (missionId != 0) {
+        //     uint256[] memory taskIds = IMission(mission).getMissionTaskIds(missionId);
+        //     uint256 length = (taskIds.length > 5) ? 5 : taskIds.length;
+        //     string memory text;
 
-            for (uint256 i; i < length; ++i) {
-                text = string.concat(
-                    text,
-                    SVG._text(
-                        string.concat(
-                            SVG._prop("x", "20"),
-                            SVG._prop("y", SVG._uint2str(140 + 20 * i)),
-                            SVG._prop("font-size", "12"),
-                            SVG._prop("fill", "#808080")
-                        ),
-                        string.concat(
-                            IMission(mission).getTaskTitle(taskIds[i]),
-                            ": ",
-                            SVG._uint2str(IMission(mission).getTotalTaskCompletionsByMission(missionId, taskIds[i]))
-                        )
-                    )
-                );
-            }
-            return text;
-        } else {
-            return SVG.NULL;
-        }
+        //     for (uint256 i; i < length; ++i) {
+        //         text = string.concat(
+        //             text,
+        //             SVG._text(
+        //                 string.concat(
+        //                     SVG._prop("x", "20"),
+        //                     SVG._prop("y", SVG._uint2str(140 + 20 * i)),
+        //                     SVG._prop("font-size", "12"),
+        //                     SVG._prop("fill", "#808080")
+        //                 ),
+        //                 string.concat(
+        //                     IMission(mission).getTaskTitle(taskIds[i]),
+        //                     ": "
+        //                     SVG._uint2str(IMission(mission).getTotalTaskCompletionsByMission(missionId, taskIds[i]))
+        //                 )
+        //             )
+        //         );
+        //     }
+        //     return text;
+        // } else {
+        //     return SVG.NULL;
+        // }
     }
 
     function buildTicker(uint256 curveId) public view returns (string memory) {

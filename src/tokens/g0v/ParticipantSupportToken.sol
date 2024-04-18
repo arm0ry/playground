@@ -4,9 +4,6 @@ pragma solidity >=0.8.4;
 import {SVG} from "../../utils/SVG.sol";
 import {JSON} from "../../utils/JSON.sol";
 import {SupportToken} from "../SupportToken.sol";
-import {Mission} from "../../Mission.sol";
-import {IMission} from "../../interface/IMission.sol";
-import {IQuest} from "../../interface/IQuest.sol";
 
 struct QuestData {
     address user;
@@ -83,20 +80,20 @@ contract ParticipantSupportToken is SupportToken {
     /// -----------------------------------------------------------------------
 
     function populate(uint256 tokenId, uint256 questId) external payable {
-        if (msg.sender != ownerOf(tokenId)) revert Unauthorized();
+        // if (msg.sender != ownerOf(tokenId)) revert Unauthorized();
 
-        (address user, address mission, uint256 missionId) = IQuest(quest).getQuest(questId);
-        if (user == address(0)) revert InvalidQuest();
+        // (address user, address mission, uint256 missionId) = IQuest(quest).getQuest(questId);
+        // if (user == address(0)) revert InvalidQuest();
 
-        uint256 taskCount = IMission(mission).getMissionTaskCount(missionId);
-        uint256 taskId = IMission(mission).getMissionTaskId(missionId, taskCount);
-        string memory feedback = IQuest(quest).getTaskFeedback(questId, taskId);
+        // uint256 taskCount = IMission(mission).getMissionTaskCount(missionId);
+        // uint256 taskId = IMission(mission).getMissionTaskId(missionId, taskCount);
+        // string memory feedback = IQuest(quest).getTaskFeedback(questId, taskId);
 
-        data[tokenId].user = user;
-        data[tokenId].mission = mission;
-        data[tokenId].missionId = missionId;
-        data[tokenId].taskCount = taskCount;
-        data[tokenId].feedback = feedback;
+        // data[tokenId].user = user;
+        // data[tokenId].mission = mission;
+        // data[tokenId].missionId = missionId;
+        // data[tokenId].taskCount = taskCount;
+        // data[tokenId].feedback = feedback;
     }
 
     function tokenURI(uint256 id) public view override returns (string memory) {
@@ -154,7 +151,7 @@ contract ParticipantSupportToken is SupportToken {
                     SVG._prop("fill", "#018edf")
                 ),
                 SVG._uint2str(
-                    IQuest(quest).getNumOfCompletedTasksInMission(data[id].user, data[id].mission, data[id].missionId)
+                    0 // IQuest(quest).getNumOfCompletedTasksInMission(data[id].user, data[id].mission, data[id].missionId)
                 )
             ),
             SVG._text(
