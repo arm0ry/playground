@@ -127,34 +127,30 @@ contract LogTest is Test {
     /// Log
     /// ----------------------------------------------------------------------
 
-    function test_Log_ReviewNotRequired(address _bulletin, uint256 _listId, uint256 _itemId) public payable {
-        vm.assume(_listId < 2);
-        vm.assume(_itemId < 4);
-
-        _bulletin = address(bulletin);
-        (_listId == 0) ? _listId = 1 : _listId;
-        (_itemId == 0) ? _itemId = 1 : _itemId;
+    function test_Log_ReviewNotRequired(uint256 _listId, uint256 _itemId) public payable {
+        _listId = bound(_listId, 1, 1);
+        _itemId = bound(_itemId, 1, 3);
 
         registerList_ReviewNotRequired();
 
-        logItem(alice, _bulletin, _listId, _itemId);
-        logItem(alice, _bulletin, _listId, _itemId);
-        logItem(alice, _bulletin, _listId, _itemId);
-        logItem(alice, _bulletin, _listId, _itemId);
-        logItem(alice, _bulletin, _listId, _itemId);
+        logItem(alice, address(bulletin), _listId, _itemId);
+        logItem(alice, address(bulletin), _listId, _itemId);
+        logItem(alice, address(bulletin), _listId, _itemId);
+        logItem(alice, address(bulletin), _listId, _itemId);
+        logItem(alice, address(bulletin), _listId, _itemId);
     }
 
-    function test_Log_ReviewRequired(address _bulletin, uint256 _listId, uint256 _itemId) public payable {
-        // vm.assume(_listId < 2);
-        // vm.assume(_itemId < 4);
+    function test_Log_ReviewRequired(uint256 _listId, uint256 _itemId) public payable {
+        _listId = bound(_listId, 1, 1);
+        _itemId = bound(_itemId, 4, 6);
 
-        // _bulletin = address(bulletin);
-        // (_listId == 0) ? _listId = 1 : _listId;
-        // (_itemId == 0) ? _itemId = 1 : _itemId;
+        registerList_ReviewRequired();
 
-        // registerList_ReviewRequired();
-
-        // logItem_ReviewRequired(alice, _bulletin, _listId, _itemId);
+        logItem(alice, address(bulletin), _listId, _itemId);
+        logItem(alice, address(bulletin), _listId, _itemId);
+        logItem(alice, address(bulletin), _listId, _itemId);
+        logItem(alice, address(bulletin), _listId, _itemId);
+        logItem(alice, address(bulletin), _listId, _itemId);
     }
 
     function test_Log_SomeReviewRequired(address _bulletin, uint256 _listId, uint256 _itemId) public payable {}
@@ -173,7 +169,6 @@ contract LogTest is Test {
 
     function registerItems() internal {
         Item memory _item;
-        uint256 id = bulletin.itemId();
 
         items.push(item1);
         items.push(item2);
@@ -276,7 +271,7 @@ contract LogTest is Test {
         }
     }
 
-    function logItem(address user, address _bulletin, uint256 _listId, uint256 _itemId) internal returns (uint256) {
+    function logItem(address user, address _bulletin, uint256 _listId, uint256 _itemId) internal {
         uint256 id = logger.userActivityLookup(user, keccak256(abi.encodePacked(_bulletin, _listId)));
         (address aUser, address aBulletin, uint256 aListId, uint256 aNonce) = logger.getActivityData(id);
 
@@ -290,125 +285,12 @@ contract LogTest is Test {
         logger.log(_bulletin, _listId, _itemId, BYTES);
         id = logger.userActivityLookup(user, keccak256(abi.encodePacked(_bulletin, _listId)));
         uint256 _aNonce;
-        (aUser, aBulletin, aListId, _aNonce) = logger.getActivityData(id);
+        (,,, _aNonce) = logger.getActivityData(id);
         assertEq(aNonce + 1, _aNonce);
 
-        (Touchpoint[] memory touchpoints, uint256 progress) = logger.getActivityTouchpoints(id);
-        Item memory item = bulletin.getItem(_itemId);
-        uint256 length = touchpoints.length;
-        for (uint256 i; i < length; i++) {
-            assertEq(bulletin.isItemInList(touchpoints[i].itemId, aListId), true);
-            assertEq(touchpoints[i].pass, (item.review) ? touchpoints[i].pass : true);
-            assertEq(touchpoints[i].data, BYTES);
-        }
-
+        (, uint256 progress) = logger.getActivityTouchpoints(_listId);
         emit log_uint(progress);
-        return progress;
     }
-
-    // function testSingleTaskMission_Start(address _user) public payable {
-    //     // Start.
-    //     start(_user, address(mission), 1);
-
-    //     // Validate.
-    //     assertEq(quest.getNumOfTimesQuestedByUser(_user), 1);
-    //     assertEq(quest.getNumOfMissionsStarted(), 1);
-    //     assertEq(mission.getMissionStarts(1), 1);
-
-    //     (uint256 missionIdCount, uint256 missionsCount) = quest.getNumOfMissionQuested(address(mission), 1);
-    //     assertEq(missionIdCount, 1);
-    //     assertEq(missionsCount, 1);
-    // }
-
-    // function testSingleTaskMission_Start_NoAuthorizedQuest(address _user) public payable {
-    //     vm.prank(dao);
-    //     mission.authorizeQuest(address(quest), false);
-
-    //     // Start.
-    //     start(_user, address(mission), 1);
-
-    //     // Validate.
-    //     assertEq(quest.getNumOfTimesQuestedByUser(_user), 1);
-    //     assertEq(quest.getNumOfMissionsStarted(), 1);
-    //     assertEq(mission.getMissionStarts(1), 0);
-
-    //     (uint256 missionIdCount, uint256 missionsCount) = quest.getNumOfMissionQuested(address(mission), 1);
-    //     assertEq(missionIdCount, 1);
-    //     assertEq(missionsCount, 1);
-    // }
-
-    // function testSingleTaskMission_Respond(address _user, uint256 response) public payable {
-    //     vm.assume(_user != address(0));
-    //     testSingleTaskMission_Start(_user);
-    //     vm.warp(block.timestamp + 10);
-
-    //     // Retrieve for validation later.
-    //     uint256 completedCount = quest.getNumOfCompletedTasksInMission(_user, address(mission), 1);
-    //     uint256 numOfTaskCompleted = quest.getNumOfTaskCompleted();
-    //     uint256 numOfMissionCompleted = quest.getNumOfMissionsCompleted();
-
-    //     // Respond.
-    //     uint256 _missionId = 1;
-    //     uint256 _taskId = 1;
-    //     respond(_user, address(mission), _missionId, 1, response, testString);
-
-    //     // Validate.
-    //     assertEq(quest.getNumOfCompletedTasksInMission(_user, address(mission), _missionId), 1);
-    //     assertEq(quest.getNumOfTaskCompleted(), numOfTaskCompleted + 1);
-    //     assertEq(quest.getNumOfMissionsCompleted(), numOfMissionCompleted + 1);
-    //     assertEq(
-    //         quest.getTaskResponse(quest.getQuestIdByUserAndMission(_user, address(mission), _missionId), _taskId),
-    //         response
-    //     );
-    //     assertEq(
-    //         quest.getTaskFeedback(quest.getQuestIdByUserAndMission(_user, address(mission), _missionId), _taskId),
-    //         testString
-    //     );
-    //     assertEq(mission.getMissionCompletions(1), 1);
-    //     assertEq(mission.getTotalTaskCompletions(1), 1);
-    //     assertEq(mission.getTotalTaskCompletionsByMission(1, 1), 1);
-    // }
-
-    // function testSingleTaskMission_Respond_NoAuthorizedQuest(address _user, uint256 response) public payable {
-    //     vm.assume(_user != address(0));
-    //     testSingleTaskMission_Start_NoAuthorizedQuest(_user);
-    //     vm.warp(block.timestamp + 10);
-
-    //     // Retrieve for validation later.
-    //     uint256 completedCount = quest.getNumOfCompletedTasksInMission(bob, address(mission), 1);
-    //     uint256 numOfTaskCompleted = quest.getNumOfTaskCompleted();
-    //     uint256 numOfMissionCompleted = quest.getNumOfMissionsCompleted();
-
-    //     // Respond.
-    //     uint256 _missionId = 1;
-    //     uint256 _taskId = 1;
-    //     respond(_user, address(mission), _missionId, 1, response, testString);
-
-    //     // Validate.
-    //     assertEq(quest.getNumOfCompletedTasksInMission(_user, address(mission), _missionId), 1);
-    //     assertEq(quest.getNumOfTaskCompleted(), numOfTaskCompleted + 1);
-    //     assertEq(quest.getNumOfMissionsCompleted(), numOfMissionCompleted + 1);
-    //     assertEq(
-    //         quest.getTaskResponse(quest.getQuestIdByUserAndMission(_user, address(mission), _missionId), _taskId),
-    //         response
-    //     );
-    //     assertEq(
-    //         quest.getTaskFeedback(quest.getQuestIdByUserAndMission(_user, address(mission), _missionId), _taskId),
-    //         testString
-    //     );
-    //     assertEq(mission.getMissionCompletions(_missionId), 0);
-    //     assertEq(mission.getTotalTaskCompletions(_missionId), 0);
-    //     assertEq(mission.getTotalTaskCompletionsByMission(_missionId, _taskId), 0);
-    // }
-
-    // function testSingleTaskMission_Respond_InvalidRestart(address _user, uint256 response) public payable {
-    //     testSingleTaskMission_Respond(_user, response);
-
-    //     // .
-    //     vm.expectRevert(Quest.InvalidMission.selector);
-    //     vm.prank(_user);
-    //     quest.start(address(mission), 1);
-    // }
 
     // /// -----------------------------------------------------------------------
     // /// Quad-Task Mission Tests

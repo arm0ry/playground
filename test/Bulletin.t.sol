@@ -137,7 +137,6 @@ contract BulletinTest is Test {
 
     function testRegisterItems() public payable {
         Item memory _item;
-        uint256 id = bulletin.itemId();
 
         items.push(item1);
         items.push(item2);

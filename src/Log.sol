@@ -235,10 +235,12 @@ contract Log {
     }
 
     function getActivityTouchpoints(uint256 id) external returns (Touchpoint[] memory, uint256) {
+        bitmap.unsetBatch(0, 256);
         uint256 progress;
         (, address aBulletin, uint256 aListId, uint256 aNonce) = getActivityData(id);
         Touchpoint[] memory tps = new Touchpoint[](aNonce);
         List memory list = IBulletin(aBulletin).getList(aListId);
+
         uint256 length = list.itemIds.length;
 
         for (uint256 i; i < aNonce; ++i) {
@@ -247,11 +249,11 @@ contract Log {
             /// @dev Calculate percentage of completion.
             for (uint256 j; j < length; ++j) {
                 if (activities[id].touchpoints[i].itemId == list.itemIds[j]) {
-                    if (!bitmap.get(j)) {
+                    if (!bitmap.get(list.itemIds[j])) {
                         unchecked {
-                            ++progress;
+                            (tps[i].pass) ? ++progress : progress;
                         }
-                        bitmap.set(j);
+                        bitmap.set(list.itemIds[j]);
                     }
                 } else {
                     continue;
@@ -259,10 +261,6 @@ contract Log {
             }
         }
 
-        unchecked {
-            progress = progress * 100 / length;
-        }
-
-        return (tps, progress);
+        return (tps, progress * 100 / length);
     }
 }
