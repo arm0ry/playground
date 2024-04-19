@@ -213,7 +213,6 @@ contract Log {
             revert InvalidList();
         }
 
-        if (order == 0) revert InvalidEvaluation();
         activities[id].touchpoints[order].pass = pass;
 
         emit Evaluated(id, bulletin, listId, order, pass);
