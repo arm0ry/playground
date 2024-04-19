@@ -133,11 +133,15 @@ contract LogTest is Test {
 
         registerList_ReviewNotRequired();
 
-        logItem(alice, address(bulletin), _listId, _itemId);
-        logItem(alice, address(bulletin), _listId, _itemId);
-        logItem(alice, address(bulletin), _listId, _itemId);
-        logItem(alice, address(bulletin), _listId, _itemId);
-        logItem(alice, address(bulletin), _listId, _itemId);
+        logItem(alice, address(bulletin), _listId, 1);
+        logItem(alice, address(bulletin), _listId, 2);
+        logItem(alice, address(bulletin), _listId, 3);
+        logItem(alice, address(bulletin), _listId, 2);
+
+        uint256 progress = logItem(alice, address(bulletin), _listId, 1);
+        emit log_uint(progress);
+
+        assertEq(progress, 100);
     }
 
     function test_Log_ReviewRequired(uint256 _listId, uint256 _itemId) public payable {
@@ -146,14 +150,31 @@ contract LogTest is Test {
 
         registerList_ReviewRequired();
 
-        logItem(alice, address(bulletin), _listId, _itemId);
-        logItem(alice, address(bulletin), _listId, _itemId);
-        logItem(alice, address(bulletin), _listId, _itemId);
-        logItem(alice, address(bulletin), _listId, _itemId);
-        logItem(alice, address(bulletin), _listId, _itemId);
+        logItem(alice, address(bulletin), _listId, 4);
+        logItem(alice, address(bulletin), _listId, 5);
+        logItem(alice, address(bulletin), _listId, 6);
+        logItem(alice, address(bulletin), _listId, 5);
+
+        uint256 progress = logItem(alice, address(bulletin), _listId, 4);
+        emit log_uint(progress);
+        assertEq(progress, 0);
     }
 
-    function test_Log_SomeReviewRequired(address _bulletin, uint256 _listId, uint256 _itemId) public payable {}
+    function test_Log_SomeReviewRequired(address _bulletin, uint256 _listId, uint256 _itemId) public payable {
+        _listId = bound(_listId, 1, 1);
+        _itemId = bound(_itemId, 4, 6);
+
+        registerList_ReviewRequired();
+
+        logItem(alice, address(bulletin), _listId, 1);
+        logItem(alice, address(bulletin), _listId, 6);
+        logItem(alice, address(bulletin), _listId, 6);
+        logItem(alice, address(bulletin), _listId, 1);
+
+        uint256 progress = logItem(alice, address(bulletin), _listId, 4);
+        emit log_uint(progress);
+        assertEq(progress, 50);
+    }
 
     /// -----------------------------------------------------------------------
     /// Evaluate
@@ -161,6 +182,8 @@ contract LogTest is Test {
 
     function testEvaluate() public payable {
         testSetReviewer(alice, address(bulletin), 1);
+
+        logger.evaluate(1, address(bulletin), 1, 0, 4, true);
     }
 
     /// -----------------------------------------------------------------------
@@ -271,7 +294,7 @@ contract LogTest is Test {
         }
     }
 
-    function logItem(address user, address _bulletin, uint256 _listId, uint256 _itemId) internal {
+    function logItem(address user, address _bulletin, uint256 _listId, uint256 _itemId) internal returns (uint256) {
         uint256 id = logger.userActivityLookup(user, keccak256(abi.encodePacked(_bulletin, _listId)));
         (address aUser, address aBulletin, uint256 aListId, uint256 aNonce) = logger.getActivityData(id);
 
@@ -289,7 +312,8 @@ contract LogTest is Test {
         assertEq(aNonce + 1, _aNonce);
 
         (, uint256 progress) = logger.getActivityTouchpoints(_listId);
-        emit log_uint(progress);
+
+        return progress;
     }
 
     // /// -----------------------------------------------------------------------
