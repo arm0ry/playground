@@ -228,6 +228,7 @@ contract Bulletin {
             for (uint256 i; i < itemCount; ++i) {
                 runsPerItem = runsByItem[lists[id].itemIds[i]];
 
+                /// @dev Runs by list represents the number of times a user has completed all of the items in a list.
                 (runsPerItem > 0)
                     ? ((runs > runsPerItem) ? runs = runsPerItem : (runs == 0) ? runs = runsPerItem : runs)
                     : runs = 0;

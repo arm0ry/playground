@@ -51,8 +51,7 @@ contract LogTest is Test {
     string testString = "TEST";
 
     /// @dev Bot.
-    address bot;
-    uint256 botPK;
+    address buddy = makeAddr("buddy");
 
     /// @dev Public users.
     string username = "USERNAME";
@@ -60,7 +59,7 @@ contract LogTest is Test {
     string username3 = "USERNAME3";
 
     bytes32 public constant LOG_TYPEHASH =
-        keccak256("Log(address bulletin, uint256 listId ,uint256 itemId, bytes data)");
+        keccak256("Log(address bulletin, uint256 listId ,uint256 itemId, string feedback, bytes data)");
 
     /// -----------------------------------------------------------------------
     /// Setup Tests
@@ -95,16 +94,16 @@ contract LogTest is Test {
     /// DAO Test
     /// ----------------------------------------------------------------------
 
-    function testSetGasBuddy(address buddy) public payable {
+    function testSetGasBuddy(address _buddy) public payable {
         vm.prank(dao);
-        logger.setGasBuddy(buddy);
-        assertEq(logger.getGasBuddy(), buddy);
+        logger.setGasBuddy(_buddy);
+        assertEq(logger.getGasBuddy(), _buddy);
     }
 
-    function testAuthorizeLogger_NotDao(address buddy) public payable {
+    function testSetGasBuddy_NotDao(address _buddy) public payable {
         vm.expectRevert(Log.NotAuthorized.selector);
         vm.prank(alice);
-        logger.setGasBuddy(buddy);
+        logger.setGasBuddy(_buddy);
     }
 
     function testSetReviewer(address reviewer, address _bulletin, uint256 listId) public payable {
@@ -123,7 +122,28 @@ contract LogTest is Test {
     /// Log
     /// ----------------------------------------------------------------------
 
-    function test_Log_ReviewNotRequired() public payable {
+    function test_Log_ReviewNotRequired_LoggerAuthorized() public payable {
+        uint256 listId = 1;
+
+        registerList_ReviewNotRequired();
+        authorizeLogger(true);
+
+        logItem(alice, address(bulletin), listId, 1);
+        logItem(alice, address(bulletin), listId, 2);
+        logItemBySig(string("alice"), address(bulletin), listId, 3);
+        logItemBySponsorship(alice, address(bulletin), listId, 2);
+
+        uint256 progress = logItem(alice, address(bulletin), listId, 1);
+        emit log_uint(progress);
+
+        assertEq(progress, 100);
+
+        assertEq(bulletin.runsByItem(2), 2);
+        assertEq(bulletin.runsByItem(3), 1);
+        assertEq(bulletin.runsByList(listId), 1);
+    }
+
+    function test_Log_ReviewNotRequired_LoggerNotAuthorized() public payable {
         uint256 listId = 1;
 
         registerList_ReviewNotRequired();
@@ -138,9 +158,33 @@ contract LogTest is Test {
         emit log_uint(progress);
 
         assertEq(progress, 100);
+
+        assertEq(bulletin.runsByItem(2), 0);
+        assertEq(bulletin.runsByItem(3), 0);
+        assertEq(bulletin.runsByList(listId), 0);
     }
 
-    function test_Log_ReviewRequired() public payable {
+    function test_Log_ReviewRequired_LoggerAuthorized() public payable {
+        uint256 listId = 1;
+
+        registerList_ReviewRequired();
+        authorizeLogger(true);
+
+        logItem(alice, address(bulletin), listId, 4);
+        logItem(alice, address(bulletin), listId, 5);
+        logItem(alice, address(bulletin), listId, 6);
+        logItem(alice, address(bulletin), listId, 5);
+
+        uint256 progress = logItem(alice, address(bulletin), listId, 4);
+        emit log_uint(progress);
+        assertEq(progress, 0);
+
+        assertEq(bulletin.runsByItem(5), 0);
+        assertEq(bulletin.runsByItem(6), 0);
+        assertEq(bulletin.runsByList(listId), 0);
+    }
+
+    function test_Log_ReviewRequired_LoggerNotAuthorized() public payable {
         uint256 listId = 1;
 
         registerList_ReviewRequired();
@@ -153,12 +197,17 @@ contract LogTest is Test {
         uint256 progress = logItem(alice, address(bulletin), listId, 4);
         emit log_uint(progress);
         assertEq(progress, 0);
+
+        assertEq(bulletin.runsByItem(5), 0);
+        assertEq(bulletin.runsByItem(6), 0);
+        assertEq(bulletin.runsByList(listId), 0);
     }
 
-    function test_Log_SomeReviewRequired() public payable {
+    function test_Log_SomeReviewRequired_LoggerAuthorized() public payable {
         uint256 listId = 1;
 
         registerList_SomeReviewRequired();
+        authorizeLogger(true);
 
         logItem(alice, address(bulletin), listId, 1);
         logItem(alice, address(bulletin), listId, 6);
@@ -168,6 +217,10 @@ contract LogTest is Test {
         uint256 progress = logItem(alice, address(bulletin), listId, 1);
         emit log_uint(progress);
         assertEq(progress, 50);
+
+        assertEq(bulletin.runsByItem(1), 3);
+        assertEq(bulletin.runsByItem(6), 0);
+        assertEq(bulletin.runsByList(listId), 0);
     }
 
     /// -----------------------------------------------------------------------
@@ -180,7 +233,7 @@ contract LogTest is Test {
         uint256 progress;
 
         testSetReviewer(alice, address(bulletin), listId);
-        test_Log_ReviewRequired();
+        test_Log_ReviewRequired_LoggerAuthorized();
         activityId = logger.userActivityLookup(alice, keccak256(abi.encodePacked(address(bulletin), listId)));
 
         vm.prank(alice);
@@ -197,6 +250,11 @@ contract LogTest is Test {
         logger.evaluate(activityId, address(bulletin), listId, 2, 6, true);
         (, progress) = logger.getActivityTouchpoints(activityId);
         emit log_uint(progress);
+
+        assertEq(bulletin.runsByItem(4), 1);
+        assertEq(bulletin.runsByItem(5), 1);
+        assertEq(bulletin.runsByItem(6), 1);
+        assertEq(bulletin.runsByList(listId), 1);
     }
 
     function test_Evaluate_SomeReviewRequired() public payable {
@@ -205,7 +263,7 @@ contract LogTest is Test {
         uint256 progress;
 
         testSetReviewer(alice, address(bulletin), listId);
-        test_Log_SomeReviewRequired();
+        test_Log_SomeReviewRequired_LoggerAuthorized();
         activityId = logger.userActivityLookup(alice, keccak256(abi.encodePacked(address(bulletin), listId)));
 
         vm.prank(alice);
@@ -217,11 +275,19 @@ contract LogTest is Test {
         logger.evaluate(activityId, address(bulletin), listId, 2, 6, true);
         (, progress) = logger.getActivityTouchpoints(activityId);
         emit log_uint(progress);
+
+        assertEq(bulletin.runsByItem(6), 2);
+        assertEq(bulletin.runsByList(listId), 2);
     }
 
     /// -----------------------------------------------------------------------
     /// Helper
     /// ----------------------------------------------------------------------
+
+    function authorizeLogger(bool auth) internal {
+        vm.prank(dao);
+        bulletin.authorizeLogger(address(logger), auth);
+    }
 
     function registerItems() internal {
         Item memory _item;
@@ -332,7 +398,7 @@ contract LogTest is Test {
         (,,, uint256 aNonce) = logger.getActivityData(id);
 
         vm.prank(user);
-        logger.log(_bulletin, _listId, _itemId, BYTES);
+        logger.log(_bulletin, _listId, _itemId, TEST, BYTES);
         id = logger.userActivityLookup(user, keccak256(abi.encodePacked(_bulletin, _listId)));
         uint256 _aNonce;
         (,,, _aNonce) = logger.getActivityData(id);
@@ -357,16 +423,37 @@ contract LogTest is Test {
             abi.encodePacked(
                 "\x19\x01",
                 logger.DOMAIN_SEPARATOR(),
-                keccak256(abi.encode(LOG_TYPEHASH, _user, address(bulletin), _listId, _itemId, BYTES))
+                keccak256(abi.encode(LOG_TYPEHASH, _user, address(bulletin), _listId, _itemId, TEST, BYTES))
             )
         );
 
         // George signs message.
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_userPk, message);
-        logger.logBySig(_user, address(bulletin), _listId, _itemId, BYTES, v, r, s);
+        logger.logBySig(_user, address(bulletin), _listId, _itemId, TEST, BYTES, v, r, s);
 
         id = logger.userActivityLookup(_user, keccak256(abi.encodePacked(_bulletin, _listId)));
         (,,, uint256 _aNonce) = logger.getActivityData(id);
+        assertEq(aNonce + 1, _aNonce);
+
+        (, uint256 progress) = logger.getActivityTouchpoints(_listId);
+
+        return progress;
+    }
+
+    function logItemBySponsorship(address user, address _bulletin, uint256 _listId, uint256 _itemId)
+        internal
+        returns (uint256)
+    {
+        uint256 id = logger.userActivityLookup(user, keccak256(abi.encodePacked(_bulletin, _listId)));
+        (,,, uint256 aNonce) = logger.getActivityData(id);
+
+        testSetGasBuddy(buddy);
+
+        vm.prank(buddy);
+        logger.sponsoredLog(_bulletin, _listId, _itemId, TEST, BYTES);
+        id = logger.userActivityLookup(user, keccak256(abi.encodePacked(_bulletin, _listId)));
+        uint256 _aNonce;
+        (,,, _aNonce) = logger.getActivityData(id);
         assertEq(aNonce + 1, _aNonce);
 
         (, uint256 progress) = logger.getActivityTouchpoints(_listId);

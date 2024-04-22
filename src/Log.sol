@@ -49,7 +49,7 @@ contract Log {
     uint256 internal INITIAL_CHAIN_ID;
     bytes32 internal INITIAL_DOMAIN_SEPARATOR;
     bytes32 public constant LOG_TYPEHASH =
-        keccak256("Log(address bulletin, uint256 listId ,uint256 itemId, bytes data)");
+        keccak256("Log(address bulletin, uint256 listId ,uint256 itemId, string feedback, bytes data)");
 
     /// -----------------------------------------------------------------------
     /// EIP-2612 LOGIC
@@ -118,13 +118,16 @@ contract Log {
     /// Log Logic
     /// -----------------------------------------------------------------------
 
-    function log(address bulletin, uint256 listId, uint256 itemId, bytes calldata data) external payable {
+    function log(address bulletin, uint256 listId, uint256 itemId, string calldata feedback, bytes calldata data)
+        external
+        payable
+    {
         if (IBulletin(bulletin).hasItemExpired(itemId)) revert InvalidItem();
         if (!IBulletin(bulletin).checkIsItemInList(itemId, listId) || IBulletin(bulletin).hasListExpired(listId)) {
             revert InvalidList();
         }
 
-        _log(msg.sender, bulletin, listId, itemId, data);
+        _log(msg.sender, bulletin, listId, itemId, feedback, data);
     }
 
     function logBySig(
@@ -132,6 +135,7 @@ contract Log {
         address bulletin,
         uint256 listId,
         uint256 itemId,
+        string calldata feedback,
         bytes calldata data,
         uint8 v,
         bytes32 r,
@@ -142,25 +146,34 @@ contract Log {
             abi.encodePacked(
                 "\x19\x01",
                 DOMAIN_SEPARATOR(),
-                keccak256(abi.encode(LOG_TYPEHASH, signer, bulletin, listId, itemId, data))
+                keccak256(abi.encode(LOG_TYPEHASH, signer, bulletin, listId, itemId, feedback, data))
             )
         );
 
         address recoveredAddress = ecrecover(digest, v, r, s);
         if (recoveredAddress == address(0) || recoveredAddress != signer) revert NotAuthorized();
 
-        _log(signer, bulletin, listId, itemId, data);
+        _log(signer, bulletin, listId, itemId, feedback, data);
     }
 
-    function sponsoredLog(address bulletin, uint256 listId, uint256 itemId, bytes calldata data)
-        external
-        payable
-        onlyGasBuddy
-    {
-        _log(address(0), bulletin, listId, itemId, data);
+    function sponsoredLog(
+        address bulletin,
+        uint256 listId,
+        uint256 itemId,
+        string calldata feedback,
+        bytes calldata data
+    ) external payable onlyGasBuddy {
+        _log(address(0), bulletin, listId, itemId, feedback, data);
     }
 
-    function _log(address user, address bulletin, uint256 listId, uint256 itemId, bytes calldata data) internal {
+    function _log(
+        address user,
+        address bulletin,
+        uint256 listId,
+        uint256 itemId,
+        string calldata feedback,
+        bytes calldata data
+    ) internal {
         uint256 id = userActivityLookup[user][keccak256(abi.encodePacked(bulletin, listId))];
         Item memory item = IBulletin(bulletin).getItem(itemId);
         bool review = (item.review) ? false : true;
@@ -176,19 +189,20 @@ contract Log {
             activities[activityId].listId = listId;
 
             activities[activityId].touchpoints[activities[activityId].nonce] =
-                Touchpoint({pass: review, itemId: itemId, data: data});
+                Touchpoint({pass: review, itemId: itemId, feedback: feedback, data: data});
 
             unchecked {
                 ++activities[activityId].nonce;
             }
         } else {
-            activities[id].touchpoints[activities[id].nonce] = Touchpoint({pass: review, itemId: itemId, data: data});
+            activities[id].touchpoints[activities[id].nonce] =
+                Touchpoint({pass: review, itemId: itemId, feedback: feedback, data: data});
             unchecked {
                 ++activities[id].nonce;
             }
         }
 
-        if (IBulletin(bulletin).isLoggerAuthorized(address(this))) IBulletin(bulletin).submit(itemId);
+        if (IBulletin(bulletin).isLoggerAuthorized(address(this)) && review) IBulletin(bulletin).submit(itemId);
 
         emit Logged(user, bulletin, listId, itemId, activities[activityId].nonce, review, data);
     }
@@ -214,6 +228,7 @@ contract Log {
         }
 
         activities[id].touchpoints[order].pass = pass;
+        if (IBulletin(bulletin).isLoggerAuthorized(address(this)) && pass) IBulletin(bulletin).submit(itemId);
 
         emit Evaluated(id, bulletin, listId, order, pass);
     }

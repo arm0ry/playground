@@ -13,6 +13,7 @@ struct Activity {
 struct Touchpoint {
     bool pass;
     uint256 itemId;
+    string feedback;
     bytes data;
 }
 
