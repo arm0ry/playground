@@ -60,20 +60,6 @@ contract PoolingTest is LogTest {
         emit log_uint(count);
     }
 
-    function test_ActivityRunsByLogByPublic() public {
-        test_Log_ReviewNotRequired_LoggerAuthorized();
-        uint256 count = Pooling.activityRunsByLogByUser(address(logger), publicUser);
-        emit log_uint(count);
-    }
-
-    function test_ActivityRunsByLogsByPublic() public {
-        delete loggers;
-        loggers.push(address(logger));
-        test_Log_ReviewNotRequired_LoggerAuthorized();
-        uint256 count = Pooling.activityRunsByLogsByUser(loggers, publicUser);
-        emit log_uint(count);
-    }
-
     function test_TouchpointRunsByLogByPublic() public {
         test_Log_ReviewNotRequired_LoggerAuthorized();
         uint256 count = Pooling.touchpointRunsByLogByUser(address(logger), publicUser);
@@ -85,12 +71,6 @@ contract PoolingTest is LogTest {
         loggers.push(address(logger));
         test_Log_ReviewNotRequired_LoggerAuthorized();
         uint256 count = Pooling.touchpointRunsByLogsByUser(loggers, publicUser);
-        emit log_uint(count);
-    }
-
-    function test_MeanPercentageOfCompletionByLogByPublic() public {
-        test_Log_ReviewNotRequired_LoggerAuthorized();
-        uint256 count = Pooling.meanPercentageOfCompletionByLogByUser(address(logger), publicUser);
         emit log_uint(count);
     }
 
@@ -138,20 +118,6 @@ contract PoolingTest is LogTest {
         emit log_uint(count);
     }
 
-    function test_ActivityRunsByLogByUser() public {
-        test_Log_ReviewNotRequired_LoggerAuthorized();
-        uint256 count = Pooling.activityRunsByLogByUser(address(logger), alice);
-        emit log_uint(count);
-    }
-
-    function test_ActivityRunsByLogsByUser() public {
-        delete loggers;
-        loggers.push(address(logger));
-        test_Log_ReviewNotRequired_LoggerAuthorized();
-        uint256 count = Pooling.activityRunsByLogsByUser(loggers, alice);
-        emit log_uint(count);
-    }
-
     function test_TouchpointRunsByLogByUser() public {
         test_Log_ReviewNotRequired_LoggerAuthorized();
         uint256 count = Pooling.touchpointRunsByLogByUser(address(logger), alice);
@@ -166,11 +132,6 @@ contract PoolingTest is LogTest {
         emit log_uint(count);
     }
 
-    function test_MeanPercentageOfCompletionByLogByUser() public {
-        test_Log_ReviewNotRequired_LoggerAuthorized();
-        uint256 mean = Pooling.meanPercentageOfCompletionByLogByUser(address(logger), alice);
-        emit log_uint(mean);
-    }
     /// -----------------------------------------------------------------------
     /// Log Activities & Touchpoints
     /// -----------------------------------------------------------------------

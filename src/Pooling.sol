@@ -9,12 +9,6 @@ import {IBulletin, List, Item} from "./interface/IBulletin.sol";
 /// @author audsssy.eth
 library Pooling {
     /// -----------------------------------------------------------------------
-    /// Error
-    /// -----------------------------------------------------------------------
-
-    error Invalid();
-
-    /// -----------------------------------------------------------------------
     /// Contributors
     /// -----------------------------------------------------------------------
 
@@ -139,27 +133,6 @@ library Pooling {
         }
     }
 
-    /// @notice Query the number of activities completed in a log by a user.
-    function activityRunsByLogByUser(address log, address user) public view returns (uint256 runs) {
-        address aUser;
-        uint256 percentage;
-
-        uint256 count = ILog(log).activityId();
-        for (uint256 i = 1; i <= count; ++i) {
-            (aUser,,,) = ILog(log).getActivityData(i);
-            (, percentage) = ILog(log).getActivityTouchpoints(i);
-            (aUser == user && percentage == 100) ? ++runs : runs;
-        }
-    }
-
-    function activityRunsByLogsByUser(address[] calldata logs, address user) public view returns (uint256 runs) {
-        uint256 length = logs.length;
-
-        for (uint256 i; i < length; ++i) {
-            runs = runs + activityRunsByLogByUser(logs[i], user);
-        }
-    }
-
     /// @notice Query the number of touchpoints in a log by a user.
     function touchpointRunsByLogByUser(address log, address user) public view returns (uint256 runs) {
         address aUser;
@@ -182,33 +155,12 @@ library Pooling {
         }
     }
 
-    function meanPercentageOfCompletionByLogByUser(address log, address user) public view returns (uint256 mean) {
-        address aUser;
-        uint256 percentage;
-        uint256 sum;
-
-        uint256 count = ILog(log).activityId();
-        for (uint256 i = 1; i <= count; ++i) {
-            (aUser,,,) = ILog(log).getActivityData(i);
-            if (aUser == user) {
-                (, percentage) = ILog(log).getActivityTouchpoints(i);
-
-                unchecked {
-                    sum = sum + percentage;
-                }
-            }
-        }
-
-        mean = sum / count;
-    }
-
     /// -----------------------------------------------------------------------
     /// Log Activities & Touchpoints
     /// -----------------------------------------------------------------------
 
-    function dataByActivity(address log, uint256 activityId) public returns (bytes[] memory data) {
-        (Touchpoint[] memory tp,) = ILog(log).getActivityTouchpoints(activityId);
-
+    function dataByActivity(address log, uint256 activityId) public view returns (bytes[] memory data) {
+        Touchpoint[] memory tp = ILog(log).getActivityTouchpoints(activityId);
         uint256 length = tp.length;
         for (uint256 i; i < length; ++i) {
             data[i] = tp[i].data;
@@ -218,24 +170,6 @@ library Pooling {
     /// @notice Query the number of activities started in a log by a user.
     function activityStartsByLog(address log) public view returns (uint256) {
         return ILog(log).activityId();
-    }
-
-    /// @notice Query the number of activities completed in a log by a user.
-    function activityRunsByLog(address log) public returns (uint256 runs) {
-        uint256 count = ILog(log).activityId();
-
-        uint256 percentage;
-        for (uint256 i = 1; i <= count; ++i) {
-            (, percentage) = ILog(log).getActivityTouchpoints(i);
-            (percentage == 100) ? ++runs : runs;
-        }
-    }
-
-    function activityRunsByLogs(address[] calldata logs) public returns (uint256 runs) {
-        uint256 length = logs.length;
-        for (uint256 i; i < length; ++i) {
-            runs = runs + activityRunsByLog(logs[i]);
-        }
     }
 
     /// @notice Query the number of touchpoints in a log by a user.
@@ -253,39 +187,6 @@ library Pooling {
         uint256 length = logs.length;
         for (uint256 i; i < length; ++i) {
             runs = runs + touchpointRunsByLog(logs[i]);
-        }
-    }
-
-    function meanPercentageOfCompletionByLog(address log) public returns (uint256 mean) {
-        uint256 percentage;
-        uint256 sum;
-
-        uint256 count = ILog(log).activityId();
-        for (uint256 i = 1; i <= count; ++i) {
-            (, percentage) = ILog(log).getActivityTouchpoints(i);
-
-            unchecked {
-                sum = sum + percentage;
-            }
-        }
-
-        unchecked {
-            mean = sum / count;
-        }
-    }
-
-    function meanPercentageOfCompletionByLogs(address[] calldata logs) public returns (uint256 mean) {
-        uint256 sum;
-
-        uint256 length = logs.length;
-        for (uint256 i; i < length; ++i) {
-            unchecked {
-                sum = sum + meanPercentageOfCompletionByLog(logs[i]);
-            }
-        }
-
-        unchecked {
-            mean = sum / length;
         }
     }
 }

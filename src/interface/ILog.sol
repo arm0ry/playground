@@ -27,8 +27,5 @@ interface ILog {
         external
         view
         returns (address user, address bulletin, uint256 listId, uint256 nonce);
-    function getActivityTouchpoints(uint256 id)
-        external
-        view
-        returns (Touchpoint[] memory touchpoints, uint256 percentageOfCompletion);
+    function getActivityTouchpoints(uint256 id) external view returns (Touchpoint[] memory touchpoints);
 }

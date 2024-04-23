@@ -2,7 +2,6 @@
 pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
-import "forge-std/console2.sol";
 
 import {Log} from "src/Log.sol";
 import {ILog, Activity, Touchpoint} from "src/interface/ILog.sol";
@@ -41,9 +40,6 @@ contract LogTest is Test {
     Item item5 =
         Item({review: true, expire: FUTURE, owner: makeAddr("alice"), title: TEST, detail: TEST, schema: BYTES});
     Item item6 = Item({review: true, expire: FUTURE, owner: makeAddr("bob"), title: TEST, detail: TEST, schema: BYTES});
-
-    // Touchpoint[] touchpoints;
-    uint256 percentageOfCompletion;
 
     /// @dev Helpers.
     uint256 taskId;
@@ -132,11 +128,7 @@ contract LogTest is Test {
         logItem(alice, address(bulletin), listId, 2);
         logItemBySig(string("alice"), address(bulletin), listId, 3);
         logItemBySponsorship(address(bulletin), listId, 2);
-
-        uint256 progress = logItem(alice, address(bulletin), listId, 1);
-        // emit log_uint(progress);
-
-        assertEq(progress, 100);
+        logItem(alice, address(bulletin), listId, 1);
 
         assertEq(bulletin.runsByItem(2), 2);
         assertEq(bulletin.runsByItem(3), 1);
@@ -153,11 +145,7 @@ contract LogTest is Test {
         logItemBySig(string("alice"), address(bulletin), listId, 3);
         // logItem(alice, address(bulletin), listId, 3);
         logItem(alice, address(bulletin), listId, 2);
-
-        uint256 progress = logItem(alice, address(bulletin), listId, 1);
-        // emit log_uint(progress);
-
-        assertEq(progress, 100);
+        logItem(alice, address(bulletin), listId, 1);
 
         assertEq(bulletin.runsByItem(2), 0);
         assertEq(bulletin.runsByItem(3), 0);
@@ -174,10 +162,7 @@ contract LogTest is Test {
         logItem(alice, address(bulletin), listId, 5);
         logItem(alice, address(bulletin), listId, 6);
         logItem(alice, address(bulletin), listId, 5);
-
-        uint256 progress = logItem(alice, address(bulletin), listId, 4);
-        // emit log_uint(progress);
-        assertEq(progress, 0);
+        logItem(alice, address(bulletin), listId, 4);
 
         assertEq(bulletin.runsByItem(5), 0);
         assertEq(bulletin.runsByItem(6), 0);
@@ -193,10 +178,7 @@ contract LogTest is Test {
         logItem(alice, address(bulletin), listId, 5);
         logItem(alice, address(bulletin), listId, 6);
         logItem(alice, address(bulletin), listId, 5);
-
-        uint256 progress = logItem(alice, address(bulletin), listId, 4);
-        // emit log_uint(progress);
-        assertEq(progress, 0);
+        logItem(alice, address(bulletin), listId, 4);
 
         assertEq(bulletin.runsByItem(5), 0);
         assertEq(bulletin.runsByItem(6), 0);
@@ -213,10 +195,7 @@ contract LogTest is Test {
         logItem(alice, address(bulletin), listId, 6);
         logItem(alice, address(bulletin), listId, 6);
         logItem(alice, address(bulletin), listId, 1);
-
-        uint256 progress = logItem(alice, address(bulletin), listId, 1);
-        // emit log_uint(progress);
-        assertEq(progress, 50);
+        logItem(alice, address(bulletin), listId, 1);
 
         assertEq(bulletin.runsByItem(1), 3);
         assertEq(bulletin.runsByItem(6), 0);
@@ -230,7 +209,6 @@ contract LogTest is Test {
     function test_Evaluate_ReviewRequired() public payable {
         uint256 listId = 1;
         uint256 activityId;
-        uint256 progress;
 
         testSetReviewer(alice, address(bulletin), listId);
         test_Log_ReviewRequired_LoggerAuthorized();
@@ -238,18 +216,12 @@ contract LogTest is Test {
 
         vm.prank(alice);
         logger.evaluate(activityId, address(bulletin), listId, 0, 4, true);
-        (, progress) = logger.getActivityTouchpoints(activityId);
-        // emit log_uint(progress);
 
         vm.prank(alice);
         logger.evaluate(activityId, address(bulletin), listId, 1, 5, true);
-        (, progress) = logger.getActivityTouchpoints(activityId);
-        // emit log_uint(progress);
 
         vm.prank(alice);
         logger.evaluate(activityId, address(bulletin), listId, 2, 6, true);
-        (, progress) = logger.getActivityTouchpoints(activityId);
-        // emit log_uint(progress);
 
         assertEq(bulletin.runsByItem(4), 1);
         assertEq(bulletin.runsByItem(5), 1);
@@ -260,7 +232,6 @@ contract LogTest is Test {
     function test_Evaluate_SomeReviewRequired() public payable {
         uint256 listId = 1;
         uint256 activityId;
-        uint256 progress;
 
         testSetReviewer(alice, address(bulletin), listId);
         test_Log_SomeReviewRequired_LoggerAuthorized();
@@ -268,13 +239,9 @@ contract LogTest is Test {
 
         vm.prank(alice);
         logger.evaluate(activityId, address(bulletin), listId, 1, 6, true);
-        (, progress) = logger.getActivityTouchpoints(activityId);
-        // emit log_uint(progress);
 
         vm.prank(alice);
         logger.evaluate(activityId, address(bulletin), listId, 2, 6, true);
-        (, progress) = logger.getActivityTouchpoints(activityId);
-        // emit log_uint(progress);
 
         assertEq(bulletin.runsByItem(6), 2);
         assertEq(bulletin.runsByList(listId), 2);
@@ -393,7 +360,7 @@ contract LogTest is Test {
         }
     }
 
-    function logItem(address user, address _bulletin, uint256 _listId, uint256 _itemId) internal returns (uint256) {
+    function logItem(address user, address _bulletin, uint256 _listId, uint256 _itemId) internal {
         uint256 id = logger.userActivityLookup(user, keccak256(abi.encodePacked(_bulletin, _listId)));
         (,,, uint256 aNonce) = logger.getActivityData(id);
 
@@ -403,16 +370,9 @@ contract LogTest is Test {
         uint256 _aNonce;
         (,,, _aNonce) = logger.getActivityData(id);
         assertEq(aNonce + 1, _aNonce);
-
-        (, uint256 progress) = logger.getActivityTouchpoints(_listId);
-
-        return progress;
     }
 
-    function logItemBySig(string memory user, address _bulletin, uint256 _listId, uint256 _itemId)
-        internal
-        returns (uint256)
-    {
+    function logItemBySig(string memory user, address _bulletin, uint256 _listId, uint256 _itemId) internal {
         (address _user, uint256 _userPk) = makeAddrAndKey(user);
 
         uint256 id = logger.userActivityLookup(_user, keccak256(abi.encodePacked(_bulletin, _listId)));
@@ -434,13 +394,9 @@ contract LogTest is Test {
         id = logger.userActivityLookup(_user, keccak256(abi.encodePacked(_bulletin, _listId)));
         (,,, uint256 _aNonce) = logger.getActivityData(id);
         assertEq(aNonce + 1, _aNonce);
-
-        (, uint256 progress) = logger.getActivityTouchpoints(_listId);
-
-        return progress;
     }
 
-    function logItemBySponsorship(address _bulletin, uint256 _listId, uint256 _itemId) internal returns (uint256) {
+    function logItemBySponsorship(address _bulletin, uint256 _listId, uint256 _itemId) internal {
         uint256 id = logger.userActivityLookup(address(0), keccak256(abi.encodePacked(_bulletin, _listId)));
         (,,, uint256 aNonce) = logger.getActivityData(id);
 
@@ -452,9 +408,5 @@ contract LogTest is Test {
         uint256 _aNonce;
         (,,, _aNonce) = logger.getActivityData(id);
         assertEq(aNonce + 1, _aNonce);
-
-        (, uint256 progress) = logger.getActivityTouchpoints(_listId);
-
-        return progress;
     }
 }

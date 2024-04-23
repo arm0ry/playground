@@ -3,13 +3,13 @@ pragma solidity >=0.8.4;
 
 import {ILog, Activity, Touchpoint} from "./interface/ILog.sol";
 import {IBulletin, List, Item} from "./interface/IBulletin.sol";
-import {LibBitmap} from "solady/utils/LibBitmap.sol";
+// import {LibBitmap} from "solady/utils/LibBitmap.sol";
 
 /// @title Log
 /// @notice A database management system to log data from interacting with Bulletin.
 /// @author audsssy.eth
 contract Log {
-    using LibBitmap for LibBitmap.Bitmap;
+    // using LibBitmap for LibBitmap.Bitmap;
 
     event Logged(
         address user, address bulletin, uint256 listId, uint256 itemId, uint256 nonce, bool review, bytes data
@@ -27,7 +27,7 @@ contract Log {
     /// Activity Storage
     /// -----------------------------------------------------------------------
 
-    LibBitmap.Bitmap bitmap;
+    // LibBitmap.Bitmap bitmap;
 
     address public dao;
     address public gasBuddy;
@@ -248,33 +248,14 @@ contract Log {
         nonce = activities[id].nonce;
     }
 
-    function getActivityTouchpoints(uint256 id) external returns (Touchpoint[] memory, uint256) {
-        bitmap.unsetBatch(0, 256);
-        uint256 progress;
-        (, address aBulletin, uint256 aListId, uint256 aNonce) = getActivityData(id);
+    function getActivityTouchpoints(uint256 id) external view returns (Touchpoint[] memory) {
+        (,,, uint256 aNonce) = getActivityData(id);
         Touchpoint[] memory tps = new Touchpoint[](aNonce);
-        List memory list = IBulletin(aBulletin).getList(aListId);
-
-        uint256 length = list.itemIds.length;
 
         for (uint256 i; i < aNonce; ++i) {
             tps[i] = activities[id].touchpoints[i];
-
-            /// @dev Calculate percentage of completion.
-            for (uint256 j; j < length; ++j) {
-                if (activities[id].touchpoints[i].itemId == list.itemIds[j]) {
-                    if (!bitmap.get(list.itemIds[j])) {
-                        unchecked {
-                            (tps[i].pass) ? ++progress : progress;
-                        }
-                        bitmap.set(list.itemIds[j]);
-                    }
-                } else {
-                    continue;
-                }
-            }
         }
 
-        return (tps, progress * 100 / length);
+        return tps;
     }
 }
