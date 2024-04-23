@@ -156,6 +156,7 @@ contract Log {
         _log(signer, bulletin, listId, itemId, feedback, data);
     }
 
+    /// @notice Sponsor log is used in combination with gas buddy, which provide gas subsidy.
     function sponsoredLog(
         address bulletin,
         uint256 listId,
@@ -183,7 +184,6 @@ contract Log {
                 userActivityLookup[user][keccak256(abi.encodePacked(bulletin, listId))] = ++activityId;
             }
 
-            if (user == address(0)) user = address(uint160(uint256(bytes32(abi.encodePacked(activityId)))));
             activities[activityId].user = user;
             activities[activityId].bulletin = bulletin;
             activities[activityId].listId = listId;

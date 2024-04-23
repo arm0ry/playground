@@ -66,7 +66,7 @@ contract LogTest is Test {
     /// -----------------------------------------------------------------------
 
     /// @notice Set up the testing suite.
-    function setUp() public payable {
+    function setUp() public payable virtual {
         (alice, alicePk) = makeAddrAndKey("alice");
         (bob, bobPk) = makeAddrAndKey("bob");
         (charlie, charliePk) = makeAddrAndKey("charlie");
@@ -131,10 +131,10 @@ contract LogTest is Test {
         logItem(alice, address(bulletin), listId, 1);
         logItem(alice, address(bulletin), listId, 2);
         logItemBySig(string("alice"), address(bulletin), listId, 3);
-        logItemBySponsorship(alice, address(bulletin), listId, 2);
+        logItemBySponsorship(address(bulletin), listId, 2);
 
         uint256 progress = logItem(alice, address(bulletin), listId, 1);
-        emit log_uint(progress);
+        // emit log_uint(progress);
 
         assertEq(progress, 100);
 
@@ -155,7 +155,7 @@ contract LogTest is Test {
         logItem(alice, address(bulletin), listId, 2);
 
         uint256 progress = logItem(alice, address(bulletin), listId, 1);
-        emit log_uint(progress);
+        // emit log_uint(progress);
 
         assertEq(progress, 100);
 
@@ -176,7 +176,7 @@ contract LogTest is Test {
         logItem(alice, address(bulletin), listId, 5);
 
         uint256 progress = logItem(alice, address(bulletin), listId, 4);
-        emit log_uint(progress);
+        // emit log_uint(progress);
         assertEq(progress, 0);
 
         assertEq(bulletin.runsByItem(5), 0);
@@ -195,7 +195,7 @@ contract LogTest is Test {
         logItem(alice, address(bulletin), listId, 5);
 
         uint256 progress = logItem(alice, address(bulletin), listId, 4);
-        emit log_uint(progress);
+        // emit log_uint(progress);
         assertEq(progress, 0);
 
         assertEq(bulletin.runsByItem(5), 0);
@@ -215,7 +215,7 @@ contract LogTest is Test {
         logItem(alice, address(bulletin), listId, 1);
 
         uint256 progress = logItem(alice, address(bulletin), listId, 1);
-        emit log_uint(progress);
+        // emit log_uint(progress);
         assertEq(progress, 50);
 
         assertEq(bulletin.runsByItem(1), 3);
@@ -239,17 +239,17 @@ contract LogTest is Test {
         vm.prank(alice);
         logger.evaluate(activityId, address(bulletin), listId, 0, 4, true);
         (, progress) = logger.getActivityTouchpoints(activityId);
-        emit log_uint(progress);
+        // emit log_uint(progress);
 
         vm.prank(alice);
         logger.evaluate(activityId, address(bulletin), listId, 1, 5, true);
         (, progress) = logger.getActivityTouchpoints(activityId);
-        emit log_uint(progress);
+        // emit log_uint(progress);
 
         vm.prank(alice);
         logger.evaluate(activityId, address(bulletin), listId, 2, 6, true);
         (, progress) = logger.getActivityTouchpoints(activityId);
-        emit log_uint(progress);
+        // emit log_uint(progress);
 
         assertEq(bulletin.runsByItem(4), 1);
         assertEq(bulletin.runsByItem(5), 1);
@@ -269,12 +269,12 @@ contract LogTest is Test {
         vm.prank(alice);
         logger.evaluate(activityId, address(bulletin), listId, 1, 6, true);
         (, progress) = logger.getActivityTouchpoints(activityId);
-        emit log_uint(progress);
+        // emit log_uint(progress);
 
         vm.prank(alice);
         logger.evaluate(activityId, address(bulletin), listId, 2, 6, true);
         (, progress) = logger.getActivityTouchpoints(activityId);
-        emit log_uint(progress);
+        // emit log_uint(progress);
 
         assertEq(bulletin.runsByItem(6), 2);
         assertEq(bulletin.runsByList(listId), 2);
@@ -440,18 +440,15 @@ contract LogTest is Test {
         return progress;
     }
 
-    function logItemBySponsorship(address user, address _bulletin, uint256 _listId, uint256 _itemId)
-        internal
-        returns (uint256)
-    {
-        uint256 id = logger.userActivityLookup(user, keccak256(abi.encodePacked(_bulletin, _listId)));
+    function logItemBySponsorship(address _bulletin, uint256 _listId, uint256 _itemId) internal returns (uint256) {
+        uint256 id = logger.userActivityLookup(address(0), keccak256(abi.encodePacked(_bulletin, _listId)));
         (,,, uint256 aNonce) = logger.getActivityData(id);
 
         testSetGasBuddy(buddy);
 
         vm.prank(buddy);
         logger.sponsoredLog(_bulletin, _listId, _itemId, TEST, BYTES);
-        id = logger.userActivityLookup(user, keccak256(abi.encodePacked(_bulletin, _listId)));
+        id = logger.userActivityLookup(address(0), keccak256(abi.encodePacked(_bulletin, _listId)));
         uint256 _aNonce;
         (,,, _aNonce) = logger.getActivityData(id);
         assertEq(aNonce + 1, _aNonce);

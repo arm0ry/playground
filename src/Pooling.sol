@@ -26,7 +26,7 @@ library Pooling {
         Item memory item;
         uint256 itemId = IBulletin(bulletin).itemId();
 
-        for (uint256 i; i < itemId; i++) {
+        for (uint256 i = 1; i <= itemId; i++) {
             item = IBulletin(bulletin).getItem(i);
             if (item.owner == contributor) ++count;
         }
@@ -40,40 +40,9 @@ library Pooling {
         List memory list;
         uint256 listId = IBulletin(bulletin).listId();
 
-        for (uint256 i; i < listId; i++) {
+        for (uint256 i = 1; i <= listId; i++) {
             list = IBulletin(bulletin).getList(i);
             if (list.owner == contributor) ++count;
-        }
-    }
-
-    /// -----------------------------------------------------------------------
-    /// Public Users
-    /// -----------------------------------------------------------------------
-
-    /// @notice Query the num`ber of activities in a log by users via sponsoredLog().
-    function activityRunsByLogByPublic(address log) external view returns (uint256 runs) {
-        address user;
-        address aUser;
-        uint256 count = ILog(log).activityId();
-
-        for (uint256 i = 1; i <= count; ++i) {
-            user = address(uint160(uint256(bytes32(abi.encodePacked(i)))));
-            (aUser,,,) = ILog(log).getActivityData(i);
-            (user == aUser) ? ++runs : runs;
-        }
-    }
-
-    /// @notice Query the number of touchpoints in a log by users via sponsoredLog().
-    function touchpointRunsByLogByPublic(address log) external view returns (uint256 runs) {
-        address user;
-        address aUser;
-        uint256 aNonce;
-        uint256 count = ILog(log).activityId();
-
-        for (uint256 i = 1; i <= count; ++i) {
-            user = address(uint160(uint256(bytes32(abi.encodePacked(i)))));
-            (aUser,,, aNonce) = ILog(log).getActivityData(i);
-            (user == aUser) ? runs = runs + aNonce : runs;
         }
     }
 
@@ -237,7 +206,7 @@ library Pooling {
     /// Log Activities & Touchpoints
     /// -----------------------------------------------------------------------
 
-    function dataByActivity(address log, uint256 activityId) public view returns (bytes[] memory data) {
+    function dataByActivity(address log, uint256 activityId) public returns (bytes[] memory data) {
         (Touchpoint[] memory tp,) = ILog(log).getActivityTouchpoints(activityId);
 
         uint256 length = tp.length;
@@ -252,7 +221,7 @@ library Pooling {
     }
 
     /// @notice Query the number of activities completed in a log by a user.
-    function activityRunsByLog(address log) public view returns (uint256 runs) {
+    function activityRunsByLog(address log) public returns (uint256 runs) {
         uint256 count = ILog(log).activityId();
 
         uint256 percentage;
@@ -262,7 +231,7 @@ library Pooling {
         }
     }
 
-    function activityRunsByLogs(address[] calldata logs) public view returns (uint256 runs) {
+    function activityRunsByLogs(address[] calldata logs) public returns (uint256 runs) {
         uint256 length = logs.length;
         for (uint256 i; i < length; ++i) {
             runs = runs + activityRunsByLog(logs[i]);
@@ -287,7 +256,7 @@ library Pooling {
         }
     }
 
-    function meanPercentageOfCompletionByLog(address log) public view returns (uint256 mean) {
+    function meanPercentageOfCompletionByLog(address log) public returns (uint256 mean) {
         uint256 percentage;
         uint256 sum;
 
@@ -305,7 +274,7 @@ library Pooling {
         }
     }
 
-    function meanPercentageOfCompletionByLogs(address[] calldata logs) public view returns (uint256 mean) {
+    function meanPercentageOfCompletionByLogs(address[] calldata logs) public returns (uint256 mean) {
         uint256 sum;
 
         uint256 length = logs.length;
