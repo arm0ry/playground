@@ -10,10 +10,10 @@ import {IKaliCurve, CurveType} from "kali-markets/interface/IKaliCurve.sol";
 
 import {Storage} from "kali-markets/Storage.sol";
 import {IStorage} from "kali-markets/interface/IStorage.sol";
-import {MissionToken} from "src/tokens/MissionToken.sol";
+import {ListToken} from "src/tokens/ListToken.sol";
 
-contract MissionTokenTest is Test {
-    MissionToken missionToken;
+contract ListTokenTest is Test {
+    ListToken listToken;
 
     /// @dev Users.
     address public immutable alice = makeAddr("alice");
@@ -32,7 +32,7 @@ contract MissionTokenTest is Test {
     /// @notice Set up the testing suite.
 
     function setUp() public payable {
-        missionToken = new MissionToken(testString, testString, user, user, user);
+        listToken = new ListToken(testString, testString, user, user);
     }
 
     function testMint() public payable {
@@ -41,13 +41,13 @@ contract MissionTokenTest is Test {
 
         // vm.deal(bob, 10 ether);
         // vm.prank(bob);
-        // missionToken.support{value: price}(alice, 1, 1, amount);
+        // listToken.support{value: price}(alice, 1, 1, amount);
 
-        // emit log_uint(missionToken.balanceOf(bob, 1));
+        // emit log_uint(listToken.balanceOf(bob, 1));
     }
 
     function testReceiveETH() public payable {
-        (bool sent,) = address(missionToken).call{value: 5 ether}("");
+        (bool sent,) = address(listToken).call{value: 5 ether}("");
         assert(!sent);
     }
 }

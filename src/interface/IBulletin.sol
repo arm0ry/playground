@@ -42,5 +42,5 @@ interface IBulletin {
     function submit(uint256 itemId) external;
     function isLoggerAuthorized(address log) external view returns (bool);
     function runsByItem(uint256 itemId) external view returns (uint256);
-    function runsByList(uint256 itemId) external view returns (uint256);
+    function runsByList(uint256 listId) external view returns (uint256);
 }

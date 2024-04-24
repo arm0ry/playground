@@ -5,16 +5,18 @@ import {SVG} from "utils/SVG.sol";
 import {JSON} from "utils/JSON.sol";
 import {SupportToken} from "tokens/SupportToken.sol";
 import {IImpactCurve} from "interface/IImpactCurve.sol";
+import {Pooling} from "src/Pooling.sol";
+import {Bulletin} from "src/Bulletin.sol";
+import {IBulletin, List, Item} from "interface/IBulletin.sol";
 
 /// @title Impact NFTs
 /// @notice SVG NFTs displaying impact results and metrics.
-contract MissionToken is SupportToken {
+contract ListToken is SupportToken {
     /// -----------------------------------------------------------------------
     /// Storage
     /// -----------------------------------------------------------------------
 
-    address public immutable quest;
-    address public immutable mission;
+    address public immutable bulletin;
     address public immutable curve;
     uint256 public totalSupply;
     mapping(uint256 => bytes32) public inputs;
@@ -23,11 +25,10 @@ contract MissionToken is SupportToken {
     /// Constructor & Modifier
     /// -----------------------------------------------------------------------
 
-    constructor(string memory _name, string memory _symbol, address _quest, address _mission, address _curve) {
+    constructor(string memory _name, string memory _symbol, address _bulletin, address _curve) {
         _init(_name, _symbol);
 
-        quest = _quest;
-        mission = _mission;
+        bulletin = _bulletin;
         curve = _curve;
     }
 
@@ -65,12 +66,12 @@ contract MissionToken is SupportToken {
     /// SVG Inputs
     /// -----------------------------------------------------------------------
 
-    function updateInputs(uint256 tokenId, uint128 missionId, uint128 curveId)
+    function updateInputs(uint256 tokenId, uint128 listId, uint128 curveId)
         external
         payable
         onlyOwnerOrCurve(tokenId)
     {
-        inputs[tokenId] = this.encodeSvgInputs(missionId, curveId);
+        inputs[tokenId] = this.encodeSvgInputs(listId, curveId);
     }
 
     /// -----------------------------------------------------------------------
@@ -114,7 +115,8 @@ contract MissionToken is SupportToken {
     }
 
     function buildSvgData(uint256 id) public view returns (string memory) {
-        (uint256 missionId, uint256 curveId) = this.decodeCurveData(inputs[id]);
+        (uint256 listId, uint256 curveId) = this.decodeCurveData(inputs[id]);
+        List memory list = IBulletin(bulletin).getList(listId);
 
         return string.concat(
             SVG._text(
@@ -124,7 +126,7 @@ contract MissionToken is SupportToken {
                     SVG._prop("font-size", "20"),
                     SVG._prop("fill", "#00040a")
                 ),
-                "" // IMission(mission).getMissionTitle(missionId)
+                list.title
             ),
             SVG._text(
                 string.concat(
@@ -133,52 +135,38 @@ contract MissionToken is SupportToken {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                "" // string.concat("# of participants: ", SVG._uint2str(IMission(mission).getMissionStarts(missionId)))
+                string.concat("# of participants: ", SVG._uint2str(IBulletin(bulletin).runsByList(listId)))
             ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "280"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat(
-                    // "# of 100% completions: ", SVG._uint2str(IMission(mission).getMissionCompletions(missionId))
-                )
-            ),
-            buildTasksCompletions(missionId),
+            buildTasksCompletions(list, list.itemIds),
             buildTicker(curveId)
         );
     }
 
-    function buildTasksCompletions(uint256 missionId) public view returns (string memory) {
-        // if (missionId != 0) {
-        //     uint256[] memory taskIds = IMission(mission).getMissionTaskIds(missionId);
-        //     uint256 length = (taskIds.length > 5) ? 5 : taskIds.length;
-        //     string memory text;
+    function buildTasksCompletions(List memory list, uint256[] memory itemIds) public view returns (string memory) {
+        if (list.owner != address(0)) {
+            uint256 length = (itemIds.length > 5) ? 5 : itemIds.length;
+            string memory text;
+            Item memory item;
 
-        //     for (uint256 i; i < length; ++i) {
-        //         text = string.concat(
-        //             text,
-        //             SVG._text(
-        //                 string.concat(
-        //                     SVG._prop("x", "20"),
-        //                     SVG._prop("y", SVG._uint2str(140 + 20 * i)),
-        //                     SVG._prop("font-size", "12"),
-        //                     SVG._prop("fill", "#808080")
-        //                 ),
-        //                 string.concat(
-        //                     IMission(mission).getTaskTitle(taskIds[i]),
-        //                     ": "
-        //                     SVG._uint2str(IMission(mission).getTotalTaskCompletionsByMission(missionId, taskIds[i]))
-        //                 )
-        //             )
-        //         );
-        //     }
-        //     return text;
-        // } else {
-        //     return SVG.NULL;
-        // }
+            for (uint256 i; i < length; ++i) {
+                item = IBulletin(bulletin).getItem(itemIds[i]);
+                text = string.concat(
+                    text,
+                    SVG._text(
+                        string.concat(
+                            SVG._prop("x", "20"),
+                            SVG._prop("y", SVG._uint2str(140 + 20 * i)),
+                            SVG._prop("font-size", "12"),
+                            SVG._prop("fill", "#808080")
+                        ),
+                        string.concat(item.title, ": ", SVG._uint2str(IBulletin(bulletin).runsByItem(itemIds[i])))
+                    )
+                );
+            }
+            return text;
+        } else {
+            return SVG.NULL;
+        }
     }
 
     function buildTicker(uint256 curveId) public view returns (string memory) {
@@ -213,22 +201,22 @@ contract MissionToken is SupportToken {
     /// Helper Logic
     /// -----------------------------------------------------------------------
 
-    function encodeSvgInputs(uint128 missionId, uint128 curveId) external pure virtual returns (bytes32) {
-        return bytes32(abi.encodePacked(missionId, curveId));
+    function encodeSvgInputs(uint128 listId, uint128 curveId) external pure virtual returns (bytes32) {
+        return bytes32(abi.encodePacked(listId, curveId));
     }
 
     function decodeCurveData(bytes32 key) external pure virtual returns (uint256, uint256) {
         // Declare variables to return later.
         uint128 curveId;
-        uint128 missionId;
+        uint128 listId;
 
         // Parse data via assembly.
         assembly {
             curveId := key
-            missionId := shr(128, key)
+            listId := shr(128, key)
         }
 
-        return (uint256(missionId), uint256(curveId));
+        return (uint256(listId), uint256(curveId));
     }
 
     function convertToCurrencyForm(uint256 amount) internal view virtual returns (string memory) {
