@@ -32,7 +32,7 @@ contract AdvancedPooling {
     /// -----------------------------------------------------------------------
 
     function getActivityProgress(address log, uint256 id) public returns (uint256) {
-        bitmap.unsetBatch(0, 256);
+        bitmap.unsetBatch(0, 255);
         uint256 progress;
         (, address aBulletin, uint256 aListId, uint256 aNonce) = ILog(log).getActivityData(id);
         Touchpoint[] memory tps = new Touchpoint[](aNonce);

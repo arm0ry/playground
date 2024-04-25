@@ -8,3 +8,4 @@ svg/=lib/hot-chain-svg/contracts
 interface/=src/interface
 tokens/=src/tokens
 utils/=src/utils
+auth/=src/auth
