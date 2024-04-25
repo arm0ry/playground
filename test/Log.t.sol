@@ -14,6 +14,9 @@ contract LogTest is Test {
     Bulletin bulletin;
     Log logger;
 
+    /// @dev Role Constants.
+    uint256 internal constant _ROLE_0 = 1 << 0;
+
     /// @dev Web3 Users.
     address dao = makeAddr("dao");
     address alice;
@@ -78,7 +81,7 @@ contract LogTest is Test {
 
     function deployBulletin(address user) public payable {
         bulletin = new Bulletin(user);
-        assertEq(bulletin.dao(), user);
+        assertEq(bulletin.owner(), user);
     }
 
     function deployLogger(address user) public payable {
@@ -253,7 +256,7 @@ contract LogTest is Test {
 
     function authorizeLogger(bool auth) internal {
         vm.prank(dao);
-        bulletin.authorizeLogger(address(logger), auth);
+        bulletin.grantRoles(address(logger), _ROLE_0);
     }
 
     function registerItems() internal {

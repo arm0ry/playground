@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.4;
 
-import {Item, List} from "./interface/IBulletin.sol";
+import {IERC20} from "src/interface/IERC20.sol";
+import {Item, List} from "src/interface/IBulletin.sol";
+import {OwnableRoles} from "src/auth/OwnableRoles.sol";
 
 /// @title List
 /// @notice A database management system to store lists of items.
 /// @author audsssy.eth
-contract Bulletin {
+contract Bulletin is OwnableRoles {
     event ItemUpdated(uint256 id, Item item);
     event ListUpdated(uint256 id, List list);
 
@@ -19,63 +21,83 @@ contract Bulletin {
     /// Storage
     /// -----------------------------------------------------------------------
 
-    address public dao;
+    /// @notice Role constants.
+    uint256 internal constant LOGGERS = 1 << 0;
+    uint256 internal constant USERS = 1 << 1;
+
     uint256 public fee;
     uint256 public itemId;
     uint256 public listId;
     mapping(uint256 => Item) public items;
     mapping(uint256 => List) public lists;
 
-    // @notice itemId => listId => bool
+    /// @notice Currencies.
+    address[] public currencies;
+    mapping(address => uint256) faucet;
+
+    /// @dev itemId => listId => bool
     mapping(uint256 => mapping(uint256 => bool)) public isItemInList;
 
-    // @notice Log contract => bool
-    mapping(address => bool) public isLoggerAuthorized;
-
-    // @notice itemId => number of interactions produced
+    /// @dev itemId => number of interactions produced
     mapping(uint256 => uint256) public runsByItem;
 
     /// -----------------------------------------------------------------------
     /// Modifier
     /// -----------------------------------------------------------------------
 
-    modifier onlyDao() {
-        if (dao != msg.sender) revert NotAuthorized();
-        _;
-    }
-
-    modifier onlyAuthorizedLogger() {
-        if (!isLoggerAuthorized[msg.sender]) revert NotAuthorized();
-        _;
-    }
-
     modifier payFee() {
-        (bool success,) = dao.call{value: fee}("");
+        (bool success,) = owner().call{value: fee}("");
         if (!success) revert TransferFailed();
         _;
+    }
+
+    modifier drip() {
+        _;
+
+        uint256 length = currencies.length;
+        for (uint256 i; i < length; ++i) {
+            if (IERC20(currencies[i]).balanceOf(address(this)) != 0 && faucet[currencies[i]] > 0) {
+                IERC20(currencies[i]).transferFrom(address(this), msg.sender, faucet[currencies[i]]);
+            } else {
+                continue;
+            }
+        }
     }
 
     /// -----------------------------------------------------------------------
     /// Constructor
     /// -----------------------------------------------------------------------
 
-    constructor(address _dao) {
-        dao = _dao;
+    constructor(address owner) {
+        _initializeOwner(owner);
     }
 
     /// -----------------------------------------------------------------------
     /// DAO Logic
     /// ----------------------------------------------------------------------
 
-    function setFee(uint256 _fee) external payable onlyDao {
+    function setFee(uint256 _fee) external payable onlyOwner {
         fee = _fee;
+    }
+
+    function configureFaucet(address token, uint256 amount) external payable onlyOwner {
+        currencies.push(token);
+        faucet[token] = amount;
     }
 
     /// -----------------------------------------------------------------------
     /// Item Logic - Setter
     /// -----------------------------------------------------------------------
 
+    function contributeItem(Item calldata item) public payable onlyRoles(USERS) drip {
+        _registerItem(item);
+    }
+
     function registerItem(Item calldata item) public payable payFee {
+        _registerItem(item);
+    }
+
+    function _registerItem(Item calldata item) internal {
         if (item.owner == address(0)) revert InvalidItem();
 
         unchecked {
@@ -93,7 +115,7 @@ contract Bulletin {
         }
     }
 
-    function updateItem(uint256 id, Item calldata item) external payable onlyDao {
+    function updateItem(uint256 id, Item calldata item) external payable onlyOwner {
         if (id > 0) {
             if (item.owner == address(0)) {
                 removeItem(id);
@@ -115,7 +137,15 @@ contract Bulletin {
     /// List Logic - Setter
     /// -----------------------------------------------------------------------
 
+    function contributeList(List calldata list) public payable onlyRoles(USERS) drip {
+        _registerList(list);
+    }
+
     function registerList(List calldata list) public payable payFee {
+        _registerList(list);
+    }
+
+    function _registerList(List calldata list) internal {
         uint256 length = list.itemIds.length;
         if (list.owner == address(0)) revert NotAuthorized();
         if (length == 0) revert InvalidList();
@@ -132,7 +162,7 @@ contract Bulletin {
         emit ListUpdated(listId, list);
     }
 
-    function updateList(uint256 id, List calldata list) external payable onlyDao {
+    function updateList(uint256 id, List calldata list) external payable onlyOwner {
         if (id > listId) revert InvalidList();
 
         // Clear out current list.
@@ -152,7 +182,7 @@ contract Bulletin {
         emit ListUpdated(listId, list);
     }
 
-    function removeList(uint256 id) external payable onlyDao {
+    function removeList(uint256 id) external payable onlyOwner {
         List memory _list = getList(id);
         uint256 length = _list.itemIds.length;
         for (uint256 i; i < length; ++i) {
@@ -167,11 +197,7 @@ contract Bulletin {
     /// Log Logic - Setter
     /// -----------------------------------------------------------------------
 
-    function authorizeLogger(address logger, bool auth) external onlyDao {
-        isLoggerAuthorized[logger] = auth;
-    }
-
-    function submit(uint256 _itemId) external onlyAuthorizedLogger {
+    function submit(uint256 _itemId) external onlyRoles(LOGGERS) {
         if (_itemId > 0) {
             unchecked {
                 ++runsByItem[_itemId];

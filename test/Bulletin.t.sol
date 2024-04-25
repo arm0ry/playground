@@ -2,7 +2,6 @@
 pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
-import "forge-std/console2.sol";
 
 import {ImpactCurve} from "src/ImpactCurve.sol";
 import {CurveType, IImpactCurve} from "src/interface/IImpactCurve.sol";
@@ -13,6 +12,8 @@ import {Log} from "src/Log.sol";
 import {ILog} from "src/interface/ILog.sol";
 import {Bulletin} from "src/Bulletin.sol";
 import {IBulletin, Item, List} from "src/interface/IBulletin.sol";
+import {OwnableRoles} from "src/auth/OwnableRoles.sol";
+import {Ownable} from "solady/auth/Ownable.sol";
 
 /// -----------------------------------------------------------------------
 /// Test Logic
@@ -27,11 +28,15 @@ contract BulletinTest is Test {
 
     uint256[] itemIds;
 
+    /// @dev Role Constants.
+    uint256 internal constant _ROLE_0 = 1 << 0;
+    uint256 internal constant _ROLE_1 = 1 << 1;
+
     /// @dev Mock Users.
     address immutable alice = makeAddr("alice");
     address immutable bob = makeAddr("bob");
     address immutable charlie = makeAddr("charlie");
-    address immutable dao = makeAddr("dao");
+    address immutable owner = makeAddr("owner");
 
     /// @dev Mock Data.
     uint40 constant PAST = 100000;
@@ -57,8 +62,8 @@ contract BulletinTest is Test {
 
     /// @notice Set up the testing suite.
     function setUp() public payable {
-        deployBulletin(dao);
-        deployLogger(dao);
+        deployBulletin(owner);
+        deployLogger(owner);
     }
 
     function testReceiveETH() public payable {
@@ -68,7 +73,7 @@ contract BulletinTest is Test {
 
     function deployBulletin(address user) public payable {
         bulletin = new Bulletin(user);
-        assertEq(bulletin.dao(), user);
+        assertEq(bulletin.owner(), user);
     }
 
     function deployLogger(address user) public payable {
@@ -80,25 +85,25 @@ contract BulletinTest is Test {
     /// DAO Test
     /// ----------------------------------------------------------------------
 
-    function testAuthorizeLogger(bool auth) public payable {
-        vm.prank(dao);
-        bulletin.authorizeLogger(address(logger), auth);
-        assertEq(bulletin.isLoggerAuthorized(address(logger)), auth);
+    function testAuthorizeLogger() public payable {
+        vm.prank(owner);
+        bulletin.grantRoles(address(logger), _ROLE_0);
+        assertEq(bulletin.rolesOf(address(logger)), _ROLE_0);
     }
 
-    function testAuthorizeLogger_NotDao(bool auth) public payable {
-        vm.expectRevert(Bulletin.NotAuthorized.selector);
-        bulletin.authorizeLogger(address(logger), auth);
+    function testAuthorizeLogger_NotOwner() public payable {
+        vm.expectRevert(Ownable.Unauthorized.selector);
+        bulletin.grantRoles(address(logger), _ROLE_0);
     }
 
     function testSetFee(uint256 fee) public payable {
-        vm.prank(dao);
+        vm.prank(owner);
         bulletin.setFee(fee);
         assertEq(fee, bulletin.fee());
     }
 
-    function testSetFee_NotDao(uint256 fee) public payable {
-        vm.expectRevert(Bulletin.NotAuthorized.selector);
+    function testSetFee_NotOwner(uint256 fee) public payable {
+        vm.expectRevert(Ownable.Unauthorized.selector);
         bulletin.setFee(fee);
     }
 
@@ -164,14 +169,14 @@ contract BulletinTest is Test {
         item1.owner = address(0);
 
         vm.expectRevert(Bulletin.InvalidItem.selector);
-        vm.prank(dao);
+        vm.prank(owner);
         bulletin.registerItem(item1);
     }
 
     function testUpdateItem() public payable {
         testRegisterItems();
 
-        vm.prank(dao);
+        vm.prank(owner);
         bulletin.updateItem(1, item2);
 
         Item memory _item = bulletin.getItem(1);
@@ -179,7 +184,7 @@ contract BulletinTest is Test {
     }
 
     function testUpdateItem_InvalidItem() public payable {
-        vm.prank(dao);
+        vm.prank(owner);
         vm.expectRevert(Bulletin.InvalidItem.selector);
         bulletin.updateItem(0, item1);
     }
@@ -188,7 +193,7 @@ contract BulletinTest is Test {
         testRegisterItems();
         item1.owner = address(0);
 
-        vm.prank(dao);
+        vm.prank(owner);
         bulletin.updateItem(1, item1);
         Item memory _item = bulletin.getItem(1);
         assertEq(_item.expire, 0);
@@ -253,7 +258,7 @@ contract BulletinTest is Test {
         uint256 id = bulletin.listId();
         List memory list = bulletin.getList(id);
 
-        vm.prank(dao);
+        vm.prank(owner);
         bulletin.updateList(id, list1);
 
         uint256 _id = bulletin.listId();
@@ -281,7 +286,7 @@ contract BulletinTest is Test {
     function testRemoveList() public payable {
         testRegisterList();
 
-        vm.prank(dao);
+        vm.prank(owner);
         bulletin.removeList(1);
 
         List memory _list = bulletin.getList(1);
