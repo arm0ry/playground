@@ -7,6 +7,7 @@ import {ImpactCurve} from "src/ImpactCurve.sol";
 import {CurveType, IImpactCurve} from "src/interface/IImpactCurve.sol";
 import {HackathonSupportToken} from "src/tokens/g0v/HackathonSupportToken.sol";
 import {ISupportToken} from "src/interface/ISupportToken.sol";
+import {MockERC20} from "lib/solbase/test/utils/mocks/MockERC20.sol";
 
 import {Log} from "src/Log.sol";
 import {ILog} from "src/interface/ILog.sol";
@@ -22,6 +23,7 @@ import {Ownable} from "solady/auth/Ownable.sol";
 contract BulletinTest is Test {
     Bulletin bulletin;
     Log logger;
+    MockERC20 mock;
 
     ImpactCurve impactCurve;
     HackathonSupportToken hacakathonSupportToken;
@@ -29,8 +31,8 @@ contract BulletinTest is Test {
     uint256[] itemIds;
 
     /// @dev Role Constants.
-    uint256 internal constant _ROLE_0 = 1 << 0;
-    uint256 internal constant _ROLE_1 = 1 << 1;
+    uint256 internal constant LOGGERS = 1 << 0;
+    uint256 internal constant MEMBERS = 1 << 1;
 
     /// @dev Mock Users.
     address immutable alice = makeAddr("alice");
@@ -64,6 +66,10 @@ contract BulletinTest is Test {
     function setUp() public payable {
         deployBulletin(owner);
         deployLogger(owner);
+
+        mock = new MockERC20(TEST, TEST, 18);
+        mock.mint(address(bulletin), 200 ether);
+        mock.approve(address(bulletin), 200 ether);
     }
 
     function testReceiveETH() public payable {
@@ -87,13 +93,13 @@ contract BulletinTest is Test {
 
     function testAuthorizeLogger() public payable {
         vm.prank(owner);
-        bulletin.grantRoles(address(logger), _ROLE_0);
-        assertEq(bulletin.rolesOf(address(logger)), _ROLE_0);
+        bulletin.grantRoles(address(logger), LOGGERS);
+        assertEq(bulletin.rolesOf(address(logger)), LOGGERS);
     }
 
     function testAuthorizeLogger_NotOwner() public payable {
         vm.expectRevert(Ownable.Unauthorized.selector);
-        bulletin.grantRoles(address(logger), _ROLE_0);
+        bulletin.grantRoles(address(logger), LOGGERS);
     }
 
     function testSetFee(uint256 fee) public payable {
@@ -107,9 +113,52 @@ contract BulletinTest is Test {
         bulletin.setFee(fee);
     }
 
+    function testSetFaucet(address token, uint256 amount) public payable {
+        vm.prank(owner);
+        bulletin.setFaucet(token, amount);
+        assertEq(token, bulletin.token());
+        assertEq(amount, bulletin.amount());
+    }
+
+    function testSetFaucet_NotOwner(address token, uint256 amount) public payable {
+        vm.expectRevert(Ownable.Unauthorized.selector);
+        bulletin.setFaucet(token, amount);
+    }
+
     /// -----------------------------------------------------------------------
     /// Items
     /// ----------------------------------------------------------------------
+
+    // todo
+    function test_ContributeItem() public payable {
+        // Set faucet.
+        testSetFaucet(address(mock), 1 ether);
+        emit log_uint(mock.balanceOf(address(bulletin)));
+
+        // Grant Alice member role.
+        vm.prank(owner);
+        bulletin.grantRoles(alice, MEMBERS);
+
+        uint256 id = bulletin.itemId();
+
+        // Alice sets up task.
+        vm.prank(alice);
+        bulletin.contributeItem(item1);
+
+        // Validate setup.
+        uint256 _id = bulletin.itemId();
+        assertEq(id + 1, _id);
+
+        Item memory _item = bulletin.getItem(_id);
+        assertEq(_item.review, item1.review);
+        assertEq(_item.expire, item1.expire);
+        assertEq(_item.owner, item1.owner);
+        assertEq(_item.title, item1.title);
+        assertEq(_item.detail, item1.detail);
+        assertEq(_item.schema, item1.schema);
+    }
+
+    function test_ContributeItem_FaucetDepleted() public payable {}
 
     function testRegisterItem() public payable {
         uint256 id = bulletin.itemId();
@@ -202,6 +251,9 @@ contract BulletinTest is Test {
     /// -----------------------------------------------------------------------
     /// Lists
     /// ----------------------------------------------------------------------
+
+    // todo
+    function testContributeList() public payable {}
 
     function testRegisterList() public payable {
         testRegisterItems();
@@ -302,16 +354,6 @@ contract BulletinTest is Test {
     }
 
     /// -----------------------------------------------------------------------
-    /// Internal Functions
+    /// Helper
     /// -----------------------------------------------------------------------
-
-    // function initializeCurveAndToken(uint256 _listId) internal {
-    //     impactCurve = new ImpactCurve();
-    //     impactCurve.initialize(dao);
-
-    //     hacakathonSupportToken =
-    //         new HackathonSupportToken("Test", "TEST", address(quest), address(mission), address(impactCurve));
-
-    //     impactCurve.curve(CurveType.LINEAR, address(hacakathonSupportToken), alice, 0.001 ether, 0, 2, 0, 0, 1, 0);
-    // }
 }

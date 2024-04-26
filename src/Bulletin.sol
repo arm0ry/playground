@@ -23,17 +23,18 @@ contract Bulletin is OwnableRoles {
 
     /// @notice Role constants.
     uint256 internal constant LOGGERS = 1 << 0;
-    uint256 internal constant USERS = 1 << 1;
+    uint256 internal constant MEMBERS = 1 << 1;
 
+    /// @notice Bulletin storage.
     uint256 public fee;
     uint256 public itemId;
     uint256 public listId;
     mapping(uint256 => Item) public items;
     mapping(uint256 => List) public lists;
 
-    /// @notice Currencies.
-    address[] public currencies;
-    mapping(address => uint256) faucet;
+    /// @notice Faucet.
+    address public token;
+    uint256 public amount;
 
     /// @dev itemId => listId => bool
     mapping(uint256 => mapping(uint256 => bool)) public isItemInList;
@@ -53,15 +54,7 @@ contract Bulletin is OwnableRoles {
 
     modifier drip() {
         _;
-
-        uint256 length = currencies.length;
-        for (uint256 i; i < length; ++i) {
-            if (IERC20(currencies[i]).balanceOf(address(this)) != 0 && faucet[currencies[i]] > 0) {
-                IERC20(currencies[i]).transferFrom(address(this), msg.sender, faucet[currencies[i]]);
-            } else {
-                continue;
-            }
-        }
+        IERC20(token).transferFrom(address(this), msg.sender, amount);
     }
 
     /// -----------------------------------------------------------------------
@@ -80,16 +73,16 @@ contract Bulletin is OwnableRoles {
         fee = _fee;
     }
 
-    function configureFaucet(address token, uint256 amount) external payable onlyOwner {
-        currencies.push(token);
-        faucet[token] = amount;
+    function setFaucet(address _token, uint256 _amount) external payable onlyOwner {
+        token = _token;
+        amount = _amount;
     }
 
     /// -----------------------------------------------------------------------
     /// Item Logic - Setter
     /// -----------------------------------------------------------------------
 
-    function contributeItem(Item calldata item) public payable onlyRoles(USERS) drip {
+    function contributeItem(Item calldata item) public payable onlyRoles(MEMBERS) drip {
         _registerItem(item);
     }
 
@@ -137,7 +130,7 @@ contract Bulletin is OwnableRoles {
     /// List Logic - Setter
     /// -----------------------------------------------------------------------
 
-    function contributeList(List calldata list) public payable onlyRoles(USERS) drip {
+    function contributeList(List calldata list) public payable onlyRoles(MEMBERS) drip {
         _registerList(list);
     }
 
@@ -240,7 +233,7 @@ contract Bulletin is OwnableRoles {
         return false;
     }
 
-    /// @notice Query the number of times users have completed a list on a bulletin.
+    /// @notice Query the number of times MEMBERS have completed a list on a bulletin.
     function runsByList(uint256 id) external view returns (uint256 runs) {
         List memory list;
         uint256 itemCount;
