@@ -45,6 +45,7 @@ contract BulletinTest is Test {
     uint40 constant FUTURE = 2527482181;
     string TEST = "TEST";
     bytes constant BYTES = bytes(string("BYTES"));
+    uint256 defaultBulletinBalance = 10 ether;
 
     Item[] items;
     Item item1 = Item({review: false, expire: PAST, owner: makeAddr("alice"), title: TEST, detail: TEST, schema: BYTES});
@@ -68,8 +69,9 @@ contract BulletinTest is Test {
         deployLogger(owner);
 
         mock = new MockERC20(TEST, TEST, 18);
-        mock.mint(address(bulletin), 200 ether);
-        mock.approve(address(bulletin), 200 ether);
+        mock.mint(address(bulletin), defaultBulletinBalance);
+        vm.prank(address(bulletin));
+        mock.approve(address(bulletin), defaultBulletinBalance);
     }
 
     function testReceiveETH() public payable {
@@ -125,31 +127,46 @@ contract BulletinTest is Test {
         bulletin.setFaucet(token, amount);
     }
 
+    function test_GrantRoles(address user, uint256 role) public payable {
+        vm.assume(role > 0);
+        vm.prank(owner);
+        bulletin.grantRoles(user, role);
+
+        emit log_uint(bulletin.rolesOf(user));
+        assertEq(bulletin.hasAnyRole(user, role), true);
+    }
+
+    function test_GrantRoles_NotOwner(address user, uint256 role) public payable {
+        vm.expectRevert(Ownable.Unauthorized.selector);
+        bulletin.grantRoles(user, role);
+    }
+
     /// -----------------------------------------------------------------------
     /// Items
     /// ----------------------------------------------------------------------
 
-    // todo
-    function test_ContributeItem() public payable {
+    function test_ContributeItem(uint256 drip) public payable {
+        vm.assume(defaultBulletinBalance >= drip);
+
         // Set faucet.
-        testSetFaucet(address(mock), 1 ether);
-        emit log_uint(mock.balanceOf(address(bulletin)));
+        testSetFaucet(address(mock), drip);
 
         // Grant Alice member role.
-        vm.prank(owner);
-        bulletin.grantRoles(alice, MEMBERS);
+        test_GrantRoles(alice, MEMBERS);
 
         uint256 id = bulletin.itemId();
+        uint256 prevAliceBalance = mock.balanceOf(alice);
 
-        // Alice sets up task.
+        // Alice contributes item.
         vm.prank(alice);
         bulletin.contributeItem(item1);
+        uint256 postAliceBalance = mock.balanceOf(alice);
+        assertEq(prevAliceBalance + drip, postAliceBalance);
 
         // Validate setup.
         uint256 _id = bulletin.itemId();
-        assertEq(id + 1, _id);
-
         Item memory _item = bulletin.getItem(_id);
+        assertEq(id + 1, _id);
         assertEq(_item.review, item1.review);
         assertEq(_item.expire, item1.expire);
         assertEq(_item.owner, item1.owner);
@@ -158,7 +175,13 @@ contract BulletinTest is Test {
         assertEq(_item.schema, item1.schema);
     }
 
-    function test_ContributeItem_FaucetDepleted() public payable {}
+    function test_ContributeItem_FaucetDepleted(uint256 drip) public payable {
+        drip = 10 ether;
+        test_ContributeItem(drip);
+
+        vm.expectRevert();
+        bulletin.contributeItem(item1);
+    }
 
     function testRegisterItem() public payable {
         uint256 id = bulletin.itemId();
@@ -168,9 +191,8 @@ contract BulletinTest is Test {
 
         // Validate setup.
         uint256 _id = bulletin.itemId();
-        assertEq(id + 1, _id);
-
         Item memory _item = bulletin.getItem(_id);
+        assertEq(id + 1, _id);
         assertEq(_item.review, item1.review);
         assertEq(_item.expire, item1.expire);
         assertEq(_item.owner, item1.owner);
@@ -252,8 +274,55 @@ contract BulletinTest is Test {
     /// Lists
     /// ----------------------------------------------------------------------
 
-    // todo
-    function testContributeList() public payable {}
+    function test_ContributeList(uint256 drip) public payable {
+        // Setup items.
+        testRegisterItems();
+
+        // Prepare list.
+        itemIds.push(1);
+        itemIds.push(2);
+        itemIds.push(3);
+        List memory list1 = List({owner: alice, title: TEST, detail: TEST, schema: BYTES, itemIds: itemIds});
+
+        // Set faucet.
+        drip = bound(drip, 1 ether, defaultBulletinBalance / 2);
+        testSetFaucet(address(mock), drip);
+
+        // Grant Alice member role.
+        vm.prank(owner);
+        bulletin.grantRoles(alice, MEMBERS);
+
+        uint256 id = bulletin.itemId();
+        uint256 prevAliceBalance = mock.balanceOf(alice);
+
+        // Alice sets up task.
+        vm.prank(alice);
+        bulletin.contributeList(list1);
+        uint256 postAliceBalance = mock.balanceOf(alice);
+        assertEq(prevAliceBalance + drip, postAliceBalance);
+        emit log_uint(postAliceBalance);
+
+        // Validate setup.
+        List memory list = bulletin.getList(1);
+        assertEq(list.owner, list1.owner);
+        assertEq(list.title, list1.title);
+        assertEq(list.detail, list1.detail);
+        assertEq(list.schema, list1.schema);
+    }
+
+    function test_ContributeList_FaucetDepleted(uint256 drip) public payable {
+        drip = 10 ether;
+        test_ContributeList(drip);
+
+        // Prepare list.
+        itemIds.push(1);
+        itemIds.push(2);
+        itemIds.push(3);
+        List memory list1 = List({owner: alice, title: TEST, detail: TEST, schema: BYTES, itemIds: itemIds});
+
+        vm.expectRevert();
+        bulletin.contributeList(list1);
+    }
 
     function testRegisterList() public payable {
         testRegisterItems();
