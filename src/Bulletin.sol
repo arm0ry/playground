@@ -22,8 +22,8 @@ contract Bulletin is OwnableRoles {
     /// -----------------------------------------------------------------------
 
     /// @notice Role constants.
-    uint256 internal constant LOGGERS = 1 << 0;
-    uint256 internal constant MEMBERS = 1 << 1;
+    uint256 public constant LOGGERS = 1 << 0;
+    uint256 public constant MEMBERS = 1 << 1;
 
     /// @notice Bulletin storage.
     uint256 public fee;

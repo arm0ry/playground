@@ -178,6 +178,7 @@ contract Log {
         uint256 id = userActivityLookup[user][keccak256(abi.encodePacked(bulletin, listId))];
         Item memory item = IBulletin(bulletin).getItem(itemId);
         bool review = (item.review) ? false : true;
+        uint256 LOGGERS = IBulletin(bulletin).LOGGERS();
 
         if (id == 0) {
             unchecked {
@@ -202,7 +203,9 @@ contract Log {
             }
         }
 
-        if (IBulletin(bulletin).isLoggerAuthorized(address(this)) && review) IBulletin(bulletin).submit(itemId);
+        if (IBulletin(bulletin).hasAnyRole(address(this), LOGGERS) && review) {
+            IBulletin(bulletin).submit(itemId);
+        }
 
         emit Logged(user, bulletin, listId, itemId, activities[activityId].nonce, review, data);
     }
@@ -216,6 +219,7 @@ contract Log {
         payable
         onlyReviewer(msg.sender, bulletin, listId)
     {
+        uint256 LOGGERS = IBulletin(bulletin).LOGGERS();
         (, address _bulletin, uint256 _listId, uint256 nonce) = getActivityData(id);
 
         if (
@@ -228,7 +232,9 @@ contract Log {
         }
 
         activities[id].touchpoints[order].pass = pass;
-        if (IBulletin(bulletin).isLoggerAuthorized(address(this)) && pass) IBulletin(bulletin).submit(itemId);
+        if (IBulletin(bulletin).hasAnyRole(address(this), LOGGERS) && pass) {
+            IBulletin(bulletin).submit(itemId);
+        }
 
         emit Evaluated(id, bulletin, listId, order, pass);
     }

@@ -22,7 +22,9 @@ struct List {
 }
 
 interface IBulletin {
-    function dao() external view returns (address);
+    function LOGGERS() external view returns (uint256);
+    function MEMBERS() external view returns (uint256);
+
     function fee() external view returns (uint256);
 
     function itemId() external view returns (uint256);
@@ -38,9 +40,8 @@ interface IBulletin {
     function hasItemExpired(uint256 id) external view returns (bool);
     function checkIsItemInList(uint256 itemId, uint256 listId) external view returns (bool);
 
-    function authorizeLogger(address log) external;
     function submit(uint256 itemId) external;
-    function isLoggerAuthorized(address log) external view returns (bool);
+    function hasAnyRole(address user, uint256 roles) external view returns (bool);
     function runsByItem(uint256 itemId) external view returns (uint256);
     function runsByList(uint256 listId) external view returns (uint256);
 }
