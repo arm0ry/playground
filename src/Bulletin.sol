@@ -240,20 +240,16 @@ contract Bulletin is OwnableRoles {
         uint256 runsPerItem;
 
         // @notice Count number of times completed per activity.
-        if (id != 0) {
-            list = lists[id];
-            itemCount = list.itemIds.length;
+        list = lists[id];
+        itemCount = list.itemIds.length;
 
-            for (uint256 i; i < itemCount; ++i) {
-                runsPerItem = runsByItem[lists[id].itemIds[i]];
+        for (uint256 i; i < itemCount; ++i) {
+            runsPerItem = runsByItem[lists[id].itemIds[i]];
 
-                /// @dev Runs by list represents the number of times a user has completed all of the items in a list.
-                (runsPerItem > 0)
-                    ? ((runs > runsPerItem) ? runs = runsPerItem : (runs == 0) ? runs = runsPerItem : runs)
-                    : runs = 0;
-            }
-        } else {
-            revert InvalidList();
+            /// @dev Runs by list represents the number of times a user has completed all of the items in a list.
+            (runsPerItem > 0)
+                ? ((runs > runsPerItem) ? runs = runsPerItem : (runs == 0) ? runs = runsPerItem : runs)
+                : runs = 0;
         }
     }
 

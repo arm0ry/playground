@@ -5,13 +5,15 @@ import "forge-std/Test.sol";
 import "forge-std/console2.sol";
 
 import {ImpactCurve, CurveType} from "src/ImpactCurve.sol";
-import {OnboardingSupportToken} from "src/tokens/g0v/OnboardingSupportToken.sol";
-import {HackathonSupportToken} from "src/tokens/g0v/HackathonSupportToken.sol";
+import {ListToken} from "src/tokens/ListToken.sol";
+
+import {Bulletin} from "src/Bulletin.sol";
+import {IBulletin, Item, List} from "src/interface/IBulletin.sol";
 
 contract ImpactCurveTest is Test {
+    Bulletin bulletin;
     ImpactCurve ic;
-    OnboardingSupportToken onboardingSupportToken;
-    // HackathonSupportToken hacakathonSupportToken;
+    ListToken listToken;
 
     /// @dev Users.
     address public immutable alice = makeAddr("alice");
@@ -20,8 +22,23 @@ contract ImpactCurveTest is Test {
     address public immutable dummy = makeAddr("dummy");
     address payable public immutable user = payable(makeAddr("user"));
 
-    /// @dev Helpers.
-    string internal constant testString = "TEST";
+    /// @dev Mock Data.
+    uint40 constant PAST = 100000;
+    uint40 constant FUTURE = 2527482181;
+    string TEST = "TEST";
+    bytes constant BYTES = bytes(string("BYTES"));
+
+    Item[] items;
+    uint256[] itemIds;
+    Item item1 = Item({review: false, expire: PAST, owner: makeAddr("alice"), title: TEST, detail: TEST, schema: BYTES});
+    Item item2 = Item({review: false, expire: FUTURE, owner: makeAddr("bob"), title: TEST, detail: TEST, schema: BYTES});
+    Item item3 =
+        Item({review: false, expire: FUTURE, owner: makeAddr("charlie"), title: TEST, detail: TEST, schema: BYTES});
+    Item item4 =
+        Item({review: true, expire: PAST, owner: makeAddr("charlie"), title: TEST, detail: TEST, schema: BYTES});
+    Item item5 =
+        Item({review: true, expire: FUTURE, owner: makeAddr("alice"), title: TEST, detail: TEST, schema: BYTES});
+    Item item6 = Item({review: true, expire: FUTURE, owner: makeAddr("bob"), title: TEST, detail: TEST, schema: BYTES});
 
     /// -----------------------------------------------------------------------
     /// Setup Test
@@ -31,7 +48,8 @@ contract ImpactCurveTest is Test {
     function setUp() public payable {
         // Deploy contract.
         ic = new ImpactCurve();
-        // hacakathonSupportToken = new HackathonSupportToken();
+
+        deployBulletin(user);
     }
 
     function testNotInitialize_curve() public payable {
@@ -41,7 +59,7 @@ contract ImpactCurveTest is Test {
         vm.prank(bob);
         ic.curve(
             CurveType.LINEAR,
-            address(onboardingSupportToken),
+            address(listToken),
             alice,
             uint64(0.0001 ether),
             uint32(2),
@@ -63,12 +81,12 @@ contract ImpactCurveTest is Test {
 
     function testCurve_InvalidCurve() public payable {
         initializeIC(user);
-        deployOnboardingSupportToken(user);
+        deployListToken(user);
 
         vm.expectRevert(ImpactCurve.InvalidCurve.selector);
         uint256 id = ic.curve(
             CurveType.NA,
-            address(onboardingSupportToken),
+            address(listToken),
             alice,
             uint64(0.0001 ether),
             uint32(2),
@@ -97,20 +115,11 @@ contract ImpactCurveTest is Test {
         vm.assume(scale > 0);
 
         initializeIC(user);
-        deployOnboardingSupportToken(user);
+        deployListToken(user);
         vm.warp(block.timestamp + 100);
 
         uint256 id = setupCurve(
-            CurveType.LINEAR,
-            address(onboardingSupportToken),
-            alice,
-            scale,
-            mint_a,
-            mint_b,
-            mint_c,
-            burn_a,
-            burn_b,
-            burn_c
+            CurveType.LINEAR, address(listToken), alice, scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c
         );
         validateCurve(id, ic.getCurveType(id));
     }
@@ -126,34 +135,24 @@ contract ImpactCurveTest is Test {
     ) public payable {
         vm.assume(burn_a > mint_a && burn_b > mint_b && burn_c > mint_c);
         initializeIC(user);
-        deployOnboardingSupportToken(user);
+        deployListToken(user);
         vm.warp(block.timestamp + 100);
 
         vm.expectRevert(ImpactCurve.InvalidCurve.selector);
-        uint256 id = ic.curve(
-            CurveType.LINEAR,
-            address(onboardingSupportToken),
-            alice,
-            scale,
-            mint_a,
-            mint_b,
-            mint_c,
-            burn_a,
-            burn_b,
-            burn_c
-        );
+        uint256 id =
+            ic.curve(CurveType.LINEAR, address(listToken), alice, scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
     }
 
     function testLinearCurve_NotAuthorized() public payable {
         initializeIC(user);
-        deployOnboardingSupportToken(user);
+        deployListToken(user);
         vm.warp(block.timestamp + 100);
 
         vm.expectRevert(ImpactCurve.NotAuthorized.selector);
         vm.prank(alice);
         ic.curve(
             CurveType.LINEAR,
-            address(onboardingSupportToken),
+            address(listToken),
             address(0),
             uint64(0.0001 ether),
             uint32(2),
@@ -176,7 +175,10 @@ contract ImpactCurveTest is Test {
     ) public payable {
         vm.assume(scale > 0);
 
-        // Set up.
+        // Set up list.
+        registerList_ReviewNotRequired();
+
+        // Set up curve.
         testLinearCurve(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
         vm.warp(block.timestamp + 100);
 
@@ -193,11 +195,15 @@ contract ImpactCurveTest is Test {
         uint256 burnPrice = ic.getCurvePrice(false, 1, 0);
 
         // Validate.
-        assertEq(onboardingSupportToken.balanceOf(bob), 1);
-        assertEq(onboardingSupportToken.totalSupply(), 1);
+        assertEq(listToken.balanceOf(bob), 1);
+        assertEq(listToken.totalSupply(), 1);
         assertEq(ic.getUnclaimed(ic.getCurveOwner(ic.getCurveId())), mintPrice - burnPrice);
         assertEq(ic.getCurveTreasury(1), burnPrice);
         assertEq(ic.getCurvePrice(true, 1, 1000) - ic.getCurvePrice(false, 1, 1000), ic.getMintBurnDifference(1, 1000));
+
+        vm.prank(bob);
+        listToken.updateInputs(1, 1, 1);
+        emit log_string(listToken.generateSvg(1));
     }
 
     function testLinearCurve_support_InvalidCurve(
@@ -215,7 +221,7 @@ contract ImpactCurveTest is Test {
         vm.prank(alice);
         ic.curve(
             CurveType.LINEAR,
-            address(onboardingSupportToken),
+            address(listToken),
             alice,
             uint64(0.0001 ether),
             uint32(2),
@@ -297,8 +303,8 @@ contract ImpactCurveTest is Test {
         ic.burn(1, bob, 1);
 
         // Validate.
-        assertEq(onboardingSupportToken.balanceOf(bob), 0);
-        assertEq(onboardingSupportToken.totalSupply(), 0);
+        assertEq(listToken.balanceOf(bob), 0);
+        assertEq(listToken.totalSupply(), 0);
         assertEq(ic.getCurveTreasury(1), 0);
         assertEq(ic.getCurveBurned(1, bob), true);
         assertEq(!burned, true);
@@ -340,20 +346,20 @@ contract ImpactCurveTest is Test {
         vm.prank(bob);
         ic.support{value: mintPrice}(1, bob, mintPrice);
 
-        emit log_uint(onboardingSupportToken.balanceOf(bob));
+        emit log_uint(listToken.balanceOf(bob));
 
         // First burn.
         vm.prank(bob);
         ic.burn(1, bob, 2);
 
-        emit log_uint(onboardingSupportToken.balanceOf(bob));
+        emit log_uint(listToken.balanceOf(bob));
 
         // Second burn.
         vm.expectRevert(ImpactCurve.NotAuthorized.selector);
         vm.prank(bob);
         ic.burn(1, bob, 1);
 
-        emit log_uint(onboardingSupportToken.balanceOf(bob));
+        emit log_uint(listToken.balanceOf(bob));
     }
 
     function testLinearCurve_claim(
@@ -463,11 +469,11 @@ contract ImpactCurveTest is Test {
         vm.prank(bob);
         ic.burn(1, bob, 4);
         vm.prank(bob);
-        onboardingSupportToken.burn(3);
+        listToken.burn(3);
         vm.prank(bob);
-        onboardingSupportToken.burn(2);
+        listToken.burn(2);
         vm.prank(bob);
-        onboardingSupportToken.burn(1);
+        listToken.burn(1);
 
         // Retrieve for validation.
         uint256 prevPool = ic.getCurveTreasury(1);
@@ -503,7 +509,7 @@ contract ImpactCurveTest is Test {
 
         // Token burn.
         vm.prank(bob);
-        onboardingSupportToken.burn(1);
+        listToken.burn(1);
 
         // Claim.
         vm.expectRevert(ImpactCurve.NotAuthorized.selector);
@@ -544,9 +550,9 @@ contract ImpactCurveTest is Test {
         vm.prank(bob);
         ic.burn(1, bob, 4);
         vm.prank(bob);
-        onboardingSupportToken.burn(3);
+        listToken.burn(3);
         vm.prank(bob);
-        onboardingSupportToken.burn(2);
+        listToken.burn(2);
 
         // Retrieve for validation.
         uint256 prevPool = ic.getCurveTreasury(1);
@@ -594,19 +600,10 @@ contract ImpactCurveTest is Test {
         vm.assume(burn_a < mint_a && burn_b < mint_b && burn_c < mint_c);
 
         initializeIC(user);
-        deployOnboardingSupportToken(user);
+        deployListToken(user);
 
         uint256 id = setupCurve(
-            CurveType.QUADRATIC,
-            address(onboardingSupportToken),
-            alice,
-            scale,
-            mint_a,
-            mint_b,
-            mint_c,
-            burn_a,
-            burn_b,
-            burn_c
+            CurveType.QUADRATIC, address(listToken), alice, scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c
         );
         validateCurve(id, ic.getCurveType(id));
     }
@@ -622,20 +619,11 @@ contract ImpactCurveTest is Test {
     ) public payable {
         vm.assume(burn_a > mint_a || burn_b > mint_b || burn_c > mint_c);
         initializeIC(user);
-        deployOnboardingSupportToken(user);
+        deployListToken(user);
 
         vm.expectRevert(ImpactCurve.InvalidCurve.selector);
         uint256 id = ic.curve(
-            CurveType.QUADRATIC,
-            address(onboardingSupportToken),
-            alice,
-            scale,
-            mint_a,
-            mint_b,
-            mint_c,
-            burn_a,
-            burn_b,
-            burn_c
+            CurveType.QUADRATIC, address(listToken), alice, scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c
         );
     }
 
@@ -659,8 +647,8 @@ contract ImpactCurveTest is Test {
 
         uint256 burnPrice = ic.getCurvePrice(false, 1, 0);
 
-        assertEq(onboardingSupportToken.balanceOf(bob), 1);
-        assertEq(onboardingSupportToken.totalSupply(), 1);
+        assertEq(listToken.balanceOf(bob), 1);
+        assertEq(listToken.totalSupply(), 1);
         assertEq(ic.getUnclaimed(alice), mintPrice - burnPrice);
         assertEq(ic.getCurveTreasury(1), burnPrice);
     }
@@ -689,8 +677,8 @@ contract ImpactCurveTest is Test {
         ic.burn(1, bob, 1);
 
         // Validation.
-        assertEq(onboardingSupportToken.balanceOf(bob), 0);
-        assertEq(onboardingSupportToken.totalSupply(), 0);
+        assertEq(listToken.balanceOf(bob), 0);
+        assertEq(listToken.totalSupply(), 0);
         assertEq(ic.getCurveTreasury(1), 0);
         assertEq(address(bob).balance, prevBalance + burnPrice);
     }
@@ -712,8 +700,8 @@ contract ImpactCurveTest is Test {
         ic.initialize(_user);
     }
 
-    function deployOnboardingSupportToken(address _user) internal {
-        onboardingSupportToken = new OnboardingSupportToken("User Support Token", "UST", _user, _user, 1, address(ic));
+    function deployListToken(address _user) internal {
+        listToken = new ListToken("User Support Token", "UST", address(bulletin), address(ic));
     }
 
     /// @notice Set up a curve.
@@ -812,6 +800,66 @@ contract ImpactCurveTest is Test {
 
             assertEq(ic.getCurvePrice(true, curveId, supply2), ic.calculatePrice(supply2 + 1, scale, 0, 0, 0));
             assertEq(ic.getCurvePrice(false, curveId, supply2), ic.calculatePrice(supply2, scale, 0, 0, 0));
+        }
+    }
+
+    /// -----------------------------------------------------------------------
+    /// Bulletin Functions
+    /// -----------------------------------------------------------------------
+
+    function deployBulletin(address _user) public payable {
+        bulletin = new Bulletin(_user);
+        assertEq(bulletin.owner(), _user);
+    }
+
+    function registerItems() internal {
+        Item memory _item;
+
+        items.push(item1);
+        items.push(item2);
+        items.push(item3);
+        items.push(item4);
+        items.push(item5);
+        items.push(item6);
+
+        bulletin.registerItems(items);
+
+        uint256 _id = bulletin.itemId();
+        for (uint256 i; i < _id; ++i) {
+            _item = bulletin.getItem(i + 1);
+            assertEq(_item.review, items[i].review);
+            assertEq(_item.owner, items[i].owner);
+            assertEq(_item.expire, items[i].expire);
+            assertEq(_item.title, items[i].title);
+            assertEq(_item.detail, items[i].detail);
+            assertEq(_item.schema, items[i].schema);
+        }
+    }
+
+    function registerList_ReviewNotRequired() internal {
+        registerItems();
+
+        delete itemIds;
+        itemIds.push(1);
+        itemIds.push(2);
+        itemIds.push(3);
+        List memory list = List({owner: alice, title: TEST, detail: TEST, schema: BYTES, itemIds: itemIds});
+
+        uint256 id = bulletin.listId();
+        bulletin.registerList(list);
+
+        uint256 _id = bulletin.listId();
+        assertEq(id + 1, _id);
+
+        List memory _list = bulletin.getList(_id);
+        assertEq(_list.owner, list.owner);
+        assertEq(_list.title, list.title);
+        assertEq(_list.detail, list.detail);
+        assertEq(_list.schema, list.schema);
+
+        uint256 length = itemIds.length;
+        for (uint256 i; i < length; i++) {
+            assertEq(_list.itemIds[i], itemIds[i]);
         }
     }
 }
