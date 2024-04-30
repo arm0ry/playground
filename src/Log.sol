@@ -3,12 +3,14 @@ pragma solidity >=0.8.4;
 
 import {ILog, Activity, Touchpoint} from "./interface/ILog.sol";
 import {IBulletin, List, Item} from "./interface/IBulletin.sol";
+import {OwnableRoles} from "src/auth/OwnableRoles.sol";
+
 // import {LibBitmap} from "solady/utils/LibBitmap.sol";
 
 /// @title Log
 /// @notice A database management system to log data from interacting with Bulletin.
 /// @author audsssy.eth
-contract Log {
+contract Log is OwnableRoles {
     // using LibBitmap for LibBitmap.Bitmap;
 
     event Logged(
@@ -24,13 +26,17 @@ contract Log {
     error InvalidItem();
 
     /// -----------------------------------------------------------------------
-    /// Activity Storage
+    /// Storage
     /// -----------------------------------------------------------------------
 
     // LibBitmap.Bitmap bitmap;
 
-    address public dao;
-    address public gasBuddy;
+    /// @notice Role constants.
+    uint256 public constant GASBUDDIES = 1 << 0;
+    uint256 public constant REVIEWERS = 1 << 1;
+
+    // address public dao;
+    // address public gasBuddy;
     uint256 public activityId;
 
     // Mapping of activities by activityId.
@@ -40,7 +46,7 @@ contract Log {
     mapping(address => mapping(bytes32 => uint256)) public userActivityLookup;
 
     // Mapping of eligible activities for review by reviewer.
-    mapping(address => mapping(bytes32 => bool)) public isReviewer;
+    // mapping(address => mapping(bytes32 => bool)) public isReviewer;
 
     /// -----------------------------------------------------------------------
     /// Sign Storage
@@ -75,44 +81,44 @@ contract Log {
     /// Modifier
     /// -----------------------------------------------------------------------
 
-    modifier onlyDao() {
-        if (dao != msg.sender) revert NotAuthorized();
-        _;
-    }
+    // modifier onlyDao() {
+    //     if (dao != msg.sender) revert NotAuthorized();
+    //     _;
+    // }
 
-    modifier onlyReviewer(address reviewer, address bulletin, uint256 listId) {
-        if (!isReviewer[reviewer][keccak256(abi.encodePacked(bulletin, listId))]) revert InvalidReviewer();
-        _;
-    }
+    // modifier onlyReviewer(address reviewer, address bulletin, uint256 listId) {
+    //     if (!isReviewer[reviewer][keccak256(abi.encodePacked(bulletin, listId))]) revert InvalidReviewer();
+    //     _;
+    // }
 
-    modifier onlyGasBuddy() {
-        if (gasBuddy != msg.sender) revert NotAuthorized();
-        _;
-    }
+    // modifier onlyGasBuddy() {
+    //     if (gasBuddy != msg.sender) revert NotAuthorized();
+    //     _;
+    // }
 
     /// -----------------------------------------------------------------------
     /// Constructor
     /// -----------------------------------------------------------------------
 
-    constructor(address _dao) {
-        dao = _dao;
+    constructor(address owner) {
+        _initializeOwner(owner);
     }
 
     /// -----------------------------------------------------------------------
     /// DAO Logic
     /// -----------------------------------------------------------------------
 
-    function setGasBuddy(address buddy) external payable onlyDao {
-        gasBuddy = buddy;
-    }
+    // function setGasBuddy(address buddy) external payable onlyDao {
+    //     gasBuddy = buddy;
+    // }
 
-    function getGasBuddy() public view returns (address) {
-        return gasBuddy;
-    }
+    // function getGasBuddy() public view returns (address) {
+    //     return gasBuddy;
+    // }
 
-    function setReviewer(address reviewer, address bulletin, uint256 listId) external payable onlyDao {
-        isReviewer[reviewer][keccak256(abi.encodePacked(bulletin, listId))] = true;
-    }
+    // function setReviewer(address reviewer, address bulletin, uint256 listId) external payable onlyDao {
+    //     isReviewer[reviewer][keccak256(abi.encodePacked(bulletin, listId))] = true;
+    // }
 
     /// -----------------------------------------------------------------------
     /// Log Logic
@@ -163,7 +169,7 @@ contract Log {
         uint256 itemId,
         string calldata feedback,
         bytes calldata data
-    ) external payable onlyGasBuddy {
+    ) external payable onlyRoles(GASBUDDIES) {
         _log(address(0), bulletin, listId, itemId, feedback, data);
     }
 
@@ -217,7 +223,7 @@ contract Log {
     function evaluate(uint256 id, address bulletin, uint256 listId, uint256 order, uint256 itemId, bool pass)
         external
         payable
-        onlyReviewer(msg.sender, bulletin, listId)
+        onlyRoles(REVIEWERS)
     {
         uint256 LOGGERS = IBulletin(bulletin).LOGGERS();
         (, address _bulletin, uint256 _listId, uint256 nonce) = getActivityData(id);

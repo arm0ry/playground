@@ -26,6 +26,7 @@ interface IBulletin {
     function MEMBERS() external view returns (uint256);
 
     function fee() external view returns (uint256);
+    function owner() external view returns (address);
 
     function itemId() external view returns (uint256);
     function listId() external view returns (uint256);

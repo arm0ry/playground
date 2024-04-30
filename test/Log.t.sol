@@ -9,16 +9,15 @@ import {Bulletin} from "src/Bulletin.sol";
 import {IBulletin, Item, List} from "src/interface/IBulletin.sol";
 
 import {BulletinTest} from "./Bulletin.t.sol";
+import {OwnableRoles} from "src/auth/OwnableRoles.sol";
+import {Ownable} from "solady/auth/Ownable.sol";
 
 contract LogTest is Test {
     Bulletin bulletin;
     Log logger;
 
-    /// @dev Role Constants.
-    uint256 internal constant _ROLE_0 = 1 << 0;
-
     /// @dev Web3 Users.
-    address dao = makeAddr("dao");
+    address owner = makeAddr("owner");
     address alice;
     uint256 alicePk;
     address bob;
@@ -70,8 +69,8 @@ contract LogTest is Test {
         (bob, bobPk) = makeAddrAndKey("bob");
         (charlie, charliePk) = makeAddrAndKey("charlie");
 
-        deployBulletin(dao);
-        deployLogger(dao);
+        deployBulletin(owner);
+        deployLogger(owner);
     }
 
     function testReceiveETH() public payable {
@@ -86,35 +85,50 @@ contract LogTest is Test {
 
     function deployLogger(address user) public payable {
         logger = new Log(user);
-        assertEq(logger.dao(), user);
+        assertEq(logger.owner(), user);
     }
 
     /// -----------------------------------------------------------------------
     /// DAO Test
     /// ----------------------------------------------------------------------
 
-    function testSetGasBuddy(address _buddy) public payable {
-        vm.prank(dao);
-        logger.setGasBuddy(_buddy);
-        assertEq(logger.getGasBuddy(), _buddy);
+    function testSetGasBuddy(address user) public payable {
+        vm.assume(user != address(0));
+        uint256 GASBUDDIES = ILog(address(logger)).GASBUDDIES();
+        test_GrantRoles(user, GASBUDDIES);
     }
 
-    function testSetGasBuddy_NotDao(address _buddy) public payable {
-        vm.expectRevert(Log.NotAuthorized.selector);
-        vm.prank(alice);
-        logger.setGasBuddy(_buddy);
+    function testSetGasBuddy_NotDao(address user) public payable {
+        uint256 GASBUDDIES = ILog(address(logger)).GASBUDDIES();
+        vm.expectRevert(Ownable.Unauthorized.selector);
+        logger.grantRoles(user, GASBUDDIES);
     }
 
-    function testSetReviewer(address reviewer, address _bulletin, uint256 listId) public payable {
-        vm.prank(dao);
-        logger.setReviewer(reviewer, _bulletin, listId);
-        assertEq(logger.isReviewer(reviewer, keccak256(abi.encodePacked(_bulletin, listId))), true);
+    function testSetReviewer(address reviewer) public payable {
+        vm.assume(reviewer != address(0));
+        uint256 REVIEWERS = ILog(address(logger)).REVIEWERS();
+        test_GrantRoles(reviewer, REVIEWERS);
     }
 
     function testSetReviewer_NotDao(address reviewer) public payable {
-        vm.expectRevert(Log.NotAuthorized.selector);
-        vm.prank(alice);
-        logger.setReviewer(reviewer, address(bulletin), 1);
+        uint256 REVIEWERS = ILog(address(logger)).REVIEWERS();
+        vm.expectRevert(Ownable.Unauthorized.selector);
+        logger.grantRoles(reviewer, REVIEWERS);
+    }
+
+    function test_GrantRoles(address user, uint256 role) public payable {
+        vm.assume(user != address(0));
+        vm.assume(role > 0);
+        vm.prank(owner);
+        logger.grantRoles(user, role);
+
+        emit log_uint(bulletin.rolesOf(user));
+        assertEq(logger.hasAnyRole(user, role), true);
+    }
+
+    function test_GrantRoles_NotOwner(address user, uint256 role) public payable {
+        vm.expectRevert(Ownable.Unauthorized.selector);
+        logger.grantRoles(user, role);
     }
 
     /// -----------------------------------------------------------------------
@@ -125,7 +139,7 @@ contract LogTest is Test {
         uint256 listId = 1;
 
         registerList_ReviewNotRequired();
-        authorizeLogger(true);
+        authorizeLogger();
 
         logItem(alice, address(bulletin), listId, 1);
         logItem(alice, address(bulletin), listId, 2);
@@ -159,7 +173,7 @@ contract LogTest is Test {
         uint256 listId = 1;
 
         registerList_ReviewRequired();
-        authorizeLogger(true);
+        authorizeLogger();
 
         logItem(alice, address(bulletin), listId, 4);
         logItem(alice, address(bulletin), listId, 5);
@@ -192,7 +206,7 @@ contract LogTest is Test {
         uint256 listId = 1;
 
         registerList_SomeReviewRequired();
-        authorizeLogger(true);
+        authorizeLogger();
 
         logItem(alice, address(bulletin), listId, 1);
         logItem(alice, address(bulletin), listId, 6);
@@ -213,7 +227,7 @@ contract LogTest is Test {
         uint256 listId = 1;
         uint256 activityId;
 
-        testSetReviewer(alice, address(bulletin), listId);
+        testSetReviewer(alice);
         test_Log_ReviewRequired_LoggerAuthorized();
         activityId = logger.userActivityLookup(alice, keccak256(abi.encodePacked(address(bulletin), listId)));
 
@@ -236,7 +250,7 @@ contract LogTest is Test {
         uint256 listId = 1;
         uint256 activityId;
 
-        testSetReviewer(alice, address(bulletin), listId);
+        testSetReviewer(alice);
         test_Log_SomeReviewRequired_LoggerAuthorized();
         activityId = logger.userActivityLookup(alice, keccak256(abi.encodePacked(address(bulletin), listId)));
 
@@ -254,9 +268,10 @@ contract LogTest is Test {
     /// Helper
     /// ----------------------------------------------------------------------
 
-    function authorizeLogger(bool auth) internal {
-        vm.prank(dao);
-        bulletin.grantRoles(address(logger), _ROLE_0);
+    function authorizeLogger() internal {
+        uint256 LOGGERS = IBulletin(address(bulletin)).LOGGERS();
+        vm.prank(owner);
+        bulletin.grantRoles(address(logger), LOGGERS);
     }
 
     function registerItems() internal {

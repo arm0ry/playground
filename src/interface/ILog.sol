@@ -18,7 +18,10 @@ struct Touchpoint {
 }
 
 interface ILog {
-    function dao() external view returns (address);
+    function GASBUDDIES() external view returns (uint256);
+    function REVIEWERS() external view returns (uint256);
+
+    function owner() external view returns (address);
     function fee() external view returns (uint256);
     function isReviewer() external view returns (bool);
 

@@ -30,10 +30,6 @@ contract BulletinTest is Test {
 
     uint256[] itemIds;
 
-    /// @dev Role Constants.
-    uint256 internal constant LOGGERS = 1 << 0;
-    uint256 internal constant MEMBERS = 1 << 1;
-
     /// @dev Mock Users.
     address immutable alice = makeAddr("alice");
     address immutable bob = makeAddr("bob");
@@ -86,20 +82,20 @@ contract BulletinTest is Test {
 
     function deployLogger(address user) public payable {
         logger = new Log(user);
-        assertEq(logger.dao(), user);
+        assertEq(logger.owner(), user);
     }
 
     /// -----------------------------------------------------------------------
     /// DAO Test
     /// ----------------------------------------------------------------------
 
-    function testAuthorizeLogger() public payable {
-        vm.prank(owner);
-        bulletin.grantRoles(address(logger), LOGGERS);
-        assertEq(bulletin.rolesOf(address(logger)), LOGGERS);
+    function testAuthorizeLogger(address user) public payable {
+        uint256 LOGGERS = IBulletin(address(bulletin)).LOGGERS();
+        test_GrantRoles(user, LOGGERS);
     }
 
     function testAuthorizeLogger_NotOwner() public payable {
+        uint256 LOGGERS = IBulletin(address(bulletin)).LOGGERS();
         vm.expectRevert(Ownable.Unauthorized.selector);
         bulletin.grantRoles(address(logger), LOGGERS);
     }
@@ -152,6 +148,7 @@ contract BulletinTest is Test {
         testSetFaucet(address(mock), drip);
 
         // Grant Alice member role.
+        uint256 MEMBERS = IBulletin(address(bulletin)).MEMBERS();
         test_GrantRoles(alice, MEMBERS);
 
         uint256 id = bulletin.itemId();
@@ -289,10 +286,9 @@ contract BulletinTest is Test {
         testSetFaucet(address(mock), drip);
 
         // Grant Alice member role.
-        vm.prank(owner);
-        bulletin.grantRoles(alice, MEMBERS);
+        uint256 MEMBERS = IBulletin(address(bulletin)).MEMBERS();
+        test_GrantRoles(alice, MEMBERS);
 
-        uint256 id = bulletin.itemId();
         uint256 prevAliceBalance = mock.balanceOf(alice);
 
         // Alice sets up task.
