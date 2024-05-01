@@ -57,7 +57,7 @@ contract LogTest is Test {
     string username3 = "USERNAME3";
 
     bytes32 public constant LOG_TYPEHASH =
-        keccak256("Log(address bulletin, uint256 listId ,uint256 itemId, string feedback, bytes data)");
+        keccak256("Log(address bulletin, uint256 listId, uint256 itemId, string feedback, bytes data)");
 
     /// -----------------------------------------------------------------------
     /// Setup Tests
@@ -79,12 +79,14 @@ contract LogTest is Test {
     }
 
     function deployBulletin(address user) public payable {
-        bulletin = new Bulletin(user);
+        bulletin = new Bulletin();
+        bulletin.initialize(user);
         assertEq(bulletin.owner(), user);
     }
 
     function deployLogger(address user) public payable {
-        logger = new Log(user);
+        logger = new Log();
+        logger.initialize(user);
         assertEq(logger.owner(), user);
     }
 
@@ -385,8 +387,7 @@ contract LogTest is Test {
         vm.prank(user);
         logger.log(_bulletin, _listId, _itemId, TEST, BYTES);
         id = logger.userActivityLookup(user, keccak256(abi.encodePacked(_bulletin, _listId)));
-        uint256 _aNonce;
-        (,,, _aNonce) = logger.getActivityData(id);
+        (,,, uint256 _aNonce) = logger.getActivityData(id);
         assertEq(aNonce + 1, _aNonce);
     }
 
@@ -401,13 +402,13 @@ contract LogTest is Test {
             abi.encodePacked(
                 "\x19\x01",
                 logger.DOMAIN_SEPARATOR(),
-                keccak256(abi.encode(LOG_TYPEHASH, _user, address(bulletin), _listId, _itemId, TEST, BYTES))
+                keccak256(abi.encode(LOG_TYPEHASH, _user, _bulletin, _listId, _itemId, TEST, BYTES))
             )
         );
 
-        // George signs message.
+        // User signs message.
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_userPk, message);
-        logger.logBySig(_user, address(bulletin), _listId, _itemId, TEST, BYTES, v, r, s);
+        logger.logBySig(_user, _bulletin, _listId, _itemId, TEST, BYTES, v, r, s);
 
         id = logger.userActivityLookup(_user, keccak256(abi.encodePacked(_bulletin, _listId)));
         (,,, uint256 _aNonce) = logger.getActivityData(id);
@@ -423,8 +424,7 @@ contract LogTest is Test {
         vm.prank(buddy);
         logger.sponsoredLog(_bulletin, _listId, _itemId, TEST, BYTES);
         id = logger.userActivityLookup(address(0), keccak256(abi.encodePacked(_bulletin, _listId)));
-        uint256 _aNonce;
-        (,,, _aNonce) = logger.getActivityData(id);
+        (,,, uint256 _aNonce) = logger.getActivityData(id);
         assertEq(aNonce + 1, _aNonce);
     }
 }

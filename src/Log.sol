@@ -11,8 +11,6 @@ import {OwnableRoles} from "src/auth/OwnableRoles.sol";
 /// @notice A database management system to log data from interacting with Bulletin.
 /// @author audsssy.eth
 contract Log is OwnableRoles {
-    // using LibBitmap for LibBitmap.Bitmap;
-
     event Logged(
         address user, address bulletin, uint256 listId, uint256 itemId, uint256 nonce, bool review, bytes data
     );
@@ -20,8 +18,6 @@ contract Log is OwnableRoles {
 
     error NotAuthorized();
     error InvalidEvaluation();
-    error InvalidReviewer();
-    error InvalidBot();
     error InvalidList();
     error InvalidItem();
 
@@ -29,14 +25,10 @@ contract Log is OwnableRoles {
     /// Storage
     /// -----------------------------------------------------------------------
 
-    // LibBitmap.Bitmap bitmap;
-
     /// @notice Role constants.
     uint256 public constant GASBUDDIES = 1 << 0;
     uint256 public constant REVIEWERS = 1 << 1;
 
-    // address public dao;
-    // address public gasBuddy;
     uint256 public activityId;
 
     // Mapping of activities by activityId.
@@ -45,9 +37,6 @@ contract Log is OwnableRoles {
     // Mapping of activities by user.
     mapping(address => mapping(bytes32 => uint256)) public userActivityLookup;
 
-    // Mapping of eligible activities for review by reviewer.
-    // mapping(address => mapping(bytes32 => bool)) public isReviewer;
-
     /// -----------------------------------------------------------------------
     /// Sign Storage
     /// -----------------------------------------------------------------------
@@ -55,7 +44,7 @@ contract Log is OwnableRoles {
     uint256 internal INITIAL_CHAIN_ID;
     bytes32 internal INITIAL_DOMAIN_SEPARATOR;
     bytes32 public constant LOG_TYPEHASH =
-        keccak256("Log(address bulletin, uint256 listId ,uint256 itemId, string feedback, bytes data)");
+        keccak256("Log(address bulletin, uint256 listId, uint256 itemId, string feedback, bytes data)");
 
     /// -----------------------------------------------------------------------
     /// EIP-2612 LOGIC
@@ -78,47 +67,12 @@ contract Log is OwnableRoles {
     }
 
     /// -----------------------------------------------------------------------
-    /// Modifier
-    /// -----------------------------------------------------------------------
-
-    // modifier onlyDao() {
-    //     if (dao != msg.sender) revert NotAuthorized();
-    //     _;
-    // }
-
-    // modifier onlyReviewer(address reviewer, address bulletin, uint256 listId) {
-    //     if (!isReviewer[reviewer][keccak256(abi.encodePacked(bulletin, listId))]) revert InvalidReviewer();
-    //     _;
-    // }
-
-    // modifier onlyGasBuddy() {
-    //     if (gasBuddy != msg.sender) revert NotAuthorized();
-    //     _;
-    // }
-
-    /// -----------------------------------------------------------------------
     /// Constructor
     /// -----------------------------------------------------------------------
 
-    constructor(address owner) {
+    function initialize(address owner) public {
         _initializeOwner(owner);
     }
-
-    /// -----------------------------------------------------------------------
-    /// DAO Logic
-    /// -----------------------------------------------------------------------
-
-    // function setGasBuddy(address buddy) external payable onlyDao {
-    //     gasBuddy = buddy;
-    // }
-
-    // function getGasBuddy() public view returns (address) {
-    //     return gasBuddy;
-    // }
-
-    // function setReviewer(address reviewer, address bulletin, uint256 listId) external payable onlyDao {
-    //     isReviewer[reviewer][keccak256(abi.encodePacked(bulletin, listId))] = true;
-    // }
 
     /// -----------------------------------------------------------------------
     /// Log Logic

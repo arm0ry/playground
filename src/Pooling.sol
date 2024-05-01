@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.4;
 
-import {ILog, Activity, Touchpoint} from "./interface/ILog.sol";
-import {IBulletin, List, Item} from "./interface/IBulletin.sol";
+import {ILog, Activity, Touchpoint} from "interface/ILog.sol";
+import {IBulletin, List, Item} from "interface/IBulletin.sol";
 
 /// @title Pooling
 /// @notice The Pooling library pools Log data for easy retrieval by tokens.

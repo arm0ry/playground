@@ -76,12 +76,14 @@ contract BulletinTest is Test {
     }
 
     function deployBulletin(address user) public payable {
-        bulletin = new Bulletin(user);
+        bulletin = new Bulletin();
+        bulletin.initialize(user);
         assertEq(bulletin.owner(), user);
     }
 
     function deployLogger(address user) public payable {
-        logger = new Log(user);
+        logger = new Log();
+        logger.initialize(user);
         assertEq(logger.owner(), user);
     }
 

@@ -808,7 +808,8 @@ contract ImpactCurveTest is Test {
     /// -----------------------------------------------------------------------
 
     function deployBulletin(address _user) public payable {
-        bulletin = new Bulletin(_user);
+        bulletin = new Bulletin();
+        bulletin.initialize(_user);
         assertEq(bulletin.owner(), _user);
     }
 

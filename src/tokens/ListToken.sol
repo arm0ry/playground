@@ -148,7 +148,7 @@ contract ListToken is SupportToken {
             string memory text;
             Item memory item;
 
-            for (uint256 i = 0; i < length; ++i) {
+            for (uint256 i; i < length; ++i) {
                 item = IBulletin(bulletin).getItem(itemIds[i]);
                 text = string.concat(
                     text,

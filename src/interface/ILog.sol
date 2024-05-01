@@ -21,9 +21,33 @@ interface ILog {
     function GASBUDDIES() external view returns (uint256);
     function REVIEWERS() external view returns (uint256);
 
+    function initialize(address owner) external;
     function owner() external view returns (address);
-    function fee() external view returns (uint256);
-    function isReviewer() external view returns (bool);
+    function grantRoles(address user, uint256 roles) external;
+    function hasAnyRole(address user, uint256 roles) external view returns (bool);
+    function rolesOf(address user) external view returns (uint256 roles);
+
+    function log(address bulletin, uint256 listId, uint256 itemId, string calldata feedback, bytes calldata data)
+        external
+        payable;
+    function logBySig(
+        address signer,
+        address bulletin,
+        uint256 listId,
+        uint256 itemId,
+        string calldata feedback,
+        bytes calldata data,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external payable;
+    function sponsoredLog(
+        address bulletin,
+        uint256 listId,
+        uint256 itemId,
+        string calldata feedback,
+        bytes calldata data
+    ) external payable;
 
     function activityId() external view returns (uint256);
     function getActivityData(uint256 id)

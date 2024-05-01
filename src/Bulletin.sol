@@ -61,7 +61,7 @@ contract Bulletin is OwnableRoles {
     /// Constructor
     /// -----------------------------------------------------------------------
 
-    constructor(address owner) {
+    function initialize(address owner) public {
         _initializeOwner(owner);
     }
 
