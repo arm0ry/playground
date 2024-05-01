@@ -135,7 +135,7 @@ contract ListToken is SupportToken {
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#00040a")
                 ),
-                string.concat("# of participants: ", SVG._uint2str(IBulletin(bulletin).runsByList(listId)))
+                string.concat("# of completions: ", SVG._uint2str(IBulletin(bulletin).runsByList(listId)))
             ),
             buildTasksCompletions(list, list.itemIds),
             buildTicker(curveId)
