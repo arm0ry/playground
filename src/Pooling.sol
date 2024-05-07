@@ -45,21 +45,21 @@ library Pooling {
     /// -----------------------------------------------------------------------
 
     function itemRunsByLog(address log) public view returns (uint256 runs) {
-        uint256 count = ILog(log).activityId();
+        uint256 count = ILog(log).logId();
 
         uint256 aNonce;
         for (uint256 i = 1; i <= count; ++i) {
-            (,,, aNonce) = ILog(log).getActivityData(i);
+            (,,, aNonce) = ILog(log).getLog(i);
             runs = runs + aNonce;
         }
     }
 
     function averageItemRunsByLog(address log) public view returns (uint256 runs) {
-        uint256 count = ILog(log).activityId();
+        uint256 count = ILog(log).logId();
 
         uint256 aNonce;
         for (uint256 i = 1; i <= count; ++i) {
-            (,,, aNonce) = ILog(log).getActivityData(i);
+            (,,, aNonce) = ILog(log).getLog(i);
             runs = (runs + aNonce) / count;
         }
     }
@@ -69,13 +69,13 @@ library Pooling {
         view
         returns (uint256 runs)
     {
-        uint256 count = ILog(log).activityId();
+        uint256 count = ILog(log).logId();
 
         address aBulletin;
         uint256 aListId;
         uint256 aNonce;
         for (uint256 i = 1; i <= count; ++i) {
-            (, aBulletin, aListId, aNonce) = ILog(log).getActivityData(i);
+            (, aBulletin, aListId, aNonce) = ILog(log).getLog(i);
 
             if (bulletin == aBulletin && aListId == listId) {
                 runs = (runs + aNonce) / count;
@@ -90,13 +90,13 @@ library Pooling {
         view
         returns (uint256 runs)
     {
-        uint256 count = ILog(log).activityId();
+        uint256 count = ILog(log).logId();
 
         address aBulletin;
         uint256 aListId;
         uint256 aNonce;
         for (uint256 i = 1; i <= count; ++i) {
-            (, aBulletin, aListId, aNonce) = ILog(log).getActivityData(i);
+            (, aBulletin, aListId, aNonce) = ILog(log).getLog(i);
 
             if (bulletin == aBulletin && aListId == listId) {
                 runs = runs + aNonce;
@@ -107,13 +107,13 @@ library Pooling {
     }
 
     function listRunsByLog(address log) public view returns (uint256 runs) {
-        uint256 count = ILog(log).activityId();
+        uint256 count = ILog(log).logId();
 
         address aUser;
         address aBulletin;
         uint256 aListId;
         for (uint256 i = 1; i <= count; ++i) {
-            (aUser, aBulletin, aListId,) = ILog(log).getActivityData(i);
+            (aUser, aBulletin, aListId,) = ILog(log).getLog(i);
             runs = runs + IBulletin(aBulletin).runsByList(aListId);
         }
     }
@@ -125,10 +125,10 @@ library Pooling {
     /// @notice Query the number of activities started in a log by a user.
     function activityStartsByLogByUser(address log, address user) public view returns (uint256 starts) {
         address aUser;
-        uint256 count = ILog(log).activityId();
+        uint256 count = ILog(log).logId();
 
         for (uint256 i = 1; i <= count; ++i) {
-            (aUser,,,) = ILog(log).getActivityData(i);
+            (aUser,,,) = ILog(log).getLog(i);
             (aUser == user) ? ++starts : starts;
         }
     }
@@ -138,9 +138,9 @@ library Pooling {
         address aUser;
         uint256 aNonce;
 
-        uint256 count = ILog(log).activityId();
+        uint256 count = ILog(log).logId();
         for (uint256 i = 1; i <= count; ++i) {
-            (aUser,,, aNonce) = ILog(log).getActivityData(i);
+            (aUser,,, aNonce) = ILog(log).getLog(i);
             if (aUser == user) {
                 runs = runs + aNonce;
             }
@@ -159,8 +159,8 @@ library Pooling {
     /// Log Activities & Touchpoints
     /// -----------------------------------------------------------------------
 
-    function dataByActivity(address log, uint256 activityId) public view returns (bytes[] memory data) {
-        Touchpoint[] memory tp = ILog(log).getActivityTouchpoints(activityId);
+    function touchpointDataByLogByLogId(address log, uint256 logId) public view returns (bytes[] memory data) {
+        Touchpoint[] memory tp = ILog(log).getLogTouchpoints(logId);
         uint256 length = tp.length;
         for (uint256 i; i < length; ++i) {
             data[i] = tp[i].data;
@@ -169,16 +169,16 @@ library Pooling {
 
     /// @notice Query the number of activities started in a log by a user.
     function activityStartsByLog(address log) public view returns (uint256) {
-        return ILog(log).activityId();
+        return ILog(log).logId();
     }
 
     /// @notice Query the number of touchpoints in a log by a user.
     function touchpointRunsByLog(address log) public view returns (uint256 runs) {
-        uint256 count = ILog(log).activityId();
+        uint256 count = ILog(log).logId();
 
         uint256 aNonce;
         for (uint256 i = 1; i <= count; ++i) {
-            (,,, aNonce) = ILog(log).getActivityData(i);
+            (,,, aNonce) = ILog(log).getLog(i);
             runs = runs + aNonce;
         }
     }

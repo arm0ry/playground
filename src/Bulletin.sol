@@ -223,16 +223,6 @@ contract Bulletin is OwnableRoles {
         return lists[id];
     }
 
-    function hasListExpired(uint256 id) external view returns (bool) {
-        uint256[] memory itemArray = lists[id].itemIds;
-        uint256 length = itemArray.length;
-
-        for (uint256 i; i < length; ++i) {
-            if (hasItemExpired(itemArray[i])) return true;
-        }
-        return false;
-    }
-
     /// @notice Query the number of times MEMBERS have completed a list on a bulletin.
     function runsByList(uint256 id) external view returns (uint256 runs) {
         List memory list;

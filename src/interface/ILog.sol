@@ -49,10 +49,10 @@ interface ILog {
         bytes calldata data
     ) external payable;
 
-    function activityId() external view returns (uint256);
-    function getActivityData(uint256 id)
+    function logId() external view returns (uint256);
+    function getLog(uint256 logId)
         external
         view
         returns (address user, address bulletin, uint256 listId, uint256 nonce);
-    function getActivityTouchpoints(uint256 id) external view returns (Touchpoint[] memory touchpoints);
+    function getLogTouchpoints(uint256 logId) external view returns (Touchpoint[] memory touchpoints);
 }

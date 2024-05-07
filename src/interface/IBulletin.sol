@@ -2,7 +2,6 @@
 pragma solidity ^0.8.17;
 
 /// @notice A struct representing the parameters of an item.
-/// TODO: Should we add a price parameter?
 struct Item {
     bool review; // Whether the item requires review to complete.
     uint40 expire; // The deadline of the item.
@@ -44,7 +43,6 @@ interface IBulletin {
 
     function getItem(uint256 id) external view returns (Item memory);
     function getList(uint256 id) external view returns (List memory);
-    function hasListExpired(uint256 id) external view returns (bool);
     function hasItemExpired(uint256 id) external view returns (bool);
     function checkIsItemInList(uint256 itemId, uint256 listId) external view returns (bool);
 

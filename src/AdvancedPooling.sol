@@ -34,9 +34,9 @@ contract AdvancedPooling {
     function getActivityProgress(address log, uint256 id) public returns (uint256) {
         bitmap.unsetBatch(0, 255);
         uint256 progress;
-        (, address aBulletin, uint256 aListId, uint256 aNonce) = ILog(log).getActivityData(id);
+        (, address aBulletin, uint256 aListId, uint256 aNonce) = ILog(log).getLog(id);
         Touchpoint[] memory tps = new Touchpoint[](aNonce);
-        tps = ILog(log).getActivityTouchpoints(id);
+        tps = ILog(log).getLogTouchpoints(id);
         List memory list = IBulletin(aBulletin).getList(aListId);
 
         uint256 length = list.itemIds.length;
@@ -62,7 +62,7 @@ contract AdvancedPooling {
 
     /// @notice Query the number of activities completed in a log by a user.
     function activityRunsByLog(address log) public returns (uint256 runs) {
-        uint256 count = ILog(log).activityId();
+        uint256 count = ILog(log).logId();
 
         uint256 percentage;
         for (uint256 i = 1; i <= count; ++i) {
@@ -82,7 +82,7 @@ contract AdvancedPooling {
         uint256 percentage;
         uint256 sum;
 
-        uint256 count = ILog(log).activityId();
+        uint256 count = ILog(log).logId();
         for (uint256 i = 1; i <= count; ++i) {
             percentage = getActivityProgress(log, i);
 
@@ -120,9 +120,9 @@ contract AdvancedPooling {
         address aUser;
         uint256 percentage;
 
-        uint256 count = ILog(log).activityId();
+        uint256 count = ILog(log).logId();
         for (uint256 i = 1; i <= count; ++i) {
-            (aUser,,,) = ILog(log).getActivityData(i);
+            (aUser,,,) = ILog(log).getLog(i);
             percentage = getActivityProgress(log, i);
             (aUser == user && percentage == 100) ? ++runs : runs;
         }
@@ -141,9 +141,9 @@ contract AdvancedPooling {
         uint256 percentage;
         uint256 sum;
 
-        uint256 count = ILog(log).activityId();
+        uint256 count = ILog(log).logId();
         for (uint256 i = 1; i <= count; ++i) {
-            (aUser,,,) = ILog(log).getActivityData(i);
+            (aUser,,,) = ILog(log).getLog(i);
             if (aUser == user) {
                 percentage = getActivityProgress(log, i);
 
@@ -161,7 +161,7 @@ contract AdvancedPooling {
     /// -----------------------------------------------------------------------
 
     function mostFrequentedListByLog(address log) public returns (address, uint256, uint256) {
-        uint256 numOfActivities = ILog(log).activityId();
+        uint256 numOfActivities = ILog(log).logId();
 
         bytes32 data;
         uint256 runs;
@@ -171,7 +171,7 @@ contract AdvancedPooling {
         address aBulletin;
         uint256 aListId;
         for (uint256 i = 1; i <= numOfActivities; ++i) {
-            (, aBulletin, aListId,) = ILog(log).getActivityData(i);
+            (, aBulletin, aListId,) = ILog(log).getLog(i);
             data = bytes32(abi.encodePacked(aBulletin, aListId));
             unchecked {
                 ++counter[data];
@@ -195,25 +195,25 @@ contract AdvancedPooling {
 
     function touchpointRunsByLog(address log, address user) public view returns (uint256 runs) {}
 
-    function passingTouchpointsByActivityByUser(address log, uint256 activityId, address user)
+    function passingTouchpointsByActivityByUser(address log, uint256 logId, address user)
         public
         view
         returns (uint256 passingTouchpoints)
     {}
 
-    function itemFrequencyByActivityByUser(address log, uint256 activityId, uint256 itemId, address user)
+    function itemFrequencyByActivityByUser(address log, uint256 logId, uint256 itemId, address user)
         public
         view
         returns (uint256 frequency)
     {}
 
-    function mostFrequentedItemByActivityByUser(address log, uint256 activityId, address user)
+    function mostFrequentedItemByActivityByUser(address log, uint256 logId, address user)
         public
         view
         returns (uint256 itemId, uint256 frequency)
     {}
 
-    function dataByTouchpointByUser(address log, uint256 activityId, address user) public view returns (bytes memory) {}
+    function dataByTouchpointByUser(address log, uint256 logId, address user) public view returns (bytes memory) {}
 
     /// -----------------------------------------------------------------------
     /// Internal
@@ -224,7 +224,7 @@ contract AdvancedPooling {
         uint256 aListId;
         bytes32 data;
         for (uint256 i = 1; i <= numOfActivities; ++i) {
-            (, aBulletin, aListId,) = ILog(log).getActivityData(i);
+            (, aBulletin, aListId,) = ILog(log).getLog(i);
             data = bytes32(abi.encodePacked(aBulletin, aListId));
             delete counter[data];
         }

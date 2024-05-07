@@ -14,7 +14,7 @@ contract Log is OwnableRoles {
     event Logged(
         address user, address bulletin, uint256 listId, uint256 itemId, uint256 nonce, bool review, bytes data
     );
-    event Evaluated(uint256 activityId, address bulletin, uint256 listId, uint256 nonce, bool pass);
+    event Evaluated(uint256 logId, address bulletin, uint256 listId, uint256 nonce, bool pass);
 
     error NotAuthorized();
     error InvalidEvaluation();
@@ -29,13 +29,14 @@ contract Log is OwnableRoles {
     uint256 public constant GASBUDDIES = 1 << 0;
     uint256 public constant REVIEWERS = 1 << 1;
 
-    uint256 public activityId;
+    uint256 public logId;
 
-    // Mapping of activities by activityId.
-    mapping(uint256 => Activity) public activities;
+    // Mapping of logs by logId.
+    mapping(uint256 => Activity) public logs;
 
-    // Mapping of activities by user.
-    mapping(address => mapping(bytes32 => uint256)) public userActivityLookup;
+    // Mapping of logs by user.
+    // user => (keccak256(abi.encodePacked(bulletin, listId) => logId)
+    mapping(address => mapping(bytes32 => uint256)) public lookupLogId;
 
     /// -----------------------------------------------------------------------
     /// Sign Storage
@@ -83,9 +84,7 @@ contract Log is OwnableRoles {
         payable
     {
         if (IBulletin(bulletin).hasItemExpired(itemId)) revert InvalidItem();
-        if (!IBulletin(bulletin).checkIsItemInList(itemId, listId) || IBulletin(bulletin).hasListExpired(listId)) {
-            revert InvalidList();
-        }
+        if (!IBulletin(bulletin).checkIsItemInList(itemId, listId)) revert InvalidList();
 
         _log(msg.sender, bulletin, listId, itemId, feedback, data);
     }
@@ -135,31 +134,31 @@ contract Log is OwnableRoles {
         string calldata feedback,
         bytes calldata data
     ) internal {
-        uint256 id = userActivityLookup[user][keccak256(abi.encodePacked(bulletin, listId))];
+        uint256 id = lookupLogId[user][keccak256(abi.encodePacked(bulletin, listId))];
         Item memory item = IBulletin(bulletin).getItem(itemId);
         bool review = (item.review) ? false : true;
         uint256 LOGGERS = IBulletin(bulletin).LOGGERS();
 
         if (id == 0) {
             unchecked {
-                userActivityLookup[user][keccak256(abi.encodePacked(bulletin, listId))] = ++activityId;
+                lookupLogId[user][keccak256(abi.encodePacked(bulletin, listId))] = ++logId;
             }
 
-            activities[activityId].user = user;
-            activities[activityId].bulletin = bulletin;
-            activities[activityId].listId = listId;
+            logs[logId].user = user;
+            logs[logId].bulletin = bulletin;
+            logs[logId].listId = listId;
 
-            activities[activityId].touchpoints[activities[activityId].nonce] =
+            logs[logId].touchpoints[logs[logId].nonce] =
                 Touchpoint({pass: review, itemId: itemId, feedback: feedback, data: data});
 
             unchecked {
-                ++activities[activityId].nonce;
+                ++logs[logId].nonce;
             }
         } else {
-            activities[id].touchpoints[activities[id].nonce] =
+            logs[id].touchpoints[logs[id].nonce] =
                 Touchpoint({pass: review, itemId: itemId, feedback: feedback, data: data});
             unchecked {
-                ++activities[id].nonce;
+                ++logs[id].nonce;
             }
         }
 
@@ -167,7 +166,7 @@ contract Log is OwnableRoles {
             IBulletin(bulletin).submit(itemId);
         }
 
-        emit Logged(user, bulletin, listId, itemId, activities[activityId].nonce, review, data);
+        emit Logged(user, bulletin, listId, itemId, logs[logId].nonce, review, data);
     }
 
     /// -----------------------------------------------------------------------
@@ -180,18 +179,16 @@ contract Log is OwnableRoles {
         onlyRoles(REVIEWERS)
     {
         uint256 LOGGERS = IBulletin(bulletin).LOGGERS();
-        (, address _bulletin, uint256 _listId, uint256 nonce) = getActivityData(id);
+        (, address _bulletin, uint256 _listId, uint256 nonce) = getLog(id);
 
-        if (
-            order > nonce || bulletin != _bulletin || listId != _listId
-                || activities[id].touchpoints[order].itemId != itemId
-        ) revert InvalidEvaluation();
-
-        if (!IBulletin(bulletin).checkIsItemInList(itemId, listId) || IBulletin(bulletin).hasListExpired(listId)) {
-            revert InvalidList();
+        if (order > nonce || bulletin != _bulletin || listId != _listId || logs[id].touchpoints[order].itemId != itemId)
+        {
+            revert InvalidEvaluation();
         }
 
-        activities[id].touchpoints[order].pass = pass;
+        if (!IBulletin(bulletin).checkIsItemInList(itemId, listId)) revert InvalidList();
+
+        logs[id].touchpoints[order].pass = pass;
         if (IBulletin(bulletin).hasAnyRole(address(this), LOGGERS) && pass) {
             IBulletin(bulletin).submit(itemId);
         }
@@ -203,23 +200,23 @@ contract Log is OwnableRoles {
     /// Activity - Getter
     /// -----------------------------------------------------------------------
 
-    function getActivityData(uint256 id)
+    function getLog(uint256 _logId)
         public
         view
         returns (address user, address bulletin, uint256 listId, uint256 nonce)
     {
-        user = activities[id].user;
-        bulletin = activities[id].bulletin;
-        listId = activities[id].listId;
-        nonce = activities[id].nonce;
+        user = logs[_logId].user;
+        bulletin = logs[_logId].bulletin;
+        listId = logs[_logId].listId;
+        nonce = logs[_logId].nonce;
     }
 
-    function getActivityTouchpoints(uint256 id) external view returns (Touchpoint[] memory) {
-        (,,, uint256 aNonce) = getActivityData(id);
+    function getLogTouchpoints(uint256 _logId) external view returns (Touchpoint[] memory) {
+        (,,, uint256 aNonce) = getLog(_logId);
         Touchpoint[] memory tps = new Touchpoint[](aNonce);
 
         for (uint256 i; i < aNonce; ++i) {
-            tps[i] = activities[id].touchpoints[i];
+            tps[i] = logs[_logId].touchpoints[i];
         }
 
         return tps;

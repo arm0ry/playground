@@ -227,20 +227,20 @@ contract LogTest is Test {
 
     function test_Evaluate_ReviewRequired() public payable {
         uint256 listId = 1;
-        uint256 activityId;
+        uint256 logId;
 
         testSetReviewer(alice);
         test_Log_ReviewRequired_LoggerAuthorized();
-        activityId = logger.userActivityLookup(alice, keccak256(abi.encodePacked(address(bulletin), listId)));
+        logId = logger.lookupLogId(alice, keccak256(abi.encodePacked(address(bulletin), listId)));
 
         vm.prank(alice);
-        logger.evaluate(activityId, address(bulletin), listId, 0, 4, true);
+        logger.evaluate(logId, address(bulletin), listId, 0, 4, true);
 
         vm.prank(alice);
-        logger.evaluate(activityId, address(bulletin), listId, 1, 5, true);
+        logger.evaluate(logId, address(bulletin), listId, 1, 5, true);
 
         vm.prank(alice);
-        logger.evaluate(activityId, address(bulletin), listId, 2, 6, true);
+        logger.evaluate(logId, address(bulletin), listId, 2, 6, true);
 
         assertEq(bulletin.runsByItem(4), 1);
         assertEq(bulletin.runsByItem(5), 1);
@@ -250,17 +250,17 @@ contract LogTest is Test {
 
     function test_Evaluate_SomeReviewRequired() public payable {
         uint256 listId = 1;
-        uint256 activityId;
+        uint256 logId;
 
         testSetReviewer(alice);
         test_Log_SomeReviewRequired_LoggerAuthorized();
-        activityId = logger.userActivityLookup(alice, keccak256(abi.encodePacked(address(bulletin), listId)));
+        logId = logger.lookupLogId(alice, keccak256(abi.encodePacked(address(bulletin), listId)));
 
         vm.prank(alice);
-        logger.evaluate(activityId, address(bulletin), listId, 1, 6, true);
+        logger.evaluate(logId, address(bulletin), listId, 1, 6, true);
 
         vm.prank(alice);
-        logger.evaluate(activityId, address(bulletin), listId, 2, 6, true);
+        logger.evaluate(logId, address(bulletin), listId, 2, 6, true);
 
         assertEq(bulletin.runsByItem(6), 2);
         assertEq(bulletin.runsByList(listId), 2);
@@ -381,21 +381,21 @@ contract LogTest is Test {
     }
 
     function logItem(address user, address _bulletin, uint256 _listId, uint256 _itemId) internal {
-        uint256 id = logger.userActivityLookup(user, keccak256(abi.encodePacked(_bulletin, _listId)));
-        (,,, uint256 aNonce) = logger.getActivityData(id);
+        uint256 id = logger.lookupLogId(user, keccak256(abi.encodePacked(_bulletin, _listId)));
+        (,,, uint256 aNonce) = logger.getLog(id);
 
         vm.prank(user);
         logger.log(_bulletin, _listId, _itemId, TEST, BYTES);
-        id = logger.userActivityLookup(user, keccak256(abi.encodePacked(_bulletin, _listId)));
-        (,,, uint256 _aNonce) = logger.getActivityData(id);
+        id = logger.lookupLogId(user, keccak256(abi.encodePacked(_bulletin, _listId)));
+        (,,, uint256 _aNonce) = logger.getLog(id);
         assertEq(aNonce + 1, _aNonce);
     }
 
     function logItemBySig(string memory user, address _bulletin, uint256 _listId, uint256 _itemId) internal {
         (address _user, uint256 _userPk) = makeAddrAndKey(user);
 
-        uint256 id = logger.userActivityLookup(_user, keccak256(abi.encodePacked(_bulletin, _listId)));
-        (,,, uint256 aNonce) = logger.getActivityData(id);
+        uint256 id = logger.lookupLogId(_user, keccak256(abi.encodePacked(_bulletin, _listId)));
+        (,,, uint256 aNonce) = logger.getLog(id);
 
         // Prepare message.
         bytes32 message = keccak256(
@@ -410,21 +410,21 @@ contract LogTest is Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_userPk, message);
         logger.logBySig(_user, _bulletin, _listId, _itemId, TEST, BYTES, v, r, s);
 
-        id = logger.userActivityLookup(_user, keccak256(abi.encodePacked(_bulletin, _listId)));
-        (,,, uint256 _aNonce) = logger.getActivityData(id);
+        id = logger.lookupLogId(_user, keccak256(abi.encodePacked(_bulletin, _listId)));
+        (,,, uint256 _aNonce) = logger.getLog(id);
         assertEq(aNonce + 1, _aNonce);
     }
 
     function logItemBySponsorship(address _bulletin, uint256 _listId, uint256 _itemId) internal {
-        uint256 id = logger.userActivityLookup(address(0), keccak256(abi.encodePacked(_bulletin, _listId)));
-        (,,, uint256 aNonce) = logger.getActivityData(id);
+        uint256 id = logger.lookupLogId(address(0), keccak256(abi.encodePacked(_bulletin, _listId)));
+        (,,, uint256 aNonce) = logger.getLog(id);
 
         testSetGasBuddy(buddy);
 
         vm.prank(buddy);
         logger.sponsoredLog(_bulletin, _listId, _itemId, TEST, BYTES);
-        id = logger.userActivityLookup(address(0), keccak256(abi.encodePacked(_bulletin, _listId)));
-        (,,, uint256 _aNonce) = logger.getActivityData(id);
+        id = logger.lookupLogId(address(0), keccak256(abi.encodePacked(_bulletin, _listId)));
+        (,,, uint256 _aNonce) = logger.getLog(id);
         assertEq(aNonce + 1, _aNonce);
     }
 }
