@@ -52,9 +52,9 @@ contract Bulletin is OwnableRoles {
         _;
     }
 
-    modifier drip() {
+    modifier drip(uint256 frequency) {
         _;
-        IERC20(token).transferFrom(address(this), msg.sender, amount);
+        IERC20(token).transferFrom(address(this), msg.sender, amount * frequency);
     }
 
     /// -----------------------------------------------------------------------
@@ -82,7 +82,7 @@ contract Bulletin is OwnableRoles {
     /// Item Logic - Setter
     /// -----------------------------------------------------------------------
 
-    function contributeItem(Item calldata item) public payable onlyRoles(MEMBERS) drip {
+    function contributeItem(Item calldata item) public payable onlyRoles(MEMBERS) drip(1) {
         _registerItem(item);
     }
 
@@ -99,6 +99,13 @@ contract Bulletin is OwnableRoles {
 
         items[itemId] = item;
         emit ItemUpdated(itemId, item);
+    }
+
+    function contributeItems(Item[] calldata _items) public payable onlyRoles(MEMBERS) drip(_items.length) {
+        uint256 length = _items.length;
+        for (uint256 i = 0; i < length; i++) {
+            contributeItem(_items[i]);
+        }
     }
 
     function registerItems(Item[] calldata _items) external payable payFee {
@@ -130,7 +137,7 @@ contract Bulletin is OwnableRoles {
     /// List Logic - Setter
     /// -----------------------------------------------------------------------
 
-    function contributeList(List calldata list) public payable onlyRoles(MEMBERS) drip {
+    function contributeList(List calldata list) public payable onlyRoles(MEMBERS) drip(1) {
         _registerList(list);
     }
 

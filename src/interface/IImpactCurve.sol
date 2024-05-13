@@ -7,43 +7,47 @@ enum CurveType {
     QUADRATIC
 }
 
+struct Curve {
+    uint256 id;
+    address owner;
+    address token;
+    CurveType curveType;
+    address currency;
+    uint64 scale;
+    uint32 mint_a;
+    uint32 mint_b;
+    uint32 mint_c;
+    uint32 burn_a;
+    uint32 burn_b;
+    uint32 burn_c;
+}
+
+struct OwnerReserve {
+    uint256 cAmount; // amount in currency
+    uint256 sAmount; // amount in stablecoin
+}
+
 interface IImpactCurve {
-    /// @notice DAO logic.
-    function initialize(address dao) external payable;
+    function initialize(address owner) external payable;
 
     /// @notice Curve logic.
-    function curve(
-        CurveType curveType,
-        address token,
-        address owner,
-        uint96 scale,
-        uint16 burnRatio, // Relative to mint price.
-        uint48 constant_a,
-        uint48 constant_b,
-        uint48 constant_c
-    ) external payable returns (uint256 curveId);
+    function registerCurve(Curve memory curve) external payable;
+
+    /// @notice Owner logic.
+    function claim(uint256 curveId, uint256 amountInCurrencyToClaim) external payable;
 
     /// @notice Patron logic.
-    function claim() external payable;
     function support(uint256 curveId, address patron, uint256 price) external payable;
     function burn(uint256 curveId, address patron, uint256 tokenId) external payable;
 
     /// @notice Getter logic.
-    function getCurveId() external view returns (uint256);
-    function getCurveOwner(uint256 curveId) external view returns (address);
-    function getCurveToken(uint256 curveId) external view returns (address);
-    function getCurveTreasury(uint256 curveId) external view returns (uint256);
-    function getCurveType(uint256 curveId) external view returns (CurveType);
-    function getCurveFormula(uint256 curveId) external view returns (uint256, uint256, uint256, uint256, uint256);
-    function getCurveBurned(uint256 curveId, address patron, bool burned) external view returns (bool);
-    function getCurvePrice(bool mint, uint256 curveId, uint256 supply) external view returns (uint256);
-    function getMintBurnDifference(uint256 curveId) external view returns (uint256);
-    function getUnclaimed(address user) external view returns (uint256);
-
-    /// @notice Helper logic.
-    function encodeCurveData(uint96 scale, uint16 burnRatio, uint48 constant_a, uint48 constant_b, uint48 constant_c)
+    function getCurve(uint256 curveId) external view returns (Curve memory);
+    function getCurvePrice(bool mint, uint256 curveId, Curve memory curve, uint256 supply)
+        external
+        view
+        returns (uint256);
+    function calculatePrice(uint256 supply, uint256 scale, uint256 constant_a, uint256 constant_b, uint256 constant_c)
         external
         pure
         returns (uint256);
-    function decodeCurveData(uint256 key) external pure returns (uint256, uint256, uint256, uint256, uint256);
 }
