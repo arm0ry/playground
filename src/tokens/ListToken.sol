@@ -25,9 +25,7 @@ contract ListToken is ERC721 {
     /// Constructor & Modifier
     /// -----------------------------------------------------------------------
 
-    constructor(string memory _name, string memory _symbol, address _bulletin, address _curve) {
-        _init(_name, _symbol);
-
+    constructor(string memory _name, string memory _symbol, address _bulletin, address _curve) ERC721(_name, _symbol) {
         bulletin = _bulletin;
         curve = _curve;
     }

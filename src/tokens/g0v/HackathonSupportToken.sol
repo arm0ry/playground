@@ -3,11 +3,11 @@ pragma solidity >=0.8.4;
 
 import {SVG} from "../../utils/SVG.sol";
 import {JSON} from "../../utils/JSON.sol";
-import {SupportToken} from "../SupportToken.sol";
+import {ERC721} from "solbase/tokens/ERC721/ERC721.sol";
 
 /// @title Impact NFTs
 /// @notice SVG NFTs displaying impact results and metrics.
-contract HackathonSupportToken is SupportToken {
+contract HackathonSupportToken is ERC721 {
     /// -----------------------------------------------------------------------
     /// Storage
     /// -----------------------------------------------------------------------
@@ -23,9 +23,9 @@ contract HackathonSupportToken is SupportToken {
     /// Constructor & Modifier
     /// -----------------------------------------------------------------------
 
-    constructor(string memory _name, string memory _symbol, address _quest, address _mission, address _curve) {
-        _init(_name, _symbol);
-
+    constructor(string memory _name, string memory _symbol, address _quest, address _mission, address _curve)
+        ERC721(_name, _symbol)
+    {
         quest = _quest;
         mission = _mission;
         curve = _curve;

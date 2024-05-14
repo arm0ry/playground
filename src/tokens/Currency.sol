@@ -5,7 +5,7 @@ import {ERC20} from "solbase/tokens/ERC20/ERC20.sol";
 import {Owned} from "solmate/auth/Owned.sol";
 
 contract Currency is ERC20, Owned {
-    constructor(string calldata _name, string calldata _symbol) ERC20(_name, _symbol, 18) Owned(msg.sender) {}
+    constructor(string memory _name, string memory _symbol, address owner) ERC20(_name, _symbol, 18) Owned(owner) {}
 
     function mint(address to, uint256 amount, address spender) public onlyOwner {
         _mint(to, amount);

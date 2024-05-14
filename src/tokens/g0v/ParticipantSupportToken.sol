@@ -3,7 +3,7 @@ pragma solidity >=0.8.4;
 
 import {SVG} from "../../utils/SVG.sol";
 import {JSON} from "../../utils/JSON.sol";
-import {SupportToken} from "../SupportToken.sol";
+import {ERC721} from "solbase/tokens/ERC721/ERC721.sol";
 
 struct QuestData {
     address user;
@@ -15,7 +15,7 @@ struct QuestData {
 
 /// @title Support SVG NFTs.
 /// @notice SVG NFTs displaying impact generated from quests.
-contract ParticipantSupportToken is SupportToken {
+contract ParticipantSupportToken is ERC721 {
     /// -----------------------------------------------------------------------
     /// Errors
     /// -----------------------------------------------------------------------
@@ -37,9 +37,7 @@ contract ParticipantSupportToken is SupportToken {
     /// Constructor & Modifier
     /// -----------------------------------------------------------------------
 
-    constructor(string memory _name, string memory _symbol, address _quest, address _curve) {
-        _init(_name, _symbol);
-
+    constructor(string memory _name, string memory _symbol, address _quest, address _curve) ERC721(_name, _symbol) {
         quest = _quest;
         curve = _curve;
     }

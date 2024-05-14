@@ -3,11 +3,11 @@ pragma solidity >=0.8.4;
 
 import {SVG} from "../../utils/SVG.sol";
 import {JSON} from "../../utils/JSON.sol";
-import {SupportToken} from "../SupportToken.sol";
+import {ERC721} from "solbase/tokens/ERC721/ERC721.sol";
 
 /// @title Support SVG NFTs.
 /// @notice SVG NFTs displaying impact generated from quests.
-contract OnboardingSupportToken is SupportToken {
+contract OnboardingSupportToken is ERC721 {
     /// -----------------------------------------------------------------------
     /// SVG Storage
     /// -----------------------------------------------------------------------
@@ -35,9 +35,7 @@ contract OnboardingSupportToken is SupportToken {
         address _mission,
         uint256 _missionId,
         address _curve
-    ) {
-        _init(_name, _symbol);
-
+    ) ERC721(_name, _symbol) {
         quest = _quest;
         mission = _mission;
         missionId = _missionId;

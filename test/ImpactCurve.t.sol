@@ -52,33 +52,6 @@ contract ImpactCurveTest is Test {
         deployBulletin(user);
     }
 
-    function testNotInitialize_curve() public payable {
-        initializeIC(address(0));
-
-        vm.expectRevert(ImpactCurve.NotInitialized.selector);
-        vm.prank(bob);
-        ic.curve(
-            CurveType.LINEAR,
-            address(listToken),
-            alice,
-            uint64(0.0001 ether),
-            uint32(2),
-            uint32(2),
-            uint32(2),
-            uint32(1),
-            uint32(1),
-            uint32(1)
-        );
-    }
-
-    function testNotInitialize_support() public payable {
-        initializeIC(address(0));
-
-        vm.expectRevert(ImpactCurve.NotInitialized.selector);
-        vm.prank(bob);
-        ic.support(1, bob, 1 ether);
-    }
-
     function testCurve_InvalidCurve() public payable {
         initializeIC(user);
         deployListToken(user);

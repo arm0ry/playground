@@ -73,8 +73,8 @@ contract ImpactCurve is OwnableRoles {
     function support(uint256 _curveId, address patron, uint256 price, uint256 amountInCurrency) external payable {
         // Validate mint conditions.
         Curve memory curve = curves[_curveId];
-        uint256 _price = getCurvePrice(true, 0, curve, 0);
-        uint256 burnPrice = getCurvePrice(false, 0, curve, 0);
+        uint256 _price = getCurvePrice(true, curve, 0);
+        uint256 burnPrice = getCurvePrice(false, curve, 0);
 
         if (price != _price) revert InvalidAmount();
         if (amountInCurrency == 0 && price != msg.value) revert InvalidAmount();
@@ -118,7 +118,7 @@ contract ImpactCurve is OwnableRoles {
         if (ISupportToken(curve.token).ownerOf(tokenId) != msg.sender) revert Unauthorized();
 
         // Reduce curve treasury by burn price.
-        uint256 burnPrice = getCurvePrice(false, 0, curve, 0);
+        uint256 burnPrice = getCurvePrice(false, curve, 0);
         treasuries[_curveId] -= burnPrice;
 
         // Burn SupportToken.
@@ -139,9 +139,18 @@ contract ImpactCurve is OwnableRoles {
     }
 
     /// @notice Calculate mint and burn price.
-    function getCurvePrice(bool _mint, uint256 _curveId, Curve memory curve, uint256 _supply)
-        public
-        view
+    function getCurvePrice(bool _mint, Curve memory curve, uint256 _supply) public view returns (uint256) {
+        return _getCurvePrice(_mint, 0, curve, _supply);
+    }
+
+    /// @notice Calculate mint and burn price.
+    function getCurvePrice(bool _mint, uint256 _curveId, uint256 _supply) public view returns (uint256) {
+        Curve memory curve;
+        return _getCurvePrice(_mint, _curveId, curve, _supply);
+    }
+
+    function _getCurvePrice(bool _mint, uint256 _curveId, Curve memory curve, uint256 _supply)
+        internal
         returns (uint256)
     {
         // Retrieve curve data.
@@ -177,7 +186,7 @@ contract ImpactCurve is OwnableRoles {
     }
 
     function calculatePrice(uint256 supply, uint256 scale, uint256 constant_a, uint256 constant_b, uint256 constant_c)
-        public
+        internal
         pure
         returns (uint256)
     {
