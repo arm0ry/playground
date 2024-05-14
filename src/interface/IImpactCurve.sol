@@ -22,11 +22,6 @@ struct Curve {
     uint32 burn_c;
 }
 
-struct OwnerReserve {
-    uint256 cAmount; // amount in currency
-    uint256 sAmount; // amount in stablecoin
-}
-
 interface IImpactCurve {
     function initialize(address owner) external payable;
 

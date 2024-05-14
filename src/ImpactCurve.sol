@@ -3,7 +3,7 @@ pragma solidity >=0.8.4;
 
 import {IERC20} from "src/interface/IERC20.sol";
 import {OwnableRoles} from "src/auth/OwnableRoles.sol";
-import {IImpactCurve, CurveType, Curve, OwnerReserve} from "src/interface/IImpactCurve.sol";
+import {IImpactCurve, CurveType, Curve} from "src/interface/IImpactCurve.sol";
 import {ISupportToken} from "src/interface/ISupportToken.sol";
 
 /// @notice .
@@ -14,6 +14,7 @@ contract ImpactCurve is OwnableRoles {
     error TransferFailed();
     error InvalidCurve();
     error InvalidAmount();
+    error InsufficientCurrency();
 
     /// -----------------------------------------------------------------------
     /// Storage
@@ -28,7 +29,7 @@ contract ImpactCurve is OwnableRoles {
     /// @notice Curve storage.
     uint256 curveId;
     mapping(uint256 => Curve) public curves;
-    mapping(uint256 => OwnerReserve) public reserves;
+    mapping(uint256 => uint256) public reserves;
     mapping(uint256 => uint256) public treasuries;
 
     /// -----------------------------------------------------------------------
@@ -72,47 +73,58 @@ contract ImpactCurve is OwnableRoles {
     /// -----------------------------------------------------------------------
 
     /// @notice Claim.
-    function claim(uint256 _curveId, uint256 amountInCurrencyToClaim) external payable {
-        OwnerReserve memory reserve = reserves[_curveId];
+    function claim(uint256 _curveId) external payable {
+        uint256 reserve = reserves[_curveId];
         Curve memory curve = curves[_curveId];
         if (curve.owner != msg.sender) revert Unauthorized();
-        if (reserve.cAmount == 0 && reserve.sAmount == 0) revert Unauthorized();
-        if (amountInCurrencyToClaim > reserve.cAmount + reserve.sAmount) revert Unauthorized();
+        if (reserve == 0) revert Unauthorized();
 
         delete reserves[_curveId];
 
-        if (amountInCurrencyToClaim == 0) {
-            (bool success,) = msg.sender.call{value: reserve.sAmount}("");
-            if (!success) revert TransferFailed();
-        } else {
-            // Transfer currency.
-            IERC20(curve.currency).transferFrom(address(this), msg.sender, amountInCurrencyToClaim);
-
-            // Transfer stablecoin.
-            (bool success,) = msg.sender.call{value: reserve.cAmount + reserve.sAmount - amountInCurrencyToClaim}("");
-            if (!success) revert TransferFailed();
-        }
+        (bool success,) = msg.sender.call{value: reserve}("");
+        if (!success) revert TransferFailed();
     }
 
     /// -----------------------------------------------------------------------
     /// Patron Logic
     /// -----------------------------------------------------------------------
 
-    /// @notice Pay ether to mint curve token.
-    function support(uint256 _curveId, address patron, uint256 price) external payable {
+    /// @notice Pay stablecoin or currency to mint token.
+    function support(uint256 _curveId, address patron, uint256 price, uint256 amountInCurrency) external payable {
         // Validate mint conditions.
         Curve memory curve = curves[_curveId];
-        if (price != getCurvePrice(true, 0, curve, 0) || price != msg.value) {
-            revert InvalidAmount();
+        uint256 _price = getCurvePrice(true, 0, curve, 0);
+        uint256 burnPrice = getCurvePrice(false, 0, curve, 0);
+
+        if (price != _price) revert InvalidAmount();
+        if (amountInCurrency == 0 && price != msg.value) revert InvalidAmount();
+
+        price = _price - amountInCurrency;
+        if (amountInCurrency > 0 && price != msg.value) revert InvalidAmount();
+
+        // Transfer currency.
+        uint256 floor = calculatePrice(1, curve.scale, 0, 0, curve.mint_c);
+        if (floor > amountInCurrency) {
+            if (IERC20(curve.currency).balanceOf(address(this)) + amountInCurrency > floor) {
+                IERC20(curve.currency).transferFrom(msg.sender, curve.owner, amountInCurrency);
+                IERC20(curve.currency).transferFrom(address(this), curve.owner, floor - amountInCurrency);
+
+                (bool success,) = msg.sender.call{value: price - burnPrice - amountInCurrency}("");
+                if (!success) revert TransferFailed();
+            } else {
+                revert InsufficientCurrency();
+            }
+        } else {
+            IERC20(curve.currency).transferFrom(msg.sender, curve.owner, floor);
+            (bool success,) = msg.sender.call{value: price - burnPrice - floor}("");
+            if (!success) revert TransferFailed();
         }
 
         // Mint.
         ISupportToken(curve.token).mint(patron);
 
         // Allocate support to curve owner and treasury.
-        uint256 burnPrice = getCurvePrice(false, 0, curve, 0);
-        reserves[_curveId] =
-            OwnerReserve({cAmount: calculatePrice(1, curve.scale, 0, 0, curve.mint_c), sAmount: price - burnPrice});
+        reserves[_curveId] = price - burnPrice;
         treasuries[_curveId] += burnPrice;
     }
 
