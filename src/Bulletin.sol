@@ -32,7 +32,7 @@ contract Bulletin is OwnableRoles {
     mapping(uint256 => Item) public items;
     mapping(uint256 => List) public lists;
 
-    /// @notice Faucet.
+    /// @notice Currency faucet.
     address public token;
     uint256 public amount;
 

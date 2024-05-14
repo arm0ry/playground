@@ -3,7 +3,7 @@ pragma solidity >=0.8.4;
 
 import {SVG} from "utils/SVG.sol";
 import {JSON} from "utils/JSON.sol";
-import {SupportToken} from "tokens/SupportToken.sol";
+import {ERC721} from "solbase/tokens/ERC721/ERC721.sol";
 import {IImpactCurve} from "interface/IImpactCurve.sol";
 import {Pooling} from "src/Pooling.sol";
 import {Bulletin} from "src/Bulletin.sol";
@@ -11,7 +11,7 @@ import {IBulletin, List, Item} from "interface/IBulletin.sol";
 
 /// @title Impact NFTs
 /// @notice SVG NFTs displaying impact results and metrics.
-contract ListToken is SupportToken {
+contract ListToken is ERC721 {
     /// -----------------------------------------------------------------------
     /// Storage
     /// -----------------------------------------------------------------------

@@ -21,10 +21,7 @@ contract ImpactCurve is OwnableRoles {
     /// -----------------------------------------------------------------------
 
     /// @notice Role constants.
-    uint256 public constant LIST_TOKENS = 1 << 0;
-    uint256 public constant LIST_TOKEN_BURNERS = 1 << 1;
-    uint256 public constant LIST_OWNERS = 1 << 2;
-    uint256 public constant LOCAL_CURRENCIES = 1 << 3;
+    uint256 public constant LIST_OWNERS = 1 << 0;
 
     /// @notice Curve storage.
     uint256 curveId;
@@ -69,27 +66,10 @@ contract ImpactCurve is OwnableRoles {
     }
 
     /// -----------------------------------------------------------------------
-    /// Claim Logic
-    /// -----------------------------------------------------------------------
-
-    /// @notice Claim.
-    function claim(uint256 _curveId) external payable {
-        uint256 reserve = reserves[_curveId];
-        Curve memory curve = curves[_curveId];
-        if (curve.owner != msg.sender) revert Unauthorized();
-        if (reserve == 0) revert Unauthorized();
-
-        delete reserves[_curveId];
-
-        (bool success,) = msg.sender.call{value: reserve}("");
-        if (!success) revert TransferFailed();
-    }
-
-    /// -----------------------------------------------------------------------
     /// Patron Logic
     /// -----------------------------------------------------------------------
 
-    /// @notice Pay stablecoin or currency to mint token.
+    /// @notice Pay stablecoin or currency to mint tokens.
     function support(uint256 _curveId, address patron, uint256 price, uint256 amountInCurrency) external payable {
         // Validate mint conditions.
         Curve memory curve = curves[_curveId];
@@ -102,20 +82,24 @@ contract ImpactCurve is OwnableRoles {
         price = _price - amountInCurrency;
         if (amountInCurrency > 0 && price != msg.value) revert InvalidAmount();
 
-        // Transfer currency.
         uint256 floor = calculatePrice(1, curve.scale, 0, 0, curve.mint_c);
         if (floor > amountInCurrency) {
             if (IERC20(curve.currency).balanceOf(address(this)) + amountInCurrency > floor) {
+                // Transfer currency.
                 IERC20(curve.currency).transferFrom(msg.sender, curve.owner, amountInCurrency);
                 IERC20(curve.currency).transferFrom(address(this), curve.owner, floor - amountInCurrency);
 
+                // Transfer stablecoin.
                 (bool success,) = msg.sender.call{value: price - burnPrice - amountInCurrency}("");
                 if (!success) revert TransferFailed();
             } else {
                 revert InsufficientCurrency();
             }
         } else {
+            // Transfer currency.
             IERC20(curve.currency).transferFrom(msg.sender, curve.owner, floor);
+
+            // Transfer stablecoin.
             (bool success,) = msg.sender.call{value: price - burnPrice - floor}("");
             if (!success) revert TransferFailed();
         }
@@ -123,8 +107,7 @@ contract ImpactCurve is OwnableRoles {
         // Mint.
         ISupportToken(curve.token).mint(patron);
 
-        // Allocate support to curve owner and treasury.
-        reserves[_curveId] = price - burnPrice;
+        // Allocate burn price to treasury.
         treasuries[_curveId] += burnPrice;
     }
 
@@ -134,20 +117,16 @@ contract ImpactCurve is OwnableRoles {
         Curve memory curve = curves[_curveId];
         if (ISupportToken(curve.token).ownerOf(tokenId) != msg.sender) revert Unauthorized();
 
-        // TODO: Do we want to limit number of times burned by user?
-        // if (this.getCurveBurned(_curveId, patron)) revert Unauthorized();
-        // setCurveBurned(_curveId, patron, true);
-
         // Reduce curve treasury by burn price.
         uint256 burnPrice = getCurvePrice(false, 0, curve, 0);
         treasuries[_curveId] -= burnPrice;
 
+        // Burn SupportToken.
+        ISupportToken(curve.token).burn(tokenId);
+
         // Distribute burn to patron.
         (bool success,) = patron.call{value: burnPrice}("");
         if (!success) revert TransferFailed();
-
-        // Burn SupportToken.
-        ISupportToken(curve.token).burn(tokenId);
     }
 
     /// -----------------------------------------------------------------------
