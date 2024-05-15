@@ -9,10 +9,11 @@ import {ISupportToken} from "src/interface/ISupportToken.sol";
 /// @notice .
 /// @author audsssy.eth
 contract TokenCurve is OwnableRoles {
-    event CurveCreated(Curve curve);
+    event CurveCreated(uint256 curveId, Curve curve);
 
     error TransferFailed();
     error InvalidCurve();
+    error InvalidFormula();
     error InvalidAmount();
     error InsufficientCurrency();
 
@@ -26,7 +27,6 @@ contract TokenCurve is OwnableRoles {
     /// @notice Curve sdtorage.
     uint256 public curveId;
     mapping(uint256 => Curve) public curves;
-    mapping(uint256 => uint256) public reserves;
     mapping(uint256 => uint256) public treasuries;
 
     /// -----------------------------------------------------------------------
@@ -43,34 +43,59 @@ contract TokenCurve is OwnableRoles {
     /// -----------------------------------------------------------------------
 
     /// @notice Configure a curve.
-    function registerCurve(Curve memory curve) external payable onlyRoles(LIST_OWNERS) {
+    function registerCurve(Curve calldata curve) external payable onlyRoles(LIST_OWNERS) {
         // Validate curve conditions.
-        if (ISupportToken(curve.token).totalSupply() > 0) revert InvalidCurve();
-        if (curve.curveType == CurveType.NA) revert InvalidCurve();
-        if (curve.scale == 0) revert InvalidCurve();
-        if (curve.burn_a > curve.mint_a || curve.burn_b > curve.mint_b || curve.burn_c > curve.mint_c) {
+        if (curve.token == address(0) || ISupportToken(curve.token).totalSupply() > 0 || curve.scale == 0) {
             revert InvalidCurve();
         }
-
-        if (curve.curveType == CurveType.LINEAR) {
-            curve.mint_a = 0;
-            curve.burn_a = 0;
+        if (curve.burn_a > curve.mint_a || curve.burn_b > curve.mint_b || curve.burn_c > curve.mint_c) {
+            revert InvalidFormula();
         }
 
         unchecked {
             ++curveId;
         }
 
-        curve.owner = msg.sender;
-        curves[curveId] = curve;
-        emit CurveCreated(curve);
+        if (curve.curveType == CurveType.LINEAR) {
+            curves[curveId] = Curve({
+                owner: msg.sender,
+                token: curve.token,
+                curveType: CurveType.LINEAR,
+                currency: curve.currency,
+                scale: curve.scale,
+                mint_a: 0,
+                mint_b: curve.mint_b,
+                mint_c: curve.mint_c,
+                burn_a: 0,
+                burn_b: curve.burn_b,
+                burn_c: 0
+            });
+        } else if (curve.curveType == CurveType.QUADRATIC) {
+            curves[curveId] = Curve({
+                owner: msg.sender,
+                token: curve.token,
+                curveType: CurveType.QUADRATIC,
+                currency: curve.currency,
+                scale: curve.scale,
+                mint_a: curve.mint_a,
+                mint_b: curve.mint_b,
+                mint_c: curve.mint_c,
+                burn_a: curve.burn_a,
+                burn_b: curve.burn_b,
+                burn_c: 0
+            });
+        } else {
+            revert InvalidCurve();
+        }
+
+        emit CurveCreated(curveId, curve);
     }
 
     /// -----------------------------------------------------------------------
     /// Patron Logic
     /// -----------------------------------------------------------------------
 
-    /// @notice Pay stablecoin or currency to mint tokens.
+    /// @notice Pay coin or currency to mint tokens.
     function support(uint256 _curveId, address patron, uint256 price, uint256 amountInCurrency) external payable {
         // Validate mint conditions.
         Curve memory curve = curves[_curveId];
@@ -79,29 +104,37 @@ contract TokenCurve is OwnableRoles {
 
         if (price != _price) revert InvalidAmount();
         if (amountInCurrency == 0 && price != msg.value) revert InvalidAmount();
-
-        price = _price - amountInCurrency;
-        if (amountInCurrency > 0 && price != msg.value) revert InvalidAmount();
+        if (amountInCurrency > 0 && _price - amountInCurrency != msg.value) revert InvalidAmount(); // Assumes 1:1 ratio between base coin and currency.
 
         uint256 floor = calculatePrice(1, curve.scale, 0, 0, curve.mint_c);
         if (floor > amountInCurrency) {
+            // Partial Currency Support by Patron & Curve.
             if (ICurrency(curve.currency).balanceOf(address(this)) + amountInCurrency > floor) {
                 // Transfer currency.
                 ICurrency(curve.currency).transferFrom(msg.sender, curve.owner, amountInCurrency);
                 ICurrency(curve.currency).transferFrom(address(this), curve.owner, floor - amountInCurrency);
 
-                // Transfer stablecoin.
-                (bool success,) = msg.sender.call{value: price - burnPrice - amountInCurrency}("");
+                // Transfer coin.
+                (bool success,) = curve.owner.call{value: price - burnPrice - floor}("");
                 if (!success) revert TransferFailed();
             } else {
-                revert InsufficientCurrency();
+                // Partial Currency Support by Patron.
+
+                // Transfer currency.
+                ICurrency(curve.currency).transferFrom(msg.sender, curve.owner, amountInCurrency);
+
+                // Transfer coin.
+
+                (bool success,) = curve.owner.call{value: price - burnPrice - amountInCurrency}("");
+                if (!success) revert TransferFailed();
             }
         } else {
+            // Full Currency Support by Patron.
             // Transfer currency.
             ICurrency(curve.currency).transferFrom(msg.sender, curve.owner, floor);
 
-            // Transfer stablecoin.
-            (bool success,) = msg.sender.call{value: price - burnPrice - floor}("");
+            // Transfer coin.
+            (bool success,) = curve.owner.call{value: price - burnPrice - floor}("");
             if (!success) revert TransferFailed();
         }
 
@@ -160,9 +193,12 @@ contract TokenCurve is OwnableRoles {
 
         // Use next available supply when mint, current supply when burn.
         uint256 supply = _supply == 0 ? ISupportToken(curve.token).totalSupply() : _supply;
-        supply = _mint ? supply + 1 : supply;
 
         if (_mint) {
+            unchecked {
+                ++supply;
+            }
+
             // Calculate mint price.
             if (curve.curveType == CurveType.LINEAR) {
                 // Return linear pricing based on, a * b * x + b.
@@ -174,6 +210,10 @@ contract TokenCurve is OwnableRoles {
                 return 0;
             }
         } else {
+            unchecked {
+                (supply == 0) ? ++supply : supply;
+            }
+
             // Calculate burn price.
             if (curve.curveType == CurveType.LINEAR) {
                 // Return linear pricing based on, a * b * x + b.

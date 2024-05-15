@@ -22,6 +22,7 @@ struct Curve {
 }
 
 interface ITokenCurve {
+    function LIST_OWNERS() external view returns (uint256);
     function initialize(address owner) external payable;
 
     /// @notice Curve logic.
