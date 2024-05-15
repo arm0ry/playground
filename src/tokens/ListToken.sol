@@ -4,7 +4,7 @@ pragma solidity >=0.8.4;
 import {SVG} from "utils/SVG.sol";
 import {JSON} from "utils/JSON.sol";
 import {ERC721} from "solbase/tokens/ERC721/ERC721.sol";
-import {IImpactCurve} from "interface/IImpactCurve.sol";
+import {ITokenCurve} from "interface/ITokenCurve.sol";
 import {Pooling} from "src/Pooling.sol";
 import {Bulletin} from "src/Bulletin.sol";
 import {IBulletin, List, Item} from "interface/IBulletin.sol";
@@ -169,9 +169,9 @@ contract ListToken is ERC721 {
 
     function buildTicker(uint256 curveId) public view returns (string memory) {
         uint256 priceToMint =
-            (curveId == 0 || curve == address(0)) ? 0 : IImpactCurve(curve).getCurvePrice(true, curveId, 0);
+            (curveId == 0 || curve == address(0)) ? 0 : ITokenCurve(curve).getCurvePrice(true, curveId, 0);
         uint256 priceToBurn =
-            (curveId == 0 || curve == address(0)) ? 0 : IImpactCurve(curve).getCurvePrice(false, curveId, 0);
+            (curveId == 0 || curve == address(0)) ? 0 : ITokenCurve(curve).getCurvePrice(false, curveId, 0);
 
         return string.concat(
             SVG._text(

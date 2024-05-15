@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.4;
 
-import {IERC20} from "src/interface/IERC20.sol";
+import {ICurrency} from "src/interface/ICurrency.sol";
 import {OwnableRoles} from "src/auth/OwnableRoles.sol";
-import {IImpactCurve, CurveType, Curve} from "src/interface/IImpactCurve.sol";
+import {ITokenCurve, CurveType, Curve} from "src/interface/ITokenCurve.sol";
 import {ISupportToken} from "src/interface/ISupportToken.sol";
 
 /// @notice .
 /// @author audsssy.eth
-contract ImpactCurve is OwnableRoles {
+contract TokenCurve is OwnableRoles {
     event CurveCreated(Curve curve);
 
     error TransferFailed();
@@ -23,8 +23,8 @@ contract ImpactCurve is OwnableRoles {
     /// @notice Role constants.
     uint256 public constant LIST_OWNERS = 1 << 0;
 
-    /// @notice Curve storage.
-    uint256 curveId;
+    /// @notice Curve sdtorage.
+    uint256 public curveId;
     mapping(uint256 => Curve) public curves;
     mapping(uint256 => uint256) public reserves;
     mapping(uint256 => uint256) public treasuries;
@@ -61,6 +61,7 @@ contract ImpactCurve is OwnableRoles {
             ++curveId;
         }
 
+        curve.owner = msg.sender;
         curves[curveId] = curve;
         emit CurveCreated(curve);
     }
@@ -84,10 +85,10 @@ contract ImpactCurve is OwnableRoles {
 
         uint256 floor = calculatePrice(1, curve.scale, 0, 0, curve.mint_c);
         if (floor > amountInCurrency) {
-            if (IERC20(curve.currency).balanceOf(address(this)) + amountInCurrency > floor) {
+            if (ICurrency(curve.currency).balanceOf(address(this)) + amountInCurrency > floor) {
                 // Transfer currency.
-                IERC20(curve.currency).transferFrom(msg.sender, curve.owner, amountInCurrency);
-                IERC20(curve.currency).transferFrom(address(this), curve.owner, floor - amountInCurrency);
+                ICurrency(curve.currency).transferFrom(msg.sender, curve.owner, amountInCurrency);
+                ICurrency(curve.currency).transferFrom(address(this), curve.owner, floor - amountInCurrency);
 
                 // Transfer stablecoin.
                 (bool success,) = msg.sender.call{value: price - burnPrice - amountInCurrency}("");
@@ -97,7 +98,7 @@ contract ImpactCurve is OwnableRoles {
             }
         } else {
             // Transfer currency.
-            IERC20(curve.currency).transferFrom(msg.sender, curve.owner, floor);
+            ICurrency(curve.currency).transferFrom(msg.sender, curve.owner, floor);
 
             // Transfer stablecoin.
             (bool success,) = msg.sender.call{value: price - burnPrice - floor}("");
@@ -151,6 +152,7 @@ contract ImpactCurve is OwnableRoles {
 
     function _getCurvePrice(bool _mint, uint256 _curveId, Curve memory curve, uint256 _supply)
         internal
+        view
         returns (uint256)
     {
         // Retrieve curve data.

@@ -21,7 +21,7 @@ struct Curve {
     uint32 burn_c;
 }
 
-interface IImpactCurve {
+interface ITokenCurve {
     function initialize(address owner) external payable;
 
     /// @notice Curve logic.

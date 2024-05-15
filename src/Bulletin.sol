@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.4;
 
-import {IERC20} from "src/interface/IERC20.sol";
+import {ICurrency} from "src/interface/ICurrency.sol";
 import {Item, List} from "src/interface/IBulletin.sol";
 import {OwnableRoles} from "src/auth/OwnableRoles.sol";
 
@@ -54,7 +54,7 @@ contract Bulletin is OwnableRoles {
 
     modifier drip(uint256 frequency) {
         _;
-        IERC20(token).transferFrom(address(this), msg.sender, amount * frequency);
+        ICurrency(token).transferFrom(address(this), msg.sender, amount * frequency);
     }
 
     /// -----------------------------------------------------------------------

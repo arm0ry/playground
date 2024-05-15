@@ -3,8 +3,8 @@ pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
 
-import {ImpactCurve} from "src/ImpactCurve.sol";
-import {CurveType, IImpactCurve} from "src/interface/IImpactCurve.sol";
+import {TokenCurve} from "src/TokenCurve.sol";
+import {CurveType, ITokenCurve} from "src/interface/ITokenCurve.sol";
 import {HackathonSupportToken} from "src/tokens/g0v/HackathonSupportToken.sol";
 import {ISupportToken} from "src/interface/ISupportToken.sol";
 import {MockERC20} from "lib/solbase/test/utils/mocks/MockERC20.sol";
@@ -25,7 +25,7 @@ contract BulletinTest is Test {
     Log logger;
     MockERC20 mock;
 
-    ImpactCurve impactCurve;
+    TokenCurve ic;
     HackathonSupportToken hacakathonSupportToken;
 
     uint256[] itemIds;
