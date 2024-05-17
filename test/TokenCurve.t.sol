@@ -117,7 +117,7 @@ contract TokenCurveTest is Test {
         assertEq(_id + 1, id);
     }
 
-    function testLinearCurve_InvalidCurve(
+    function testLinearCurve_InvalidCurve_TokenZeroAddress(
         uint64 scale,
         uint32 mint_a,
         uint32 mint_b,
@@ -134,6 +134,148 @@ contract TokenCurveTest is Test {
         vm.warp(block.timestamp + 100);
 
         vm.expectRevert(TokenCurve.InvalidCurve.selector);
+        vm.prank(alice);
+        tc.registerCurve(
+            Curve({
+                owner: alice,
+                token: address(0),
+                curveType: CurveType.LINEAR,
+                currency: address(currency),
+                scale: scale,
+                mint_a: mint_a,
+                mint_b: mint_b,
+                mint_c: mint_c,
+                burn_a: burn_a,
+                burn_b: burn_b,
+                burn_c: burn_c
+            })
+        );
+    }
+
+    function testLinearCurve_InvalidCurve_ScaleZero(
+        uint64 scale,
+        uint32 mint_a,
+        uint32 mint_b,
+        uint32 mint_c,
+        uint32 burn_a,
+        uint32 burn_b,
+        uint32 burn_c
+    ) public payable {
+        vm.assume(burn_a > mint_a && burn_b > mint_b && burn_c > mint_c);
+
+        deployListToken(user);
+        deployCurrency(user);
+
+        vm.warp(block.timestamp + 100);
+
+        vm.expectRevert(TokenCurve.InvalidCurve.selector);
+        vm.prank(alice);
+        tc.registerCurve(
+            Curve({
+                owner: alice,
+                token: address(listToken),
+                curveType: CurveType.LINEAR,
+                currency: address(currency),
+                scale: 0,
+                mint_a: mint_a,
+                mint_b: mint_b,
+                mint_c: mint_c,
+                burn_a: burn_a,
+                burn_b: burn_b,
+                burn_c: burn_c
+            })
+        );
+    }
+
+    function testLinearCurve_InvalidCurve_InvalidCurveType(
+        uint64 scale,
+        uint32 mint_a,
+        uint32 mint_b,
+        uint32 mint_c,
+        uint32 burn_a,
+        uint32 burn_b,
+        uint32 burn_c
+    ) public payable {
+        vm.assume(burn_a < mint_a && burn_b < mint_b && burn_c < mint_c);
+
+        deployListToken(user);
+        deployCurrency(user);
+
+        vm.warp(block.timestamp + 100);
+
+        vm.expectRevert(TokenCurve.InvalidCurve.selector);
+        vm.prank(alice);
+        tc.registerCurve(
+            Curve({
+                owner: alice,
+                token: address(listToken),
+                curveType: CurveType.NA,
+                currency: address(currency),
+                scale: scale,
+                mint_a: mint_a,
+                mint_b: mint_b,
+                mint_c: mint_c,
+                burn_a: burn_a,
+                burn_b: burn_b,
+                burn_c: burn_c
+            })
+        );
+    }
+
+    // TODO
+    function testLinearCurve_InvalidCurve_TokenSupplyGreaterThanZero(
+        uint64 scale,
+        uint32 mint_a,
+        uint32 mint_b,
+        uint32 mint_c,
+        uint32 burn_a,
+        uint32 burn_b,
+        uint32 burn_c
+    ) public payable {
+        // vm.assume(burn_a > mint_a && burn_b > mint_b && burn_c > mint_c);
+
+        // deployListToken(user);
+        // deployCurrency(user);
+
+        // vm.warp(block.timestamp + 100);
+
+        // vm.expectRevert(TokenCurve.InvalidCurve.selector);
+        // vm.prank(alice);
+        // tc.registerCurve(
+        //     Curve({
+        //         owner: alice,
+        //         token: address(listToken),
+        //         curveType: CurveType.LINEAR,
+        //         currency: address(currency),
+        //         scale: scale,
+        //         mint_a: mint_a,
+        //         mint_b: mint_b,
+        //         mint_c: mint_c,
+        //         burn_a: burn_a,
+        //         burn_b: burn_b,
+        //         burn_c: burn_c
+        //     })
+        // );
+    }
+
+    function testLinearCurve_InvalidFormula(
+        uint64 scale,
+        uint32 mint_a,
+        uint32 mint_b,
+        uint32 mint_c,
+        uint32 burn_a,
+        uint32 burn_b,
+        uint32 burn_c
+    ) public payable {
+        vm.assume(burn_a > mint_a && burn_b > mint_b && burn_c > mint_c);
+        vm.assume(scale > 0);
+
+        deployListToken(user);
+        deployCurrency(user);
+
+        vm.warp(block.timestamp + 100);
+
+        vm.expectRevert(TokenCurve.InvalidFormula.selector);
         vm.prank(alice);
         tc.registerCurve(
             Curve({
@@ -268,6 +410,7 @@ contract TokenCurveTest is Test {
 
         uint256 burnPrice = tc.getCurvePrice(false, 1, 0);
         assertEq(tc.treasuries(1), burnPrice);
+        assertEq(address(tc).balance, burnPrice);
         assertEq(currency.balanceOf(alice), floor);
         assertEq(address(alice).balance, mintPrice - burnPrice - floor);
         assertEq(currency.balanceOf(bob), 10000000000000 ether - currencyPayment);
@@ -315,6 +458,7 @@ contract TokenCurveTest is Test {
 
         uint256 burnPrice = tc.getCurvePrice(false, 1, 0);
         assertEq(tc.treasuries(1), burnPrice);
+        assertEq(address(tc).balance, burnPrice);
         assertEq(currency.balanceOf(alice), currencyPayment);
         assertEq(address(alice).balance, mintPrice - burnPrice - currencyPayment);
         assertEq(currency.balanceOf(bob), 10000000000000 ether - currencyPayment);
@@ -324,7 +468,7 @@ contract TokenCurveTest is Test {
         emit log_string(listToken.generateSvg(1));
     }
 
-    function test_LinearCurve_Support_ExcessCurrency(
+    function test_LinearCurve_Support_Floor(
         uint64 scale,
         uint32 mint_a,
         uint32 mint_b,
@@ -353,7 +497,7 @@ contract TokenCurveTest is Test {
 
         // Support.
         vm.prank(bob);
-        tc.support{value: mintPrice - floor}(1, bob, mintPrice, floor * 2);
+        tc.support{value: mintPrice - floor}(1, bob, mintPrice, floor);
 
         // Validate.
         assertEq(listToken.balanceOf(bob), 1);
@@ -361,7 +505,9 @@ contract TokenCurveTest is Test {
 
         uint256 burnPrice = tc.getCurvePrice(false, 1, 0);
         assertEq(tc.treasuries(1), burnPrice);
+        assertEq(address(tc).balance, burnPrice);
         assertEq(currency.balanceOf(alice), floor);
+        assertEq(address(alice).balance, mintPrice - burnPrice - floor);
         assertEq(currency.balanceOf(bob), 10000000000000 ether - floor);
 
         vm.prank(bob);
@@ -369,32 +515,53 @@ contract TokenCurveTest is Test {
         emit log_string(listToken.generateSvg(1));
     }
 
-    // function testLinearCurve_support_InvalidCurve(
-    //     uint64 scale,
-    //     uint32 mint_a,
-    //     uint32 mint_b,
-    //     uint32 mint_c,
-    //     uint32 burn_a,
-    //     uint32 burn_b,
-    //     uint32 burn_c
-    // ) public payable {
-    //     testLinearCurve_support(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
+    function test_LinearCurve_Support_OverFloor(
+        uint64 scale,
+        uint32 mint_a,
+        uint32 mint_b,
+        uint32 mint_c,
+        uint32 burn_a,
+        uint32 burn_b,
+        uint32 burn_c
+    ) public payable {
+        vm.assume(scale > 0);
 
-    //     vm.expectRevert(TokenCurve.InvalidCurve.selector);
-    //     vm.prank(alice);
-    //     tc.curve(
-    //         CurveType.LINEAR,
-    //         address(listToken),
-    //         alice,
-    //         uint64(0.0001 ether),
-    //         uint32(2),
-    //         uint32(2),
-    //         uint32(2),
-    //         uint32(1),
-    //         uint32(1),
-    //         uint32(1)
-    //     );
-    // }
+        // Set up list.
+        registerList_ReviewNotRequired();
+
+        // Set up curve.
+        testLinearCurve(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
+        vm.warp(block.timestamp + 100);
+
+        // Retrieve for validation.
+        uint256 mintPrice = tc.getCurvePrice(true, 1, 0);
+
+        // Deal.
+        vm.deal(bob, 10000000000000 ether);
+        vm.prank(user);
+        currency.mint(bob, 10000000000000 ether, address(tc));
+        uint256 floor = calculatePrice(listToken.totalSupply() + 1, scale, 0, 0, mint_c);
+        uint256 overFloor = floor * 11 / 10;
+
+        // Support.
+        vm.expectRevert(TokenCurve.TransferFailed.selector);
+        vm.prank(bob);
+        tc.support{value: mintPrice - overFloor}(1, bob, mintPrice, overFloor);
+
+        // Validate.
+        // assertEq(listToken.balanceOf(bob), 1);
+        // assertEq(listToken.totalSupply(), 1);
+
+        // uint256 burnPrice = tc.getCurvePrice(false, 1, 0);
+        // assertEq(tc.treasuries(1), burnPrice);
+        // assertEq(currency.balanceOf(alice), floor);
+        // assertEq(address(alice).balance, mintPrice - burnPrice - floor);
+        // assertEq(currency.balanceOf(bob), 10000000000000 ether - floor);
+
+        // vm.prank(bob);
+        // listToken.updateInputs(1, 1, 1);
+        // emit log_string(listToken.generateSvg(1));
+    }
 
     function testLinearCurve_support_InvalidAmount_InvalidMsgValue(
         uint64 scale,
@@ -517,7 +684,7 @@ contract TokenCurveTest is Test {
         );
     }
 
-    function testQuadCurve_InvalidCurve(
+    function testQuadCurve_InvalidFormula(
         uint64 scale,
         uint32 mint_a,
         uint32 mint_b,
@@ -527,9 +694,11 @@ contract TokenCurveTest is Test {
         uint32 burn_c
     ) public payable {
         vm.assume(burn_a > mint_a || burn_b > mint_b || burn_c > mint_c);
+        vm.assume(scale > 0);
         deployListToken(user);
 
-        vm.expectRevert(TokenCurve.InvalidCurve.selector);
+        vm.expectRevert(TokenCurve.InvalidFormula.selector);
+        vm.prank(alice);
         tc.registerCurve(
             Curve({
                 owner: alice,
@@ -570,6 +739,11 @@ contract TokenCurveTest is Test {
         assertEq(listToken.balanceOf(bob), 1);
         assertEq(listToken.totalSupply(), 1);
         assertEq(tc.treasuries(1), burnPrice);
+        assertEq(address(tc).balance, burnPrice);
+
+        vm.prank(bob);
+        listToken.updateInputs(1, 1, 1);
+        emit log_string(listToken.generateSvg(1));
     }
 
     function testQuadCurve_burn(

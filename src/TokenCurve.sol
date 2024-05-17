@@ -96,7 +96,11 @@ contract TokenCurve is OwnableRoles {
     /// -----------------------------------------------------------------------
 
     /// @notice Pay coin or currency to mint tokens.
-    function support(uint256 _curveId, address patron, uint256 price, uint256 amountInCurrency) external payable {
+    function support(uint256 _curveId, address patron, uint256 price, uint256 amountInCurrency)
+        external
+        payable
+        virtual
+    {
         // Validate mint conditions.
         Curve memory curve = curves[_curveId];
         uint256 _price = getCurvePrice(true, curve, 0);
