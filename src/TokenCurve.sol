@@ -96,24 +96,29 @@ contract TokenCurve is OwnableRoles {
     /// -----------------------------------------------------------------------
 
     /// @notice Pay coin or currency to mint tokens.
-    function support(uint256 _curveId, address patron, uint256 price, uint256 amountInCurrency)
-        external
-        payable
-        virtual
-    {
+    function support(
+        uint256 _curveId,
+        address patron,
+        uint256 price,
+        uint256 amountInCurrency // TODO: get rid of price as param
+    ) external payable virtual {
         // Validate mint conditions.
         Curve memory curve = curves[_curveId];
         uint256 _price = getCurvePrice(true, curve, 0);
         uint256 burnPrice = getCurvePrice(false, curve, 0);
+        uint256 floor = calculatePrice(1, curve.scale, 0, 0, curve.mint_c);
 
         if (price != _price) revert InvalidAmount();
-        if (amountInCurrency == 0 && price != msg.value) revert InvalidAmount();
-        if (amountInCurrency > 0 && _price - amountInCurrency != msg.value) revert InvalidAmount(); // Assumes 1:1 ratio between base coin and currency.
+        // if (amountInCurrency > floor) revert InvalidAmount();
+        // if (amountInCurrency == 0 && price != msg.value) revert InvalidAmount();
+        // if (amountInCurrency > 0 && _price - amountInCurrency != msg.value) revert InvalidAmount(); // Assumes 1:1 ratio between base coin and currency.
 
-        uint256 floor = calculatePrice(1, curve.scale, 0, 0, curve.mint_c);
         if (floor > amountInCurrency) {
-            // Partial Currency Support by Patron & Curve.
+            // Subsidized Currency Support.
             if (ICurrency(curve.currency).balanceOf(address(this)) + amountInCurrency > floor) {
+                // With subsidy, payment is reduced up to floor amount.
+                if (_price - floor != msg.value) revert InvalidAmount(); // Assumes 1:1 ratio between base coin and currency.
+
                 // Transfer currency.
                 ICurrency(curve.currency).transferFrom(msg.sender, curve.owner, amountInCurrency);
                 ICurrency(curve.currency).transferFrom(address(this), curve.owner, floor - amountInCurrency);
@@ -122,18 +127,21 @@ contract TokenCurve is OwnableRoles {
                 (bool success,) = curve.owner.call{value: price - burnPrice - floor}("");
                 if (!success) revert TransferFailed();
             } else {
-                // Partial Currency Support by Patron.
+                // Unsubsidized Currency Support.
+                // Without subsidy, increase payment based on amount of currency support.
+                if (_price - amountInCurrency != msg.value) revert InvalidAmount(); // Assumes 1:1 ratio between base coin and currency.
 
                 // Transfer currency.
                 ICurrency(curve.currency).transferFrom(msg.sender, curve.owner, amountInCurrency);
 
                 // Transfer coin.
-
                 (bool success,) = curve.owner.call{value: price - burnPrice - amountInCurrency}("");
                 if (!success) revert TransferFailed();
             }
         } else {
             // Full Currency Support by Patron.
+            if (_price - floor != msg.value) revert InvalidAmount(); // Assumes 1:1 ratio between base coin and currency.
+
             // Transfer currency.
             ICurrency(curve.currency).transferFrom(msg.sender, curve.owner, floor);
 

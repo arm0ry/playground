@@ -402,7 +402,7 @@ contract TokenCurveTest is Test {
 
         // Support.
         vm.prank(bob);
-        tc.support{value: mintPrice - currencyPayment}(1, bob, mintPrice, currencyPayment);
+        tc.support{value: mintPrice - floor}(1, bob, mintPrice, currencyPayment);
 
         // Validate.
         assertEq(listToken.balanceOf(bob), 1);
@@ -515,7 +515,7 @@ contract TokenCurveTest is Test {
         emit log_string(listToken.generateSvg(1));
     }
 
-    function test_LinearCurve_Support_OverFloor(
+    function test_LinearCurve_Support_InvalidAmount_OverFloor(
         uint64 scale,
         uint32 mint_a,
         uint32 mint_b,
@@ -541,26 +541,11 @@ contract TokenCurveTest is Test {
         vm.prank(user);
         currency.mint(bob, 10000000000000 ether, address(tc));
         uint256 floor = calculatePrice(listToken.totalSupply() + 1, scale, 0, 0, mint_c);
-        uint256 overFloor = floor * 11 / 10;
-
+        uint256 overFloor = floor + 1 wei;
         // Support.
-        vm.expectRevert(TokenCurve.TransferFailed.selector);
+        vm.expectRevert(TokenCurve.InvalidAmount.selector);
         vm.prank(bob);
         tc.support{value: mintPrice - overFloor}(1, bob, mintPrice, overFloor);
-
-        // Validate.
-        // assertEq(listToken.balanceOf(bob), 1);
-        // assertEq(listToken.totalSupply(), 1);
-
-        // uint256 burnPrice = tc.getCurvePrice(false, 1, 0);
-        // assertEq(tc.treasuries(1), burnPrice);
-        // assertEq(currency.balanceOf(alice), floor);
-        // assertEq(address(alice).balance, mintPrice - burnPrice - floor);
-        // assertEq(currency.balanceOf(bob), 10000000000000 ether - floor);
-
-        // vm.prank(bob);
-        // listToken.updateInputs(1, 1, 1);
-        // emit log_string(listToken.generateSvg(1));
     }
 
     function testLinearCurve_support_InvalidAmount_InvalidMsgValue(
