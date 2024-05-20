@@ -6,36 +6,20 @@ import {UriBuilder} from "src/Tokens/UriBuilder.sol";
 
 /// @title Impact NFTs
 /// @notice SVG NFTs displaying impact results and metrics.
-contract Token is ERC1155 {
+contract TokenMinter is ERC1155 {
+    error InvalidConfiguration();
+    error AlreadyConfigured();
+
     /// -----------------------------------------------------------------------
     /// Storage
     /// -----------------------------------------------------------------------
 
-    address public bulletin;
-    address public logger;
-    address public curve;
     mapping(uint256 => bytes32) public builders;
     mapping(uint256 => bytes) public metadata;
 
     /// -----------------------------------------------------------------------
     /// Constructor & Modifier
     /// -----------------------------------------------------------------------
-
-    function init(address _bulletin, address _curve, address _logger) public {
-        bulletin = _bulletin;
-        curve = _curve;
-        logger = _logger;
-    }
-
-    modifier onlyCurve() {
-        if (msg.sender != curve) revert Unauthorized();
-        _;
-    }
-
-    modifier onlyOwnerOrCurve(uint256 id) {
-        if (balanceOf[msg.sender][id] > 0 && msg.sender != curve) revert Unauthorized();
-        _;
-    }
 
     /// -----------------------------------------------------------------------
     /// Configuration
@@ -47,11 +31,15 @@ contract Token is ERC1155 {
         uint256 builderId,
         string calldata name,
         string calldata desc,
+        address bulletin,
         uint256 listId,
-        uint256 curveId
+        address logger,
+        address market
     ) external payable {
+        if (builder == address(0)) revert InvalidConfiguration();
+        if (builders[id] > 0) revert AlreadyConfigured();
         builders[id] = bytes32(abi.encodePacked(builder, builderId));
-        metadata[id] = abi.encode(name, desc, bulletin, listId, curve, curveId);
+        metadata[id] = abi.encode(name, desc, bulletin, listId, logger, market);
     }
 
     /// -----------------------------------------------------------------------
@@ -59,16 +47,26 @@ contract Token is ERC1155 {
     /// -----------------------------------------------------------------------
 
     // TODO: Add other mint functions with non-curve permissions
-    function mint(address to, uint256 id, bytes calldata data) external payable onlyCurve {
-        _mint(to, id, 1, data);
+    function mintByCurve(address to, uint256 id) external payable {
+        // Get market.
+        (,,,,, address market,) =
+            abi.decode(metadata[id], (string, string, address, uint256, address, address, uint256));
+        if (market == address(0) || msg.sender != market) revert Unauthorized();
+
+        _mint(to, id, 1, "");
     }
 
-    function burn(address from, uint256 id) external payable onlyOwnerOrCurve(id) {
+    function burnByCurve(address from, uint256 id) external payable {
+        // Get market.
+        (,,,,, address market,) =
+            abi.decode(metadata[id], (string, string, address, uint256, address, address, uint256));
+        if (market == address(0) || msg.sender != market) revert Unauthorized();
+
         _burn(from, id, 1);
     }
 
     /// -----------------------------------------------------------------------
-    /// Metadata Storage & Logic
+    /// Uri Logic
     /// -----------------------------------------------------------------------
 
     function uri(uint256 id) public view override returns (string memory) {

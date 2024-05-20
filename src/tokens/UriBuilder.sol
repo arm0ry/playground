@@ -22,8 +22,15 @@ contract UriBuilder {
     /// -----------------------------------------------------------------------
 
     function listOverview(bytes calldata data) internal view returns (string memory) {
-        (string memory name, string memory desc, address bulletin, uint256 listId, address curve, uint256 curveId) =
-            abi.decode(data, (string, string, address, uint256, address, uint256));
+        (
+            string memory name,
+            string memory desc,
+            address bulletin,
+            uint256 listId,
+            address logger,
+            address curve,
+            uint256 curveId
+        ) = abi.decode(data, (string, string, address, uint256, address, address, uint256));
 
         return JSON._formattedMetadata(name, desc, generateSvg(bulletin, listId, curve, curveId));
     }

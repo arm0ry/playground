@@ -4,7 +4,7 @@ pragma solidity >=0.8.4;
 import {ICurrency} from "src/interface/ICurrency.sol";
 import {OwnableRoles} from "src/auth/OwnableRoles.sol";
 import {ITokenCurve, CurveType, Curve} from "src/interface/ITokenCurve.sol";
-import {ISupportToken} from "src/interface/ISupportToken.sol";
+import {ITokenMinter} from "src/interface/ITokenMinter.sol";
 
 /// @notice .
 /// @author audsssy.eth
@@ -45,9 +45,7 @@ contract TokenCurve is OwnableRoles {
     /// @notice Configure a curve.
     function registerCurve(Curve calldata curve) external payable onlyRoles(LIST_OWNERS) {
         // Validate curve conditions.
-        if (curve.token == address(0) || ISupportToken(curve.token).totalSupply() > 0 || curve.scale == 0) {
-            revert InvalidCurve();
-        }
+        if (curve.token == address(0) || curve.scale == 0) revert InvalidCurve();
         if (curve.burn_a > curve.mint_a || curve.burn_b > curve.mint_b || curve.burn_c > curve.mint_c) {
             revert InvalidFormula();
         }
@@ -60,6 +58,8 @@ contract TokenCurve is OwnableRoles {
             curves[curveId] = Curve({
                 owner: msg.sender,
                 token: curve.token,
+                id: curve.id,
+                supply: 0,
                 curveType: CurveType.LINEAR,
                 currency: curve.currency,
                 scale: curve.scale,
@@ -74,6 +74,8 @@ contract TokenCurve is OwnableRoles {
             curves[curveId] = Curve({
                 owner: msg.sender,
                 token: curve.token,
+                id: curve.id,
+                supply: 0,
                 curveType: CurveType.QUADRATIC,
                 currency: curve.currency,
                 scale: curve.scale,
@@ -96,11 +98,7 @@ contract TokenCurve is OwnableRoles {
     /// -----------------------------------------------------------------------
 
     /// @notice Pay coin or currency to mint tokens.
-    function support(
-        uint256 _curveId,
-        address patron,
-        uint256 amountInCurrency // TODO: get rid of price as param
-    ) external payable virtual {
+    function support(uint256 _curveId, address patron, uint256 amountInCurrency) external payable virtual {
         // Validate mint conditions.
         Curve memory curve = curves[_curveId];
         uint256 _price = getCurvePrice(true, curve, 0);
@@ -145,24 +143,28 @@ contract TokenCurve is OwnableRoles {
         }
 
         // Mint.
-        ISupportToken(curve.token).mint(patron);
+        ITokenMinter(curve.token).mint(patron, curve.id);
 
-        // Allocate burn price to treasury.
-        treasuries[_curveId] += burnPrice;
+        unchecked {
+            ++curves[_curveId].supply;
+
+            // Allocate burn price to treasury.
+            treasuries[_curveId] += burnPrice;
+        }
     }
 
     /// @notice Burn curve token to receive ether.
     function burn(uint256 _curveId, address patron, uint256 tokenId) external payable {
         // Validate mint conditions.
         Curve memory curve = curves[_curveId];
-        if (ISupportToken(curve.token).ownerOf(tokenId) != msg.sender) revert Unauthorized();
+        if (ITokenMinter(curve.token).balanceOf(msg.sender, tokenId) == 0) revert Unauthorized();
 
         // Reduce curve treasury by burn price.
         uint256 burnPrice = getCurvePrice(false, curve, 0);
         treasuries[_curveId] -= burnPrice;
 
         // Burn SupportToken.
-        ISupportToken(curve.token).burn(tokenId);
+        ITokenMinter(curve.token).burn(msg.sender, tokenId);
 
         // Distribute burn to patron.
         (bool success,) = patron.call{value: burnPrice}("");
@@ -198,7 +200,7 @@ contract TokenCurve is OwnableRoles {
         (_curveId == 0) ? curve : curve = curves[_curveId];
 
         // Use next available supply when mint, current supply when burn.
-        uint256 supply = _supply == 0 ? ISupportToken(curve.token).totalSupply() : _supply;
+        uint256 supply = _supply == 0 ? curve.supply : _supply;
 
         if (_mint) {
             unchecked {
