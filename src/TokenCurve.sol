@@ -159,6 +159,8 @@ contract TokenCurve is OwnableRoles {
         Curve memory curve = curves[_curveId];
         if (ITokenMinter(curve.token).balanceOf(msg.sender, tokenId) == 0) revert Unauthorized();
 
+        --curves[_curveId].supply;
+
         // Reduce curve treasury by burn price.
         uint256 burnPrice = getCurvePrice(false, curve, 0);
         treasuries[_curveId] -= burnPrice;

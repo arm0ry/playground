@@ -83,6 +83,7 @@ contract TokenCurveTest is Test {
     /// -----------------------------------------------------------------------
 
     function testLinearCurve(
+        uint256 tokenId,
         uint64 scale,
         uint32 mint_a,
         uint32 mint_b,
@@ -103,6 +104,7 @@ contract TokenCurveTest is Test {
         uint256 id = setupCurve(
             CurveType.LINEAR,
             address(tokenMinter),
+            tokenId,
             address(currency),
             alice,
             scale,
@@ -139,6 +141,8 @@ contract TokenCurveTest is Test {
             Curve({
                 owner: alice,
                 token: address(0),
+                id: 0,
+                supply: 0,
                 curveType: CurveType.LINEAR,
                 currency: address(currency),
                 scale: scale,
@@ -174,6 +178,8 @@ contract TokenCurveTest is Test {
             Curve({
                 owner: alice,
                 token: address(tokenMinter),
+                id: 0,
+                supply: 0,
                 curveType: CurveType.LINEAR,
                 currency: address(currency),
                 scale: 0,
@@ -209,6 +215,8 @@ contract TokenCurveTest is Test {
             Curve({
                 owner: alice,
                 token: address(tokenMinter),
+                id: 0,
+                supply: 0,
                 curveType: CurveType.NA,
                 currency: address(currency),
                 scale: scale,
@@ -281,6 +289,8 @@ contract TokenCurveTest is Test {
             Curve({
                 owner: alice,
                 token: address(tokenMinter),
+                id: 0,
+                supply: 0,
                 curveType: CurveType.LINEAR,
                 currency: address(currency),
                 scale: scale,
@@ -345,7 +355,8 @@ contract TokenCurveTest is Test {
         registerList_ReviewNotRequired();
 
         // Set up curve.
-        testLinearCurve(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
+        uint256 tokenId = 0;
+        testLinearCurve(tokenId, scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
         vm.warp(block.timestamp + 100);
 
         // Retrieve for validation.
@@ -356,18 +367,16 @@ contract TokenCurveTest is Test {
 
         // Support.
         vm.prank(bob);
-        tc.support{value: mintPrice}(1, bob, mintPrice, 0);
+        tc.support{value: mintPrice}(1, bob, 0);
 
         // Validate.
-        assertEq(tokenMinter.balanceOf(bob), 1);
-        assertEq(tokenMinter.totalSupply(), 1);
-
+        assertEq(tokenMinter.balanceOf(bob, tokenId), 1);
+        curve = tc.getCurve(1);
+        assertEq(curve.supply, 1);
         uint256 burnPrice = tc.getCurvePrice(false, 1, 0);
         assertEq(tc.treasuries(1), burnPrice);
 
-        vm.prank(bob);
-        tokenMinter.updateInputs(1, 1, 1);
-        emit log_string(tokenMinter.generateSvg(1));
+        emit log_string(tokenMinter.uri(tokenId));
     }
 
     function test_LinearCurve_Support_SomeCurrency_Subsidized(
@@ -385,39 +394,41 @@ contract TokenCurveTest is Test {
         registerList_ReviewNotRequired();
 
         // Set up curve.
-        testLinearCurve(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
+        uint256 tokenId = 0;
+        testLinearCurve(tokenId, scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
         vm.warp(block.timestamp + 100);
 
         // Retrieve for validation.
-        uint256 mintPrice = tc.getCurvePrice(true, 1, 0);
+        uint256 curveId = 1;
+        uint256 mintPrice = tc.getCurvePrice(true, curveId, 0);
 
         // Deal.
         vm.prank(user);
         currency.mint(address(tc), 10000000000000 ether, address(tc));
         vm.deal(bob, 10000000000000 ether);
+
         vm.prank(user);
         currency.mint(bob, 10000000000000 ether, address(tc));
-        uint256 floor = calculatePrice(tokenMinter.totalSupply() + 1, scale, 0, 0, mint_c);
-        uint256 currencyPayment = floor / 2;
 
         // Support.
+        curve = tc.getCurve(curveId);
+        uint256 floor = calculatePrice(curve.supply + 1, scale, 0, 0, mint_c);
+        uint256 currencyPayment = floor / 2;
         vm.prank(bob);
-        tc.support{value: mintPrice - floor}(1, bob, mintPrice, currencyPayment);
+        tc.support{value: mintPrice - floor}(1, bob, currencyPayment);
 
         // Validate.
-        assertEq(tokenMinter.balanceOf(bob), 1);
-        assertEq(tokenMinter.totalSupply(), 1);
+        assertEq(tokenMinter.balanceOf(bob, tokenId), 1);
+        assertEq(curve.supply, 1);
 
-        uint256 burnPrice = tc.getCurvePrice(false, 1, 0);
-        assertEq(tc.treasuries(1), burnPrice);
+        uint256 burnPrice = tc.getCurvePrice(false, curveId, 0);
+        assertEq(tc.treasuries(curveId), burnPrice);
         assertEq(address(tc).balance, burnPrice);
         assertEq(currency.balanceOf(alice), floor);
         assertEq(address(alice).balance, mintPrice - burnPrice - floor);
         assertEq(currency.balanceOf(bob), 10000000000000 ether - currencyPayment);
 
-        vm.prank(bob);
-        tokenMinter.updateInputs(1, 1, 1);
-        emit log_string(tokenMinter.generateSvg(1));
+        emit log_string(tokenMinter.uri(tokenId));
     }
 
     function test_LinearCurve_Support_SomeCurrency_Unsubsidized(
@@ -435,37 +446,38 @@ contract TokenCurveTest is Test {
         registerList_ReviewNotRequired();
 
         // Set up curve.
-        testLinearCurve(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
+        uint256 tokenId = 0;
+        testLinearCurve(tokenId, scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
         vm.warp(block.timestamp + 100);
 
         // Retrieve for validation.
-        uint256 mintPrice = tc.getCurvePrice(true, 1, 0);
+        uint256 curveId = 1;
+        uint256 mintPrice = tc.getCurvePrice(true, curveId, 0);
 
         // Deal.
         vm.deal(bob, 10000000000000 ether);
         vm.prank(user);
         currency.mint(bob, 10000000000000 ether, address(tc));
-        uint256 floor = calculatePrice(tokenMinter.totalSupply() + 1, scale, 0, 0, mint_c);
-        uint256 currencyPayment = floor / 2;
 
         // Support.
+        curve = tc.getCurve(curveId);
+        uint256 floor = calculatePrice(curve.supply + 1, scale, 0, 0, mint_c);
+        uint256 currencyPayment = floor / 2;
         vm.prank(bob);
-        tc.support{value: mintPrice - currencyPayment}(1, bob, mintPrice, currencyPayment);
+        tc.support{value: mintPrice - currencyPayment}(1, bob, currencyPayment);
 
         // Validate.
-        assertEq(tokenMinter.balanceOf(bob), 1);
-        assertEq(tokenMinter.totalSupply(), 1);
+        assertEq(tokenMinter.balanceOf(bob, 0), 1);
+        assertEq(curve.supply, 1);
 
-        uint256 burnPrice = tc.getCurvePrice(false, 1, 0);
-        assertEq(tc.treasuries(1), burnPrice);
+        uint256 burnPrice = tc.getCurvePrice(false, curveId, 0);
+        assertEq(tc.treasuries(curveId), burnPrice);
         assertEq(address(tc).balance, burnPrice);
         assertEq(currency.balanceOf(alice), currencyPayment);
         assertEq(address(alice).balance, mintPrice - burnPrice - currencyPayment);
         assertEq(currency.balanceOf(bob), 10000000000000 ether - currencyPayment);
 
-        vm.prank(bob);
-        tokenMinter.updateInputs(1, 1, 1);
-        emit log_string(tokenMinter.generateSvg(1));
+        emit log_string(tokenMinter.uri(tokenId));
     }
 
     function test_LinearCurve_Support_Floor(
@@ -483,36 +495,37 @@ contract TokenCurveTest is Test {
         registerList_ReviewNotRequired();
 
         // Set up curve.
-        testLinearCurve(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
+        uint256 tokenId = 0;
+        testLinearCurve(tokenId, scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
         vm.warp(block.timestamp + 100);
 
         // Retrieve for validation.
-        uint256 mintPrice = tc.getCurvePrice(true, 1, 0);
+        uint256 curveId = 1;
+        uint256 mintPrice = tc.getCurvePrice(true, curveId, 0);
 
         // Deal.
         vm.deal(bob, 10000000000000 ether);
         vm.prank(user);
         currency.mint(bob, 10000000000000 ether, address(tc));
-        uint256 floor = calculatePrice(tokenMinter.totalSupply() + 1, scale, 0, 0, mint_c);
 
         // Support.
+        curve = tc.getCurve(curveId);
+        uint256 floor = calculatePrice(curve.supply + 1, scale, 0, 0, mint_c);
         vm.prank(bob);
-        tc.support{value: mintPrice - floor}(1, bob, mintPrice, floor);
+        tc.support{value: mintPrice - floor}(curveId, bob, floor);
 
         // Validate.
-        assertEq(tokenMinter.balanceOf(bob), 1);
-        assertEq(tokenMinter.totalSupply(), 1);
+        assertEq(tokenMinter.balanceOf(bob, tokenId), 1);
+        assertEq(curve.supply, 1);
 
-        uint256 burnPrice = tc.getCurvePrice(false, 1, 0);
-        assertEq(tc.treasuries(1), burnPrice);
+        uint256 burnPrice = tc.getCurvePrice(false, curveId, 0);
+        assertEq(tc.treasuries(curveId), burnPrice);
         assertEq(address(tc).balance, burnPrice);
         assertEq(currency.balanceOf(alice), floor);
         assertEq(address(alice).balance, mintPrice - burnPrice - floor);
         assertEq(currency.balanceOf(bob), 10000000000000 ether - floor);
 
-        vm.prank(bob);
-        tokenMinter.updateInputs(1, 1, 1);
-        emit log_string(tokenMinter.generateSvg(1));
+        emit log_string(tokenMinter.uri(tokenId));
     }
 
     function test_LinearCurve_Support_InvalidAmount_OverFloor(
@@ -530,7 +543,9 @@ contract TokenCurveTest is Test {
         registerList_ReviewNotRequired();
 
         // Set up curve.
-        testLinearCurve(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
+        uint256 curveId = 1;
+        uint256 tokenId = 0;
+        testLinearCurve(tokenId, scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
         vm.warp(block.timestamp + 100);
 
         // Retrieve for validation.
@@ -540,12 +555,15 @@ contract TokenCurveTest is Test {
         vm.deal(bob, 10000000000000 ether);
         vm.prank(user);
         currency.mint(bob, 10000000000000 ether, address(tc));
-        uint256 floor = calculatePrice(tokenMinter.totalSupply() + 1, scale, 0, 0, mint_c);
+
+        curve = tc.getCurve(curveId);
+        uint256 floor = calculatePrice(curve.supply + 1, scale, 0, 0, mint_c);
         uint256 overFloor = floor + 1 wei;
+
         // Support.
         vm.expectRevert(TokenCurve.InvalidAmount.selector);
         vm.prank(bob);
-        tc.support{value: mintPrice - overFloor}(1, bob, mintPrice, overFloor);
+        tc.support{value: mintPrice - overFloor}(curveId, bob, overFloor);
     }
 
     function testLinearCurve_support_InvalidAmount_InvalidMsgValue(
@@ -558,7 +576,8 @@ contract TokenCurveTest is Test {
         uint32 burn_c
     ) public payable {
         // Set up.
-        testLinearCurve(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
+        uint256 tokenId = 0;
+        testLinearCurve(tokenId, scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
 
         // Retrieve for validation.
         uint256 mintPrice = tc.getCurvePrice(true, 1, 0);
@@ -569,7 +588,7 @@ contract TokenCurveTest is Test {
         // Support.
         vm.expectRevert(TokenCurve.InvalidAmount.selector);
         vm.prank(bob);
-        tc.support{value: 1 ether}(1, bob, mintPrice, 0);
+        tc.support{value: 1 ether}(1, bob, 0);
     }
 
     function testLinearCurve_support_InvalidAmount_InvalidParam(
@@ -582,7 +601,8 @@ contract TokenCurveTest is Test {
         uint32 burn_c
     ) public payable {
         // Set up.
-        testLinearCurve(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
+        uint256 tokenId = 0;
+        testLinearCurve(tokenId, scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
 
         // Retrieve for validation.
         uint256 mintPrice = tc.getCurvePrice(true, 1, 0);
@@ -593,7 +613,7 @@ contract TokenCurveTest is Test {
         // Support.
         vm.expectRevert(TokenCurve.InvalidAmount.selector);
         vm.prank(bob);
-        tc.support{value: mintPrice}(1, bob, 1 ether, 0);
+        tc.support{value: mintPrice}(1, bob, 0);
     }
 
     function testLinearCurve_burn(
@@ -608,16 +628,19 @@ contract TokenCurveTest is Test {
         vm.assume(scale > 0);
 
         // Set up.
+        uint256 curveId = 1;
+        uint256 tokenId = 0;
         test_LinearCurve_Support_NoCurrency(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
 
         // Burn.
         vm.prank(bob);
-        tc.burn(1, bob, 1);
+        tc.burn(curveId, bob, 1);
 
         // Validate.
-        assertEq(tokenMinter.balanceOf(bob), 0);
-        assertEq(tokenMinter.totalSupply(), 0);
-        assertEq(tc.treasuries(1), 0);
+        assertEq(tokenMinter.balanceOf(bob, tokenId), 0);
+        curve = tc.getCurve(curveId);
+        assertEq(curve.supply, 0);
+        assertEq(tc.treasuries(curveId), 0);
     }
 
     function testLinearCurve_burn_NotAuthorized(
@@ -639,6 +662,7 @@ contract TokenCurveTest is Test {
     }
 
     function testQuadCurve(
+        uint256 tokenId,
         uint64 scale,
         uint32 mint_a,
         uint32 mint_b,
@@ -657,6 +681,7 @@ contract TokenCurveTest is Test {
         uint256 id = setupCurve(
             CurveType.QUADRATIC,
             address(tokenMinter),
+            tokenId,
             address(currency),
             alice,
             scale,
@@ -688,6 +713,8 @@ contract TokenCurveTest is Test {
             Curve({
                 owner: alice,
                 token: address(tokenMinter),
+                id: 0,
+                supply: 0,
                 curveType: CurveType.QUADRATIC,
                 currency: address(currency),
                 scale: scale,
@@ -711,24 +738,25 @@ contract TokenCurveTest is Test {
         uint32 burn_c
     ) public payable {
         vm.assume(scale > 0);
-        testQuadCurve(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
+
+        // Set up.
+        uint256 tokenId = 0;
+        testQuadCurve(tokenId, scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
 
         uint256 mintPrice = tc.getCurvePrice(true, 1, 0);
 
         vm.deal(bob, 1000000000000000000 ether);
         vm.prank(bob);
-        tc.support{value: mintPrice}(1, bob, mintPrice, 0);
+        tc.support{value: mintPrice}(1, bob, 0);
 
         uint256 burnPrice = tc.getCurvePrice(false, 1, 0);
-
-        assertEq(tokenMinter.balanceOf(bob), 1);
-        assertEq(tokenMinter.totalSupply(), 1);
+        assertEq(tokenMinter.balanceOf(bob, tokenId), 1);
+        curve = tc.getCurve(1);
+        assertEq(curve.supply, 1);
         assertEq(tc.treasuries(1), burnPrice);
         assertEq(address(tc).balance, burnPrice);
 
-        vm.prank(bob);
-        tokenMinter.updateInputs(1, 1, 1);
-        emit log_string(tokenMinter.generateSvg(1));
+        emit log_string(tokenMinter.uri(tokenId));
     }
 
     function testQuadCurve_burn(
@@ -743,6 +771,7 @@ contract TokenCurveTest is Test {
         vm.assume(scale > 0);
 
         // Set up.
+        uint256 tokenId = 0;
         testQuadCurve_support(scale, mint_a, mint_b, mint_c, burn_a, burn_b, burn_c);
 
         // Retrieve for validation.
@@ -755,8 +784,9 @@ contract TokenCurveTest is Test {
         tc.burn(1, bob, 1);
 
         // Validation.
-        assertEq(tokenMinter.balanceOf(bob), 0);
-        assertEq(tokenMinter.totalSupply(), 0);
+        assertEq(tokenMinter.balanceOf(bob, tokenId), 0);
+        curve = tc.getCurve(1);
+        assertEq(curve.supply, 1);
         assertEq(tc.treasuries(1), 0);
         assertEq(address(bob).balance, prevBalance + burnPrice);
     }
@@ -786,6 +816,7 @@ contract TokenCurveTest is Test {
     function setupCurve(
         CurveType curveType,
         address _tokenMinter,
+        uint256 tokenId,
         address _currency,
         address _user,
         uint64 scale,
@@ -802,6 +833,8 @@ contract TokenCurveTest is Test {
             Curve({
                 owner: _user,
                 token: _tokenMinter,
+                id: tokenId,
+                supply: 0,
                 curveType: curveType,
                 currency: _currency,
                 scale: scale,
