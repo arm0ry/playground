@@ -99,7 +99,6 @@ contract TokenCurve is OwnableRoles {
     function support(
         uint256 _curveId,
         address patron,
-        uint256 price,
         uint256 amountInCurrency // TODO: get rid of price as param
     ) external payable virtual {
         // Validate mint conditions.
@@ -107,11 +106,6 @@ contract TokenCurve is OwnableRoles {
         uint256 _price = getCurvePrice(true, curve, 0);
         uint256 burnPrice = getCurvePrice(false, curve, 0);
         uint256 floor = calculatePrice(1, curve.scale, 0, 0, curve.mint_c);
-
-        if (price != _price) revert InvalidAmount();
-        // if (amountInCurrency > floor) revert InvalidAmount();
-        // if (amountInCurrency == 0 && price != msg.value) revert InvalidAmount();
-        // if (amountInCurrency > 0 && _price - amountInCurrency != msg.value) revert InvalidAmount(); // Assumes 1:1 ratio between base coin and currency.
 
         if (floor > amountInCurrency) {
             // Subsidized Currency Support.
@@ -124,7 +118,7 @@ contract TokenCurve is OwnableRoles {
                 ICurrency(curve.currency).transferFrom(address(this), curve.owner, floor - amountInCurrency);
 
                 // Transfer coin.
-                (bool success,) = curve.owner.call{value: price - burnPrice - floor}("");
+                (bool success,) = curve.owner.call{value: _price - burnPrice - floor}("");
                 if (!success) revert TransferFailed();
             } else {
                 // Unsubsidized Currency Support.
@@ -135,7 +129,7 @@ contract TokenCurve is OwnableRoles {
                 ICurrency(curve.currency).transferFrom(msg.sender, curve.owner, amountInCurrency);
 
                 // Transfer coin.
-                (bool success,) = curve.owner.call{value: price - burnPrice - amountInCurrency}("");
+                (bool success,) = curve.owner.call{value: _price - burnPrice - amountInCurrency}("");
                 if (!success) revert TransferFailed();
             }
         } else {
@@ -146,7 +140,7 @@ contract TokenCurve is OwnableRoles {
             ICurrency(curve.currency).transferFrom(msg.sender, curve.owner, floor);
 
             // Transfer coin.
-            (bool success,) = curve.owner.call{value: price - burnPrice - floor}("");
+            (bool success,) = curve.owner.call{value: _price - burnPrice - floor}("");
             if (!success) revert TransferFailed();
         }
 

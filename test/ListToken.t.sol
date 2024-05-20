@@ -10,10 +10,10 @@ import {IKaliCurve, CurveType} from "kali-markets/interface/IKaliCurve.sol";
 
 import {Storage} from "kali-markets/Storage.sol";
 import {IStorage} from "kali-markets/interface/IStorage.sol";
-import {ListToken} from "src/tokens/ListToken.sol";
+import {Token} from "src/tokens/Token.sol";
 
-contract ListTokenTest is Test {
-    ListToken listToken;
+contract TokenTest is Test {
+    Token listToken;
 
     /// @dev Users.
     address public immutable alice = makeAddr("alice");
@@ -32,7 +32,7 @@ contract ListTokenTest is Test {
     /// @notice Set up the testing suite.
 
     function setUp() public payable {
-        listToken = new ListToken(testString, testString, user, user);
+        listToken = new Token(testString, testString, user, user);
     }
 
     function testMint() public payable {

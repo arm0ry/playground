@@ -6,7 +6,7 @@ import "forge-std/console2.sol";
 
 import {TokenCurve} from "src/TokenCurve.sol";
 import {ITokenCurve, CurveType, Curve} from "src/interface/ITokenCurve.sol";
-import {ListToken} from "src/tokens/ListToken.sol";
+import {Token} from "src/tokens/Token.sol";
 import {Currency} from "src/tokens/Currency.sol";
 import {ICurrency} from "src/interface/ICurrency.sol";
 import {Bulletin} from "src/Bulletin.sol";
@@ -15,7 +15,7 @@ import {IBulletin, Item, List} from "src/interface/IBulletin.sol";
 contract TokenCurveTest is Test {
     Bulletin bulletin;
     TokenCurve tc;
-    ListToken listToken;
+    Token listToken;
 
     /// @dev Users.
     address public immutable alice = makeAddr("alice");
@@ -71,7 +71,7 @@ contract TokenCurveTest is Test {
     }
 
     function testCurve_InvalidCurve() public payable {
-        deployListToken(user);
+        deployToken(user);
 
         vm.expectRevert(TokenCurve.InvalidCurve.selector);
         vm.prank(alice);
@@ -96,7 +96,7 @@ contract TokenCurveTest is Test {
 
         uint256 _id = tc.curveId();
 
-        deployListToken(user);
+        deployToken(user);
         deployCurrency(user);
         vm.warp(block.timestamp + 100);
 
@@ -128,7 +128,7 @@ contract TokenCurveTest is Test {
     ) public payable {
         vm.assume(burn_a > mint_a && burn_b > mint_b && burn_c > mint_c);
 
-        deployListToken(user);
+        deployToken(user);
         deployCurrency(user);
 
         vm.warp(block.timestamp + 100);
@@ -163,7 +163,7 @@ contract TokenCurveTest is Test {
     ) public payable {
         vm.assume(burn_a > mint_a && burn_b > mint_b && burn_c > mint_c);
 
-        deployListToken(user);
+        deployToken(user);
         deployCurrency(user);
 
         vm.warp(block.timestamp + 100);
@@ -198,7 +198,7 @@ contract TokenCurveTest is Test {
     ) public payable {
         vm.assume(burn_a < mint_a && burn_b < mint_b && burn_c < mint_c);
 
-        deployListToken(user);
+        deployToken(user);
         deployCurrency(user);
 
         vm.warp(block.timestamp + 100);
@@ -234,7 +234,7 @@ contract TokenCurveTest is Test {
     ) public payable {
         // vm.assume(burn_a > mint_a && burn_b > mint_b && burn_c > mint_c);
 
-        // deployListToken(user);
+        // deployToken(user);
         // deployCurrency(user);
 
         // vm.warp(block.timestamp + 100);
@@ -270,7 +270,7 @@ contract TokenCurveTest is Test {
         vm.assume(burn_a > mint_a && burn_b > mint_b && burn_c > mint_c);
         vm.assume(scale > 0);
 
-        deployListToken(user);
+        deployToken(user);
         deployCurrency(user);
 
         vm.warp(block.timestamp + 100);
@@ -295,7 +295,7 @@ contract TokenCurveTest is Test {
     }
 
     // function testLinearCurve_NotAuthorized() public payable {
-    //     deployListToken(user);
+    //     deployToken(user);
     //     vm.warp(block.timestamp + 100);
 
     //     vm.expectRevert(0x82b42900); // `Unauthorized()`
@@ -650,7 +650,7 @@ contract TokenCurveTest is Test {
         vm.assume(burn_a < mint_a && burn_b < mint_b && burn_c < mint_c);
         vm.assume(scale > 0);
 
-        deployListToken(user);
+        deployToken(user);
         deployCurrency(user);
         vm.warp(block.timestamp + 100);
 
@@ -680,7 +680,7 @@ contract TokenCurveTest is Test {
     ) public payable {
         vm.assume(burn_a > mint_a || burn_b > mint_b || burn_c > mint_c);
         vm.assume(scale > 0);
-        deployListToken(user);
+        deployToken(user);
 
         vm.expectRevert(TokenCurve.InvalidFormula.selector);
         vm.prank(alice);
@@ -774,7 +774,7 @@ contract TokenCurveTest is Test {
     /// Internal Functions
     /// -----------------------------------------------------------------------
 
-    function deployListToken(address _user) internal {
+    function deployToken(address _user) internal {
         listToken = new ListToken("User Support Token", "UST", address(bulletin), address((tc)));
     }
 

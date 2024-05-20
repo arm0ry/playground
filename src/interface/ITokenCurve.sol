@@ -10,6 +10,8 @@ enum CurveType {
 struct Curve {
     address owner;
     address token;
+    uint256 id;
+    uint256 supply;
     CurveType curveType;
     address currency;
     uint64 scale;
