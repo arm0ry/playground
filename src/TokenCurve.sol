@@ -127,6 +127,7 @@ contract TokenCurve is OwnableRoles {
                 ICurrency(curve.currency).transferFrom(msg.sender, curve.owner, amountInCurrency);
 
                 // Transfer coin.
+                // TODO: SafeTransferETH
                 (bool success,) = curve.owner.call{value: _price - burnPrice - amountInCurrency}("");
                 if (!success) revert TransferFailed();
             }
@@ -138,6 +139,7 @@ contract TokenCurve is OwnableRoles {
             ICurrency(curve.currency).transferFrom(msg.sender, curve.owner, floor);
 
             // Transfer coin.
+            // TODO: SafeTransferETH
             (bool success,) = curve.owner.call{value: _price - burnPrice - floor}("");
             if (!success) revert TransferFailed();
         }
@@ -169,6 +171,7 @@ contract TokenCurve is OwnableRoles {
         ITokenMinter(curve.token).burn(msg.sender, tokenId);
 
         // Distribute burn to patron.
+        // TODO: SafeTransferETH
         (bool success,) = patron.call{value: burnPrice}("");
         if (!success) revert TransferFailed();
     }
@@ -246,4 +249,14 @@ contract TokenCurve is OwnableRoles {
     }
 
     receive() external payable virtual {}
+}
+
+/// @dev Solady
+function safeTransferETH(address to, uint256 amount) {
+    assembly ("memory-safe") {
+        if iszero(call(gas(), to, amount, codesize(), 0x00, codesize(), 0x00)) {
+            mstore(0x00, 0xb12d13eb)
+            revert(0x1c, 0x04)
+        }
+    }
 }

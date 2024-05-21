@@ -5,6 +5,7 @@ import {SVG} from "src/utils/SVG.sol";
 import {JSON} from "src/utils/JSON.sol";
 import {ITokenCurve} from "src/interface/ITokenCurve.sol";
 import {IBulletin, List, Item} from "src/interface/IBulletin.sol";
+import {ITokenMinter, Metadata, Builder, Owner} from "src/interface/ITokenMinter.sol";
 
 /// @title
 /// @notice
@@ -13,7 +14,7 @@ contract UriBuilder {
     /// Builder Router
     /// -----------------------------------------------------------------------
 
-    function build(uint256 id, bytes calldata data) external view returns (string memory) {
+    function build(uint256 id, Metadata memory data) external view returns (string memory) {
         return (id == 1) ? listOverview(data) : "";
     }
 
@@ -21,25 +22,11 @@ contract UriBuilder {
     /// SVG Template #1: List Overview
     /// -----------------------------------------------------------------------
 
-    function listOverview(bytes calldata data) internal view returns (string memory) {
-        (
-            string memory name,
-            string memory desc,
-            address bulletin,
-            uint256 listId,
-            address logger,
-            address curve,
-            uint256 curveId
-        ) = abi.decode(data, (string, string, address, uint256, address, address, uint256));
-
-        return JSON._formattedMetadata(name, desc, generateSvg(bulletin, listId, curve, curveId));
+    function listOverview(Metadata memory data) internal view returns (string memory) {
+        return JSON._formattedMetadata(data.name, data.desc, generateSvg(data.bulletin, data.listId));
     }
 
-    function generateSvg(address bulletin, uint256 listId, address curve, uint256 curveId)
-        public
-        view
-        returns (string memory)
-    {
+    function generateSvg(address bulletin, uint256 listId) public view returns (string memory) {
         return string.concat(
             '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" style="background:#FFFBF5">',
             SVG._text(
@@ -62,7 +49,7 @@ contract UriBuilder {
                 SVG.NULL
             ),
             buildTasks(bulletin, listId),
-            buildTicker(curve, curveId),
+            // buildTicker(curve, curveId),
             "</svg>"
         );
     }
@@ -120,45 +107,45 @@ contract UriBuilder {
         }
     }
 
-    function buildTicker(address curve, uint256 curveId) public view returns (string memory) {
-        uint256 priceToMint =
-            (curveId == 0 || curve == address(0)) ? 0 : ITokenCurve(curve).getCurvePrice(true, curveId, 0);
-        uint256 priceToBurn =
-            (curveId == 0 || curve == address(0)) ? 0 : ITokenCurve(curve).getCurvePrice(false, curveId, 0);
+    // function buildTicker(address curve, uint256 curveId) public view returns (string memory) {
+    //     uint256 priceToMint =
+    //         (curveId == 0 || curve == address(0)) ? 0 : ITokenCurve(curve).getCurvePrice(true, curveId, 0);
+    //     uint256 priceToBurn =
+    //         (curveId == 0 || curve == address(0)) ? 0 : ITokenCurve(curve).getCurvePrice(false, curveId, 0);
 
-        return string.concat(
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "230"),
-                    SVG._prop("y", "25"),
-                    SVG._prop("font-size", "9"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat(unicode"🪙  ", convertToCurrencyForm(priceToMint), unicode" Ξ")
-            ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "230"),
-                    SVG._prop("y", "40"),
-                    SVG._prop("font-size", "9"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat(unicode"🔥  ", convertToCurrencyForm(priceToBurn), unicode" Ξ")
-            )
-        );
-    }
+    //     return string.concat(
+    //         SVG._text(
+    //             string.concat(
+    //                 SVG._prop("x", "230"),
+    //                 SVG._prop("y", "25"),
+    //                 SVG._prop("font-size", "9"),
+    //                 SVG._prop("fill", "#00040a")
+    //             ),
+    //             string.concat(unicode"🪙  ", convertToCurrencyForm(priceToMint), unicode" Ξ")
+    //         ),
+    //         SVG._text(
+    //             string.concat(
+    //                 SVG._prop("x", "230"),
+    //                 SVG._prop("y", "40"),
+    //                 SVG._prop("font-size", "9"),
+    //                 SVG._prop("fill", "#00040a")
+    //             ),
+    //             string.concat(unicode"🔥  ", convertToCurrencyForm(priceToBurn), unicode" Ξ")
+    //         )
+    //     );
+    // }
 
-    function convertToCurrencyForm(uint256 amount) internal pure returns (string memory) {
-        string memory decimals;
-        for (uint256 i; i < 4; ++i) {
-            uint256 decimalPoint = 1 ether / (10 ** i);
-            if (amount % decimalPoint > 0) {
-                decimals = string.concat(decimals, SVG._uint2str(amount % decimalPoint / (decimalPoint / 10)));
-            } else {
-                decimals = string.concat(decimals, SVG._uint2str(0));
-            }
-        }
+    // function convertToCurrencyForm(uint256 amount) internal pure returns (string memory) {
+    //     string memory decimals;
+    //     for (uint256 i; i < 4; ++i) {
+    //         uint256 decimalPoint = 1 ether / (10 ** i);
+    //         if (amount % decimalPoint > 0) {
+    //             decimals = string.concat(decimals, SVG._uint2str(amount % decimalPoint / (decimalPoint / 10)));
+    //         } else {
+    //             decimals = string.concat(decimals, SVG._uint2str(0));
+    //         }
+    //     }
 
-        return string.concat(SVG._uint2str(amount / 1 ether), ".", decimals);
-    }
+    //     return string.concat(SVG._uint2str(amount / 1 ether), ".", decimals);
+    // }
 }

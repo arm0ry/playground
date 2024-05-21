@@ -4,15 +4,9 @@ pragma solidity ^0.8.17;
 import "forge-std/Test.sol";
 import "forge-std/console2.sol";
 
-import {KaliDAOfactory, KaliDAO} from "kali-markets/kalidao/KaliDAOfactory.sol";
-import {KaliCurve} from "kali-markets/KaliCurve.sol";
-import {IKaliCurve, CurveType} from "kali-markets/interface/IKaliCurve.sol";
-
-import {Storage} from "kali-markets/Storage.sol";
-import {IStorage} from "kali-markets/interface/IStorage.sol";
 import {TokenMinter} from "src/tokens/TokenMinter.sol";
 
-contract TokenTest is Test {
+contract TokenMinterTest is Test {
     TokenMinter tokenMinter;
 
     /// @dev Users.
