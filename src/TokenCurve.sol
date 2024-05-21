@@ -127,9 +127,7 @@ contract TokenCurve is OwnableRoles {
                 ICurrency(curve.currency).transferFrom(msg.sender, curve.owner, amountInCurrency);
 
                 // Transfer coin.
-                // TODO: SafeTransferETH
-                (bool success,) = curve.owner.call{value: _price - burnPrice - amountInCurrency}("");
-                if (!success) revert TransferFailed();
+                safeTransferETH(curve.owner, _price - burnPrice - amountInCurrency);
             }
         } else {
             // Full Currency Support by Patron.
@@ -139,13 +137,11 @@ contract TokenCurve is OwnableRoles {
             ICurrency(curve.currency).transferFrom(msg.sender, curve.owner, floor);
 
             // Transfer coin.
-            // TODO: SafeTransferETH
-            (bool success,) = curve.owner.call{value: _price - burnPrice - floor}("");
-            if (!success) revert TransferFailed();
+            safeTransferETH(curve.owner, _price - burnPrice - floor);
         }
 
         // Mint.
-        ITokenMinter(curve.token).mint(patron, curve.id);
+        ITokenMinter(curve.token).mintByCurve(patron, curve.id);
 
         unchecked {
             ++curves[_curveId].supply;
@@ -168,12 +164,10 @@ contract TokenCurve is OwnableRoles {
         treasuries[_curveId] -= burnPrice;
 
         // Burn SupportToken.
-        ITokenMinter(curve.token).burn(msg.sender, tokenId);
+        ITokenMinter(curve.token).burnByCurve(msg.sender, tokenId);
 
         // Distribute burn to patron.
-        // TODO: SafeTransferETH
-        (bool success,) = patron.call{value: burnPrice}("");
-        if (!success) revert TransferFailed();
+        safeTransferETH(patron, burnPrice);
     }
 
     /// -----------------------------------------------------------------------

@@ -2,9 +2,9 @@
 pragma solidity >=0.8.4;
 
 import {ERC1155} from "lib/solbase/src/tokens/ERC1155/ERC1155.sol";
-import {UriBuilder} from "src/tokens/UriBuilder.sol";
+import {TokenUriBuilder} from "src/tokens/TokenUriBuilder.sol";
 import {IBulletin, List} from "src/interface/IBulletin.sol";
-import {ITokenMinter, Metadata, Builder, Owner} from "src/interface/ITokenMinter.sol";
+import {ITokenMinter, TokenMetadata, TokenBuilder, TokenOwner} from "src/interface/ITokenMinter.sol";
 
 /// @title Impact NFTs
 /// @notice SVG NFTs displaying impact results and metrics.
@@ -19,9 +19,9 @@ contract TokenMinter is ERC1155 {
 
     uint256 public tokenId;
     uint256 public configInterval = 7 days;
-    mapping(uint256 => Builder) public builders;
-    mapping(uint256 => Owner) public owners;
-    mapping(uint256 => Metadata) public metadatas;
+    mapping(uint256 => TokenBuilder) public builders;
+    mapping(uint256 => TokenOwner) public owners;
+    mapping(uint256 => TokenMetadata) public metadatas;
     mapping(uint256 => address) public markets;
 
     /// -----------------------------------------------------------------------
@@ -32,7 +32,10 @@ contract TokenMinter is ERC1155 {
     /// Configuration
     /// -----------------------------------------------------------------------
 
-    function setMinter(Metadata calldata metadata, Builder calldata builder, address market) external payable {
+    function setMinter(TokenMetadata calldata metadata, TokenBuilder calldata builder, address market)
+        external
+        payable
+    {
         if (builder.builder == address(0)) revert InvalidConfig();
         List memory list = IBulletin(metadata.bulletin).getList(metadata.listId);
         if (msg.sender != list.owner) revert Unauthorized();
@@ -41,10 +44,10 @@ contract TokenMinter is ERC1155 {
             ++tokenId;
         }
 
-        builders[tokenId] = Builder({builder: builder.builder, builderId: builder.builderId});
-        owners[tokenId] = Owner({lastConfigured: uint48(block.timestamp), owner: msg.sender});
+        builders[tokenId] = TokenBuilder({builder: builder.builder, builderId: builder.builderId});
+        owners[tokenId] = TokenOwner({lastConfigured: uint48(block.timestamp), owner: msg.sender});
         markets[tokenId] = market;
-        metadatas[tokenId] = Metadata({
+        metadatas[tokenId] = TokenMetadata({
             name: metadata.name,
             desc: metadata.desc,
             bulletin: metadata.bulletin,
@@ -56,7 +59,7 @@ contract TokenMinter is ERC1155 {
     // TODO: Tricky when switching between markets, especially from curved market into a flat one.
     // TODO: Might need a cleanUpCurve() function to equitably distribute residuals in a curve to token holders.
     function updateMarket(uint256 _tokenId, address market) external payable {
-        Owner memory owner = owners[tokenId];
+        TokenOwner memory owner = owners[tokenId];
         if (owner.owner != msg.sender) revert Unauthorized();
         if (owner.lastConfigured + configInterval > block.timestamp) {
             revert NextConfigAt(owner.lastConfigured + configInterval);
@@ -65,14 +68,14 @@ contract TokenMinter is ERC1155 {
         //     abi.decode(metadata[_tokenId], (string, string, address, uint256, address, address, uint256));
     }
 
-    function updateBuilder(uint256 _tokenId, Builder calldata builder) external payable {
-        Owner memory owner = owners[tokenId];
+    function updateBuilder(uint256 _tokenId, TokenBuilder calldata builder) external payable {
+        TokenOwner memory owner = owners[tokenId];
         if (owner.owner != msg.sender) revert Unauthorized();
         if (owner.lastConfigured + configInterval > block.timestamp) {
             revert NextConfigAt(owner.lastConfigured + configInterval);
         }
 
-        builders[_tokenId] = Builder({builder: builder.builder, builderId: builder.builderId});
+        builders[_tokenId] = TokenBuilder({builder: builder.builder, builderId: builder.builderId});
     }
 
     /// -----------------------------------------------------------------------
@@ -101,16 +104,7 @@ contract TokenMinter is ERC1155 {
     /// -----------------------------------------------------------------------
 
     function uri(uint256 id) public view override returns (string memory) {
-        Builder memory builder = builders[id];
-        address builderAddr;
-        uint256 builderId;
-
-        // Decode data via assembly.
-        assembly {
-            builderId := builder
-            builderAddr := shr(128, builder)
-        }
-
-        return UriBuilder(builderAddr).build(builderId, metadatas[id]);
+        TokenBuilder memory builder = builders[id];
+        return TokenUriBuilder(builder.builder).build(builder.builderId, metadatas[id]);
     }
 }

@@ -5,16 +5,16 @@ import {SVG} from "src/utils/SVG.sol";
 import {JSON} from "src/utils/JSON.sol";
 import {ITokenCurve} from "src/interface/ITokenCurve.sol";
 import {IBulletin, List, Item} from "src/interface/IBulletin.sol";
-import {ITokenMinter, Metadata, Builder, Owner} from "src/interface/ITokenMinter.sol";
+import {ITokenMinter, TokenMetadata, TokenBuilder, TokenOwner} from "src/interface/ITokenMinter.sol";
 
 /// @title
 /// @notice
-contract UriBuilder {
+contract TokenUriBuilder {
     /// -----------------------------------------------------------------------
     /// Builder Router
     /// -----------------------------------------------------------------------
 
-    function build(uint256 id, Metadata memory data) external view returns (string memory) {
+    function build(uint256 id, TokenMetadata memory data) external view returns (string memory) {
         return (id == 1) ? listOverview(data) : "";
     }
 
@@ -22,7 +22,7 @@ contract UriBuilder {
     /// SVG Template #1: List Overview
     /// -----------------------------------------------------------------------
 
-    function listOverview(Metadata memory data) internal view returns (string memory) {
+    function listOverview(TokenMetadata memory data) internal view returns (string memory) {
         return JSON._formattedMetadata(data.name, data.desc, generateSvg(data.bulletin, data.listId));
     }
 
