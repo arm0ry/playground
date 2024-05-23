@@ -8,9 +8,10 @@ import {ITokenMinter} from "src/interface/ITokenMinter.sol";
 
 /// @notice .
 /// @author audsssy.eth
-contract TokenCurve is OwnableRoles {
+contract TokenCurve {
     event CurveCreated(uint256 curveId, Curve curve);
 
+    error Unauthorized();
     error TransferFailed();
     error InvalidCurve();
     error InvalidFormula();
@@ -33,18 +34,14 @@ contract TokenCurve is OwnableRoles {
     /// Constructor
     /// -----------------------------------------------------------------------
 
-    /// @notice .
-    function initialize(address owner) external payable {
-        _initializeOwner(owner);
-    }
-
     /// -----------------------------------------------------------------------
     /// Creator Logic
     /// -----------------------------------------------------------------------
 
     /// @notice Configure a curve.
-    function registerCurve(Curve calldata curve) external payable onlyRoles(LIST_OWNERS) {
+    function registerCurve(Curve calldata curve) external payable {
         // Validate curve conditions.
+        if (ITokenMinter(curve.token).ownerOf(curve.id) != msg.sender) revert Unauthorized();
         if (curve.token == address(0) || curve.scale == 0) revert InvalidCurve();
         if (curve.burn_a > curve.mint_a || curve.burn_b > curve.mint_b || curve.burn_c > curve.mint_c) {
             revert InvalidFormula();
@@ -106,20 +103,31 @@ contract TokenCurve is OwnableRoles {
         uint256 floor = calculatePrice(1, curve.scale, 0, 0, curve.mint_c);
 
         if (floor > amountInCurrency) {
-            // Subsidized Currency Support.
-            if (ICurrency(curve.currency).balanceOf(address(this)) + amountInCurrency > floor) {
-                // With subsidy, payment is reduced up to floor amount.
-                if (_price - floor != msg.value) revert InvalidAmount(); // Assumes 1:1 ratio between base coin and currency.
+            if (curve.currency != address(0)) {
+                // Subsidized Currency Support. Availability of subsidy is determined by currency balance of this contract.
+                if (ICurrency(curve.currency).balanceOf(address(this)) + amountInCurrency > floor) {
+                    // With subsidy, payment is reduced up to floor amount.
+                    if (_price - floor != msg.value) revert InvalidAmount(); // Assumes 1:1 ratio between base coin and currency.
 
-                // Transfer currency.
-                ICurrency(curve.currency).transferFrom(msg.sender, curve.owner, amountInCurrency);
-                ICurrency(curve.currency).transferFrom(address(this), curve.owner, floor - amountInCurrency);
+                    // Transfer currency.
+                    ICurrency(curve.currency).transferFrom(msg.sender, curve.owner, amountInCurrency);
+                    ICurrency(curve.currency).transferFrom(address(this), curve.owner, floor - amountInCurrency);
 
-                // Transfer coin.
-                (bool success,) = curve.owner.call{value: _price - burnPrice - floor}("");
-                if (!success) revert TransferFailed();
+                    // Transfer coin.
+                    safeTransferETH(curve.owner, _price - burnPrice - floor);
+                } else {
+                    // Unsubsidized Currency Support.
+                    // Without subsidy, increase payment based on amount of currency support.
+                    if (_price - amountInCurrency != msg.value) revert InvalidAmount(); // Assumes 1:1 ratio between base coin and currency.
+
+                    // Transfer currency.
+                    ICurrency(curve.currency).transferFrom(msg.sender, curve.owner, amountInCurrency);
+
+                    // Transfer coin.
+                    safeTransferETH(curve.owner, _price - burnPrice - amountInCurrency);
+                }
             } else {
-                // Unsubsidized Currency Support.
+                // Stablecoins Support.
                 // Without subsidy, increase payment based on amount of currency support.
                 if (_price - amountInCurrency != msg.value) revert InvalidAmount(); // Assumes 1:1 ratio between base coin and currency.
 
@@ -130,7 +138,7 @@ contract TokenCurve is OwnableRoles {
                 safeTransferETH(curve.owner, _price - burnPrice - amountInCurrency);
             }
         } else {
-            // Full Currency Support by Patron.
+            // Full Currency Support.
             if (_price - floor != msg.value) revert InvalidAmount(); // Assumes 1:1 ratio between base coin and currency.
 
             // Transfer currency.

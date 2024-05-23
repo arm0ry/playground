@@ -45,7 +45,7 @@ contract Deploy is Script {
 
     // Tokens.
     address tokenMinterAddr;
-    address currency;
+    address currencyAddr;
     address tokenBuilderAddr;
 
     // Users.
@@ -82,26 +82,11 @@ contract Deploy is Script {
     }
 
     function deployCommons(address patron, address user, address _gasbuddy) internal {
-        // Templates for factory deployment.
-        // Log logger = new Log();
-        // Bulletin bulletin = new Bulletin();
-
-        // Deploy factory.
-        // Factory factory = new Factory(address(mTemplate), address(logger));
-        // factoryAddr = address(factory);
-
         // Deploy quest contract and set gasbuddy.
         deployLogger(false, patron);
         ILog(loggerAddr).grantRoles(gasbuddy, ILog(loggerAddr).GASBUDDIES());
 
-        // Deploy curve.
-        deployTokenCurve(patron);
-        ITokenCurve(marketAddr).grantRoles(patron, ITokenCurve(marketAddr).LIST_OWNERS());
-
-        // Deploy currency.
-        deployCurrency(patron);
-
-        // Deploy bulletin contract and grant .
+        // Deploy bulletin contract and grant roles.
         deployBulletin(false, patron);
         IBulletin(bulletinAddr).grantRoles(loggerAddr, IBulletin(bulletinAddr).LOGGERS());
 
@@ -112,8 +97,14 @@ contract Deploy is Script {
         registerHackath0n();
 
         // Deploy token minter and uri builder.
-        tokenMinterAddr = deployTokenMinter();
-        tokenBuilderAddr = deployTokenBuilder();
+        deployTokenMinter();
+        deployTokenBuilder();
+
+        // Deploy currency.
+        deployCurrency(patron);
+
+        // Deploy curve.
+        deployTokenCurve(patron);
 
         // Configure token
         ITokenMinter(tokenMinterAddr).setMinter(
@@ -175,7 +166,7 @@ contract Deploy is Script {
             id: tokenId,
             supply: 0,
             curveType: CurveType.LINEAR,
-            currency: currency,
+            currency: currencyAddr,
             scale: 0.0001 ether,
             mint_a: 0,
             mint_b: 0,
@@ -192,7 +183,7 @@ contract Deploy is Script {
             id: tokenId2,
             supply: 0,
             curveType: CurveType.LINEAR,
-            currency: currency,
+            currency: currencyAddr,
             scale: 0.0001 ether,
             mint_a: 0,
             mint_b: 5,
@@ -209,7 +200,7 @@ contract Deploy is Script {
             id: tokenId3,
             supply: 0,
             curveType: CurveType.QUADRATIC,
-            currency: currency,
+            currency: currencyAddr,
             scale: 0.0001 ether,
             mint_a: 10,
             mint_b: 10,
@@ -226,7 +217,7 @@ contract Deploy is Script {
             id: tokenId4,
             supply: 0,
             curveType: CurveType.QUADRATIC,
-            currency: currency,
+            currency: currencyAddr,
             scale: 0.0001 ether,
             mint_a: 10,
             mint_b: 10,
@@ -276,48 +267,22 @@ contract Deploy is Script {
 
     function deployTokenCurve(address user) internal {
         delete marketAddr;
-
         marketAddr = payable(address(new TokenCurve()));
-        TokenCurve(marketAddr).initialize(user);
     }
 
-    //     function deployHackathonSupportToken(address _bulletinContract, address _loggerAddress, address _marketAddr) internal {
-    //         HackathonSupportToken supportToken =
-    //             new HackathonSupportToken("g0v Hackathon Support Token", "g0vHST", _loggerAddress, _bulletinContract, _marketAddr);
-    //         hackathonContract = address(supportToken);
-    //     }
-
-    //     function deployOnboardingSupportToken(
-    //         address _bulletinContract,
-    //         uint256 _missionId,
-    //         address _loggerAddress,
-    //         address payable _marketAddr
-    //     ) internal {
-    //         OnboardingSupportToken supportToken = new OnboardingSupportToken(
-    //             "g0v Onboarding Support Token", "g0vOST", _loggerAddress, _bulletinContract, _missionId, _marketAddr
-    //         );
-    //         onboardingContract = address(supportToken);
-    //     }
-
-    //     function deployParticipantSupportToken(address _user, address _loggerAddress, address payable _marketAddr) internal {
-    //         ParticipantSupportToken supportToken =
-    //             new ParticipantSupportToken("g0v Participant Support Token", "g0vPST", _loggerAddress, _marketAddr);
-    //         participantContract = address(supportToken);
-    //     }
-
-    function deployTokenMinter() internal returns (address) {
-        TokenMinter tokenMinter = new TokenMinter();
-        return address(tokenMinter);
+    function deployTokenMinter() internal {
+        delete tokenMinterAddr;
+        tokenMinterAddr = address(new TokenMinter());
     }
 
-    function deployTokenBuilder() internal returns (address) {
-        TokenUriBuilder builder = new TokenUriBuilder();
-        return address(builder);
+    function deployTokenBuilder() internal {
+        delete tokenBuilderAddr;
+        tokenBuilderAddr = address(new TokenUriBuilder());
     }
 
-    function deployCurrency(address owner) internal returns (address) {
-        Currency token = new Currency("Currency", "CURRENCY", owner);
-        return address(token);
+    function deployCurrency(address owner) internal {
+        delete currencyAddr;
+        currencyAddr = address(new Currency("Currency", "CURRENCY", owner));
     }
 
     function support(uint256 curveId, address patron, uint256 amountInCurrency) internal {

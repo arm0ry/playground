@@ -19,6 +19,7 @@ contract TokenMinter is ERC1155 {
 
     uint256 public tokenId;
     uint256 public configInterval = 7 days;
+    mapping(bytes32 => bool) public initialized; // TODO: Use this to prevent token ids with duplicative metadata.
     mapping(uint256 => TokenBuilder) public builders;
     mapping(uint256 => TokenOwner) public owners;
     mapping(uint256 => TokenMetadata) public metadatas;
@@ -32,6 +33,7 @@ contract TokenMinter is ERC1155 {
     /// Configuration
     /// -----------------------------------------------------------------------
 
+    // TODO: Should the same content have more than one token id? Probably not.
     function setMinter(TokenMetadata calldata metadata, TokenBuilder calldata builder, address market)
         external
         payable
@@ -100,11 +102,16 @@ contract TokenMinter is ERC1155 {
     }
 
     /// -----------------------------------------------------------------------
-    /// Uri Logic
+    /// Public getter Logic
     /// -----------------------------------------------------------------------
 
     function uri(uint256 id) public view override returns (string memory) {
         TokenBuilder memory builder = builders[id];
         return TokenUriBuilder(builder.builder).build(builder.builderId, metadatas[id]);
+    }
+
+    function ownerOf(uint256 id) public view returns (address) {
+        TokenOwner memory owner = owners[id];
+        return owner.owner;
     }
 }

@@ -29,4 +29,5 @@ interface ITokenMinter {
     function burnByCurve(address from, uint256 id) external payable;
     function balanceOf(address _owner, uint256 _id) external view returns (uint256);
     function uri(uint256 id) external view returns (string memory);
+    function ownerOf(uint256 id) external view returns (address);
 }
