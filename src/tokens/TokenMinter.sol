@@ -4,7 +4,7 @@ pragma solidity >=0.8.4;
 import {ERC1155Batchless} from "src/tokens/ERC1155Batchless.sol";
 import {TokenUriBuilder} from "src/tokens/TokenUriBuilder.sol";
 import {IBulletin, List} from "src/interface/IBulletin.sol";
-import {ITokenMinter, TokenMetadata, TokenBuilder} from "src/interface/ITokenMinter.sol";
+import {ITokenMinter, TokenTitle, TokenSource, TokenBuilder, TokenMarket} from "src/interface/ITokenMinter.sol";
 import {OwnableRoles} from "src/auth/OwnableRoles.sol";
 
 /// @title Impact NFTs
@@ -18,10 +18,11 @@ contract TokenMinter is OwnableRoles, ERC1155Batchless {
     /// -----------------------------------------------------------------------
 
     uint256 public tokenId;
+    mapping(uint256 => TokenTitle) public titles;
     mapping(uint256 => TokenBuilder) public builders;
-    mapping(uint256 => TokenMetadata) public metadata;
+    mapping(uint256 => TokenSource) public sources;
+    mapping(uint256 => TokenMarket) public markets;
     mapping(uint256 => address) public owners;
-    mapping(uint256 => address) public markets;
 
     /// -----------------------------------------------------------------------
     /// Constructor & Modifiers
@@ -32,16 +33,14 @@ contract TokenMinter is OwnableRoles, ERC1155Batchless {
     }
 
     modifier onlyRegisteredMarket(uint256 id) {
-        address market = markets[id];
+        (address market,) = getTokenMarket(id);
         if (market == address(0) || msg.sender != market) revert Unauthorized();
-
         _;
     }
 
     modifier onlyTokenOwner(uint256 id) {
         address owner = owners[id];
         if (owner == address(0) || msg.sender != owner) revert Unauthorized();
-
         _;
     }
 
@@ -50,36 +49,39 @@ contract TokenMinter is OwnableRoles, ERC1155Batchless {
     /// -----------------------------------------------------------------------
 
     function uri(uint256 id) public view override returns (string memory) {
-        TokenBuilder memory builder = builders[id];
-        return TokenUriBuilder(builder.builder).build(builder.builderId, metadata[id]);
+        (address builder, uint256 builderId) = getTokenBuilder(id);
+        return TokenUriBuilder(builder).build(builderId, titles[id], sources[id]);
     }
 
     function svg(uint256 id) public view returns (string memory) {
-        TokenBuilder memory builder = builders[id];
-        TokenMetadata memory data = metadata[id];
-        return TokenUriBuilder(builder.builder).generateSvg(data.bulletin, data.listId);
+        (address builder,) = getTokenBuilder(id);
+        (address bulletin, uint256 listId,) = getTokenSource(id);
+        return TokenUriBuilder(builder).generateSvg(bulletin, listId);
     }
 
     /// -----------------------------------------------------------------------
     /// Configuration
     /// -----------------------------------------------------------------------
 
-    function registerMinter(TokenMetadata calldata _metadata, TokenBuilder calldata builder, address market)
-        external
-        payable
-    {
+    function registerMinter(
+        TokenTitle calldata title,
+        TokenSource calldata source,
+        TokenBuilder calldata builder,
+        TokenMarket calldata market
+    ) external payable {
         if (builder.builder == address(0)) revert InvalidConfig();
-        List memory list = IBulletin(_metadata.bulletin).getList(_metadata.listId);
+        List memory list = IBulletin(source.bulletin).getList(source.listId);
         if (msg.sender != list.owner) revert Unauthorized();
 
         unchecked {
             ++tokenId;
         }
 
+        titles[tokenId] = title;
         builders[tokenId] = builder;
-        owners[tokenId] = msg.sender;
         markets[tokenId] = market;
-        metadata[tokenId] = _metadata;
+        sources[tokenId] = source;
+        owners[tokenId] = msg.sender;
     }
 
     function updateBuilder(uint256 id, TokenBuilder calldata builder) external payable onlyTokenOwner(id) {
@@ -108,7 +110,7 @@ contract TokenMinter is OwnableRoles, ERC1155Batchless {
     /// @notice Mint function limited to market registered by token owner.
     function mintByMarket(address to, uint256 id) external payable onlyRegisteredMarket(id) {
         // Get market.
-        address market = markets[id];
+        (address market,) = getTokenMarket(id);
         if (market == address(0) || msg.sender != market) revert Unauthorized();
 
         _mint(to, id, 1, "");
@@ -125,5 +127,25 @@ contract TokenMinter is OwnableRoles, ERC1155Batchless {
 
     function ownerOf(uint256 id) public view returns (address) {
         return owners[id];
+    }
+
+    function getTokenTitle(uint256 id) public view returns (string memory, string memory) {
+        TokenTitle memory title = titles[id];
+        return (title.name, title.desc);
+    }
+
+    function getTokenBuilder(uint256 id) public view returns (address, uint256) {
+        TokenBuilder memory builder = builders[id];
+        return (builder.builder, builder.builderId);
+    }
+
+    function getTokenSource(uint256 id) public view returns (address, uint256, address) {
+        TokenSource memory source = sources[id];
+        return (source.bulletin, source.listId, source.logger);
+    }
+
+    function getTokenMarket(uint256 id) public view returns (address, uint256) {
+        TokenMarket memory market = markets[id];
+        return (market.market, market.limit);
     }
 }

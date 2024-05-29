@@ -6,7 +6,7 @@ import "lib/forge-std/src/console2.sol";
 
 import {TokenCurve} from "src/TokenCurve.sol";
 import {ITokenCurve, CurveType, Curve} from "src/interface/ITokenCurve.sol";
-import {ITokenMinter, TokenMetadata, TokenBuilder} from "src/interface/ITokenMinter.sol";
+import {ITokenMinter, TokenTitle, TokenSource, TokenBuilder, TokenMarket} from "src/interface/ITokenMinter.sol";
 import {TokenMinter} from "src/tokens/TokenMinter.sol";
 import {TokenUriBuilder} from "src/tokens/TokenUriBuilder.sol";
 import {Currency} from "src/tokens/Currency.sol";
@@ -371,19 +371,14 @@ contract TokenCurveTest is Test {
         vm.warp(block.timestamp + 100);
 
         // Set up token data.
-        TokenMetadata memory metadata = TokenMetadata({
-            name: "Token1",
-            desc: "Token Numba 1",
-            bulletin: address(bulletin),
-            listId: 1,
-            logger: address(0)
-        });
+        TokenTitle memory title = TokenTitle({name: "Token1", desc: "Token Numba 1"});
+        TokenSource memory source = TokenSource({bulletin: address(bulletin), listId: 1, logger: address(0)});
         TokenBuilder memory builder = TokenBuilder({builder: address(tokenUriBuilder), builderId: 1});
+        TokenMarket memory market = TokenMarket({market: address(tc), limit: 10 ether});
 
         // Set up minter.
         vm.prank(alice);
-        tokenMinter.registerMinter(metadata, builder, address(tc));
-        address minter = tokenMinter.markets(1);
+        tokenMinter.registerMinter(title, source, builder, market);
 
         // Retrieve for validation.
         uint256 mintPrice = tc.getCurvePrice(true, 1, 0);
@@ -809,18 +804,14 @@ contract TokenCurveTest is Test {
         tokenMinter = new TokenMinter();
 
         // Set up token data.
-        TokenMetadata memory metadata = TokenMetadata({
-            name: "Token1",
-            desc: "Token Numba 1",
-            bulletin: address(bulletin),
-            listId: 1,
-            logger: address(0)
-        });
+        TokenTitle memory title = TokenTitle({name: "Token1", desc: "Token Numba 1"});
+        TokenSource memory source = TokenSource({bulletin: address(bulletin), listId: 1, logger: address(0)});
         TokenBuilder memory builder = TokenBuilder({builder: address(tokenUriBuilder), builderId: 1});
+        TokenMarket memory market = TokenMarket({market: address(tc), limit: 10 ether});
 
         // Set up minter.
         vm.prank(alice);
-        tokenMinter.registerMinter(metadata, builder, address(tc));
+        tokenMinter.registerMinter(title, source, builder, market);
     }
 
     function deployTokenUriBuilder() internal {

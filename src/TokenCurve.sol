@@ -17,6 +17,7 @@ contract TokenCurve {
     error InvalidFormula();
     error InvalidAmount();
     error InsufficientCurrency();
+    error ExceedLimit();
 
     /// -----------------------------------------------------------------------
     /// Storage
@@ -96,6 +97,9 @@ contract TokenCurve {
     function support(uint256 _curveId, address patron, uint256 amountInCurrency) external payable virtual {
         // Validate mint conditions.
         Curve memory curve = curves[_curveId];
+        (, uint256 limit) = ITokenMinter(curve.token).getTokenMarket(curve.id);
+        if (limit > ++curves[_curveId].supply) revert ExceedLimit();
+
         uint256 _price = getCurvePrice(true, curve, 0);
         uint256 burnPrice = getCurvePrice(false, curve, 0);
         uint256 floor = calculatePrice(1, curve.scale, 0, 0, curve.mint_c);

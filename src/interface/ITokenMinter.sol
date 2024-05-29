@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-struct TokenMetadata {
+struct TokenTitle {
     string name;
     string desc;
+}
+
+struct TokenSource {
     address bulletin;
     uint256 listId;
     address logger;
@@ -14,15 +17,28 @@ struct TokenBuilder {
     uint48 builderId;
 }
 
+struct TokenMarket {
+    address market;
+    uint256 limit;
+}
+
 /// @notice .
 interface ITokenMinter {
     function tokenId() external returns (uint256);
-    function registerMinter(TokenMetadata calldata metadata, TokenBuilder calldata builder, address market)
-        external
-        payable;
+    function registerMinter(
+        TokenTitle calldata title,
+        TokenSource calldata source,
+        TokenBuilder calldata builder,
+        TokenMarket calldata market
+    ) external payable;
     function mintByCurve(address to, uint256 id) external payable;
     function burnByCurve(address from, uint256 id) external payable;
     function balanceOf(address _owner, uint256 _id) external view returns (uint256);
     function uri(uint256 id) external view returns (string memory);
     function ownerOf(uint256 id) external view returns (address);
+
+    function getTokenTitle(uint256 id) external payable returns (string memory, string memory);
+    function getTokenBuilder(uint256 id) external payable returns (address, uint256);
+    function getTokenSource(uint256 id) external payable returns (address, uint256, address);
+    function getTokenMarket(uint256 id) external payable returns (address, uint256);
 }
