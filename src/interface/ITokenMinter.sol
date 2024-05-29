@@ -14,15 +14,10 @@ struct TokenBuilder {
     uint48 builderId;
 }
 
-struct TokenOwner {
-    uint48 lastConfigured;
-    address owner;
-}
-
 /// @notice .
 interface ITokenMinter {
     function tokenId() external returns (uint256);
-    function setMinter(TokenMetadata calldata metadata, TokenBuilder calldata builder, address market)
+    function registerMinter(TokenMetadata calldata metadata, TokenBuilder calldata builder, address market)
         external
         payable;
     function mintByCurve(address to, uint256 id) external payable;

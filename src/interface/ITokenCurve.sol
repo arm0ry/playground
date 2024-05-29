@@ -12,6 +12,7 @@ struct Curve {
     address token;
     uint256 id;
     uint256 supply;
+    // uint256 maxSupply;
     CurveType curveType;
     address currency;
     uint64 scale;
@@ -26,6 +27,7 @@ struct Curve {
 interface ITokenCurve {
     /// @notice Curve logic.
     function registerCurve(Curve memory curve) external payable;
+    function treasuries(uint256) external view returns (uint256);
 
     /// @notice Patron logic.
     function support(uint256 curveId, address patron, uint256 price) external payable;

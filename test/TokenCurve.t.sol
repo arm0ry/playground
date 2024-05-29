@@ -6,7 +6,7 @@ import "lib/forge-std/src/console2.sol";
 
 import {TokenCurve} from "src/TokenCurve.sol";
 import {ITokenCurve, CurveType, Curve} from "src/interface/ITokenCurve.sol";
-import {ITokenMinter, TokenMetadata, TokenBuilder, TokenOwner} from "src/interface/ITokenMinter.sol";
+import {ITokenMinter, TokenMetadata, TokenBuilder} from "src/interface/ITokenMinter.sol";
 import {TokenMinter} from "src/tokens/TokenMinter.sol";
 import {TokenUriBuilder} from "src/tokens/TokenUriBuilder.sol";
 import {Currency} from "src/tokens/Currency.sol";
@@ -382,7 +382,7 @@ contract TokenCurveTest is Test {
 
         // Set up minter.
         vm.prank(alice);
-        tokenMinter.setMinter(metadata, builder, address(tc));
+        tokenMinter.registerMinter(metadata, builder, address(tc));
         address minter = tokenMinter.markets(1);
 
         // Retrieve for validation.
@@ -820,7 +820,7 @@ contract TokenCurveTest is Test {
 
         // Set up minter.
         vm.prank(alice);
-        tokenMinter.setMinter(metadata, builder, address(tc));
+        tokenMinter.registerMinter(metadata, builder, address(tc));
     }
 
     function deployTokenUriBuilder() internal {

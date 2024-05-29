@@ -5,7 +5,7 @@ import {SVG} from "src/utils/SVG.sol";
 import {JSON} from "src/utils/JSON.sol";
 import {ITokenCurve} from "src/interface/ITokenCurve.sol";
 import {IBulletin, List, Item} from "src/interface/IBulletin.sol";
-import {ITokenMinter, TokenMetadata, TokenBuilder, TokenOwner} from "src/interface/ITokenMinter.sol";
+import {ITokenMinter, TokenMetadata, TokenBuilder} from "src/interface/ITokenMinter.sol";
 
 /// @title
 /// @notice

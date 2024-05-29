@@ -1,91 +1,112 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.4;
 
-import {ERC1155} from "lib/solbase/src/tokens/ERC1155/ERC1155.sol";
+import {ERC1155Batchless} from "src/tokens/ERC1155Batchless.sol";
 import {TokenUriBuilder} from "src/tokens/TokenUriBuilder.sol";
 import {IBulletin, List} from "src/interface/IBulletin.sol";
-import {ITokenMinter, TokenMetadata, TokenBuilder, TokenOwner} from "src/interface/ITokenMinter.sol";
+import {ITokenMinter, TokenMetadata, TokenBuilder} from "src/interface/ITokenMinter.sol";
+import {OwnableRoles} from "src/auth/OwnableRoles.sol";
 
 /// @title Impact NFTs
 /// @notice SVG NFTs displaying impact results and metrics.
-contract TokenMinter is ERC1155 {
+contract TokenMinter is OwnableRoles, ERC1155Batchless {
     error InvalidConfig();
     error AlreadyConfigured();
-    error NextConfigAt(uint256 timestamp);
 
     /// -----------------------------------------------------------------------
     /// Storage
     /// -----------------------------------------------------------------------
 
     uint256 public tokenId;
-    uint256 public configInterval = 7 days;
-    mapping(bytes32 => bool) public initialized; // TODO: Use this to prevent token ids with duplicative metadata.
     mapping(uint256 => TokenBuilder) public builders;
-    mapping(uint256 => TokenOwner) public owners;
-    mapping(uint256 => TokenMetadata) public metadatas;
+    mapping(uint256 => TokenMetadata) public metadata;
+    mapping(uint256 => address) public owners;
     mapping(uint256 => address) public markets;
 
     /// -----------------------------------------------------------------------
-    /// Constructor & Modifier
+    /// Constructor & Modifiers
     /// -----------------------------------------------------------------------
+
+    function initialize(address admin) public {
+        _initializeOwner(admin);
+    }
+
+    modifier onlyRegisteredMarket(uint256 id) {
+        address market = markets[id];
+        if (market == address(0) || msg.sender != market) revert Unauthorized();
+
+        _;
+    }
+
+    modifier onlyTokenOwner(uint256 id) {
+        address owner = owners[id];
+        if (owner == address(0) || msg.sender != owner) revert Unauthorized();
+
+        _;
+    }
+
+    /// -----------------------------------------------------------------------
+    /// Metadata Logic
+    /// -----------------------------------------------------------------------
+
+    function uri(uint256 id) public view override returns (string memory) {
+        TokenBuilder memory builder = builders[id];
+        return TokenUriBuilder(builder.builder).build(builder.builderId, metadata[id]);
+    }
+
+    function svg(uint256 id) public view returns (string memory) {
+        TokenBuilder memory builder = builders[id];
+        TokenMetadata memory data = metadata[id];
+        return TokenUriBuilder(builder.builder).generateSvg(data.bulletin, data.listId);
+    }
 
     /// -----------------------------------------------------------------------
     /// Configuration
     /// -----------------------------------------------------------------------
 
-    // TODO: Should the same content have more than one token id? Probably not.
-    function setMinter(TokenMetadata calldata metadata, TokenBuilder calldata builder, address market)
+    function registerMinter(TokenMetadata calldata _metadata, TokenBuilder calldata builder, address market)
         external
         payable
     {
         if (builder.builder == address(0)) revert InvalidConfig();
-        List memory list = IBulletin(metadata.bulletin).getList(metadata.listId);
+        List memory list = IBulletin(_metadata.bulletin).getList(_metadata.listId);
         if (msg.sender != list.owner) revert Unauthorized();
 
         unchecked {
             ++tokenId;
         }
 
-        builders[tokenId] = TokenBuilder({builder: builder.builder, builderId: builder.builderId});
-        owners[tokenId] = TokenOwner({lastConfigured: uint48(block.timestamp), owner: msg.sender});
+        builders[tokenId] = builder;
+        owners[tokenId] = msg.sender;
         markets[tokenId] = market;
-        metadatas[tokenId] = TokenMetadata({
-            name: metadata.name,
-            desc: metadata.desc,
-            bulletin: metadata.bulletin,
-            listId: metadata.listId,
-            logger: metadata.logger
-        });
+        metadata[tokenId] = _metadata;
     }
 
-    // TODO: Tricky when switching between markets, especially from curved market into a flat one.
-    // TODO: Might need a cleanUpCurve() function to equitably distribute residuals in a curve to token holders.
-    function updateMarket(uint256 _tokenId, address market) external payable {
-        TokenOwner memory owner = owners[tokenId];
-        if (owner.owner != msg.sender) revert Unauthorized();
-        if (owner.lastConfigured + configInterval > block.timestamp) {
-            revert NextConfigAt(owner.lastConfigured + configInterval);
-        }
-        // (,,,,, address market,) =
-        //     abi.decode(metadata[_tokenId], (string, string, address, uint256, address, address, uint256));
-    }
-
-    function updateBuilder(uint256 _tokenId, TokenBuilder calldata builder) external payable {
-        TokenOwner memory owner = owners[tokenId];
-        if (owner.owner != msg.sender) revert Unauthorized();
-        if (owner.lastConfigured + configInterval > block.timestamp) {
-            revert NextConfigAt(owner.lastConfigured + configInterval);
-        }
-
-        builders[_tokenId] = TokenBuilder({builder: builder.builder, builderId: builder.builderId});
+    function updateBuilder(uint256 id, TokenBuilder calldata builder) external payable onlyTokenOwner(id) {
+        builders[id] = builder;
     }
 
     /// -----------------------------------------------------------------------
-    /// Mint / Burn Logic
+    /// Mint by owner of token id / Burn by owner of token
     /// -----------------------------------------------------------------------
 
-    // TODO: Add other mint functions with non-curve permissions
-    function mintByCurve(address to, uint256 id) external payable {
+    /// @notice Mint function limited to owner of token.
+    function mint(address to, uint256 id) external payable onlyTokenOwner(id) {
+        _mint(to, id, 1, "");
+    }
+
+    /// @notice Burn function limited to owner of token.
+    function burn(address from, uint256 id) external payable {
+        if (balanceOf[from][id] == 0) revert Unauthorized();
+        _burn(from, id, 1);
+    }
+
+    /// -----------------------------------------------------------------------
+    /// Mint / Burn by registered market
+    /// -----------------------------------------------------------------------
+
+    /// @notice Mint function limited to market registered by token owner.
+    function mintByMarket(address to, uint256 id) external payable onlyRegisteredMarket(id) {
         // Get market.
         address market = markets[id];
         if (market == address(0) || msg.sender != market) revert Unauthorized();
@@ -93,11 +114,8 @@ contract TokenMinter is ERC1155 {
         _mint(to, id, 1, "");
     }
 
-    function burnByCurve(address from, uint256 id) external payable {
-        // Get market.
-        address market = markets[id];
-        if (market == address(0) || msg.sender != market) revert Unauthorized();
-
+    /// @notice Burn function limited to market registered by token owner.
+    function burnByMarket(address from, uint256 id) external payable onlyRegisteredMarket(id) {
         _burn(from, id, 1);
     }
 
@@ -105,13 +123,7 @@ contract TokenMinter is ERC1155 {
     /// Public getter Logic
     /// -----------------------------------------------------------------------
 
-    function uri(uint256 id) public view override returns (string memory) {
-        TokenBuilder memory builder = builders[id];
-        return TokenUriBuilder(builder.builder).build(builder.builderId, metadatas[id]);
-    }
-
     function ownerOf(uint256 id) public view returns (address) {
-        TokenOwner memory owner = owners[id];
-        return owner.owner;
+        return owners[id];
     }
 }

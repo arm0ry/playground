@@ -22,13 +22,11 @@ contract TokenCurve {
     /// Storage
     /// -----------------------------------------------------------------------
 
-    /// @notice Role constants.
-    uint256 public constant LIST_OWNERS = 1 << 0;
-
     /// @notice Curve sdtorage.
     uint256 public curveId;
     mapping(uint256 => Curve) public curves;
     mapping(uint256 => uint256) public treasuries;
+    mapping(address => mapping(uint256 => uint256)) public patronBalances;
 
     /// -----------------------------------------------------------------------
     /// Constructor
@@ -153,6 +151,7 @@ contract TokenCurve {
 
         unchecked {
             ++curves[_curveId].supply;
+            ++patronBalances[msg.sender][_curveId];
 
             // Allocate burn price to treasury.
             treasuries[_curveId] += burnPrice;
@@ -163,9 +162,13 @@ contract TokenCurve {
     function burn(uint256 _curveId, address patron, uint256 tokenId) external payable {
         // Validate mint conditions.
         Curve memory curve = curves[_curveId];
-        if (ITokenMinter(curve.token).balanceOf(msg.sender, tokenId) == 0) revert Unauthorized();
+        if (ITokenMinter(curve.token).balanceOf(msg.sender, tokenId) == 0 || patronBalances[msg.sender][_curveId] == 0)
+        {
+            revert Unauthorized();
+        }
 
         --curves[_curveId].supply;
+        --patronBalances[msg.sender][_curveId];
 
         // Reduce curve treasury by burn price.
         uint256 burnPrice = getCurvePrice(false, curve, 0);
