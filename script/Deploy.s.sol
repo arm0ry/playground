@@ -91,10 +91,13 @@ contract Deploy is Script {
         IBulletin(bulletinAddr).grantRoles(loggerAddr, IBulletin(bulletinAddr).LOGGERS());
 
         // Prepare lists.
-        registerListTutorial();
-        registerWildernessPark();
-        registerNujabes();
-        registerHackath0n();
+        registerChiadoPoloHat();
+        registerColdBrewCoffee();
+        registerEspresso();
+        // registerNujabes();
+        // registerListTutorial();
+        // registerWildernessPark();
+        // registerHackath0n();
 
         // Deploy token minter and uri builder.
         deployTokenMinter();
@@ -140,16 +143,16 @@ contract Deploy is Script {
         );
         uint256 tokenId3 = ITokenMinter(tokenMinterAddr).tokenId();
 
-        ITokenMinter(tokenMinterAddr).registerMinter(
-            TokenTitle({
-                name: "Harberger Sponsor: g0v Hackath0n [WIP]",
-                desc: "In addition to using bonding curve as the pricing and ownership mechanism for a List, we can also use Harberger Tax to maintain (serial) ownership of the Lists. This mechanism might be appropriate for supporters looking for more exclusive ownership and relationship with the owner of the List."
-            }),
-            TokenSource({bulletin: bulletinAddr, listId: 4, logger: loggerAddr}),
-            TokenBuilder({builder: tokenBuilderAddr, builderId: 1}),
-            TokenMarket({market: marketAddr, limit: 100 ether})
-        );
-        uint256 tokenId4 = ITokenMinter(tokenMinterAddr).tokenId();
+        // ITokenMinter(tokenMinterAddr).registerMinter(
+        //     TokenTitle({
+        //         name: "Harberger Sponsor: g0v Hackath0n [WIP]",
+        //         desc: "In addition to using bonding curve as the pricing and ownership mechanism for a List, we can also use Harberger Tax to maintain (serial) ownership of the Lists. This mechanism might be appropriate for supporters looking for more exclusive ownership and relationship with the owner of the List."
+        //     }),
+        //     TokenSource({bulletin: bulletinAddr, listId: 4, logger: loggerAddr}),
+        //     TokenBuilder({builder: tokenBuilderAddr, builderId: 1}),
+        //     TokenMarket({market: marketAddr, limit: 100 ether})
+        // );
+        // uint256 tokenId4 = ITokenMinter(tokenMinterAddr).tokenId();
 
         // Register curves.
         curve1 = Curve({
@@ -203,22 +206,22 @@ contract Deploy is Script {
         });
         TokenCurve(marketAddr).registerCurve(curve3);
 
-        curve4 = Curve({
-            owner: patron,
-            token: tokenMinterAddr,
-            id: tokenId4,
-            supply: 0,
-            curveType: CurveType.QUADRATIC,
-            currency: currencyAddr,
-            scale: 0.0001 ether,
-            mint_a: 10,
-            mint_b: 10,
-            mint_c: 1,
-            burn_a: 5,
-            burn_b: 5,
-            burn_c: 0
-        });
-        TokenCurve(marketAddr).registerCurve(curve4);
+        // curve4 = Curve({
+        //     owner: patron,
+        //     token: tokenMinterAddr,
+        //     id: tokenId4,
+        //     supply: 0,
+        //     curveType: CurveType.QUADRATIC,
+        //     currency: currencyAddr,
+        //     scale: 0.0001 ether,
+        //     mint_a: 10,
+        //     mint_b: 10,
+        //     mint_c: 1,
+        //     burn_a: 5,
+        //     burn_b: 5,
+        //     burn_c: 0
+        // });
+        // TokenCurve(marketAddr).registerCurve(curve4);
 
         // Update admin.
         // Need this only if deployer account is different from account operating the contract
@@ -280,6 +283,141 @@ contract Deploy is Script {
     function support(uint256 curveId, address patron, uint256 amountInCurrency) internal {
         uint256 price = TokenCurve(marketAddr).getCurvePrice(true, curveId, 0);
         TokenCurve(marketAddr).support{value: price}(curveId, patron, amountInCurrency);
+    }
+
+    function registerList(
+        address user,
+        address bulletin,
+        Item[] memory _items,
+        string memory listTitle,
+        string memory listDetail
+    ) internal {
+        delete itemIds;
+        uint256 itemId = IBulletin(bulletinAddr).itemId();
+
+        IBulletin(bulletinAddr).registerItems(_items);
+
+        for (uint256 i = 1; i <= _items.length; ++i) {
+            itemIds.push(itemId + i);
+        }
+
+        List memory list = List({owner: user, title: listTitle, detail: listDetail, schema: BYTES, itemIds: itemIds});
+        IBulletin(bulletinAddr).registerList(list);
+    }
+
+    /// -----------------------------------------------------------------------
+    /// Register Lists
+    /// -----------------------------------------------------------------------
+
+    function registerColdBrewCoffee() public {
+        delete items;
+
+        Item memory item1 = Item({
+            review: false,
+            expire: FUTURE,
+            owner: user1,
+            title: "ABC Iced Blend",
+            detail: "https://mameyacoffee.com/products/ice-blend?variant=47852310331707",
+            schema: BYTES
+        });
+        Item memory item2 = Item({
+            review: false,
+            expire: FUTURE,
+            owner: user1,
+            title: "Baratza Encore Electric Grinder",
+            detail: "https://www.baratza.com/en-us/product/encoretm-zcg485",
+            schema: BYTES
+        });
+        Item memory item3 = Item({
+            review: false,
+            expire: FUTURE,
+            owner: user1,
+            title: "Cold Brew",
+            detail: "https://www.youtube.com/embed/CjOXSwJZEhM",
+            schema: BYTES
+        });
+        Item memory item4 =
+            Item({review: false, expire: FUTURE, owner: user1, title: "Filtered Water", detail: "", schema: BYTES});
+
+        items.push(item1);
+        items.push(item2);
+        items.push(item3);
+        items.push(item4);
+
+        registerList(
+            account,
+            bulletinAddr,
+            items,
+            "Cold Brew",
+            "A smooth and refreshing coffee experience crafted to balance bold flavors and ethical sourcing, perfect for those who savor quality in every sip"
+        );
+    }
+
+    function registerEspresso() public {
+        delete items;
+
+        Item memory item1 = Item({
+            review: false,
+            expire: FUTURE,
+            owner: user1,
+            title: "ABC Espresso Blend",
+            detail: "https://mameyacoffee.com/products/espresso-blend",
+            schema: BYTES
+        });
+        Item memory item2 = Item({
+            review: false,
+            expire: FUTURE,
+            owner: user1,
+            title: "Eureka Atom Espresso Grinder",
+            detail: "https://www.eureka.co.it/en/products/eureka+1920/commercial+grinders/atom+range/8.aspx",
+            schema: BYTES
+        });
+        Item memory item3 = Item({
+            review: false,
+            expire: FUTURE,
+            owner: user1,
+            title: "Breville Bambino Plus",
+            detail: "https://www.breville.com/us/en/products/espresso/bes500.html",
+            schema: BYTES
+        });
+        Item memory item4 =
+            Item({review: false, expire: FUTURE, owner: user1, title: "Filtered Water", detail: "", schema: BYTES});
+
+        items.push(item1);
+        items.push(item2);
+        items.push(item3);
+        items.push(item4);
+
+        registerList(
+            account,
+            bulletinAddr,
+            items,
+            "Espresso",
+            "A bold and ethically sourced coffee blend, meticulously crafted to deliver an exceptional and responsible espresso experience in every cup"
+        );
+    }
+
+    function registerChiadoPoloHat() public {
+        delete items;
+
+        Item memory item1 = Item({
+            review: false,
+            expire: FUTURE,
+            owner: user1,
+            title: "Polo Hat",
+            detail: "https://onlyny.com/collections/headwear/products/berry-polo-hat?variant=41087202951252",
+            schema: BYTES
+        });
+
+        items.push(item1);
+
+        registerList(
+            account,
+            bulletinAddr,
+            items,
+            "Chiado Polo Hat",
+            "Chiado Coffee brings you the best looking outfit that makes you proud."
+        );
     }
 
     function registerHackath0n() public {
@@ -437,7 +575,7 @@ contract Deploy is Script {
             review: false,
             expire: FUTURE,
             owner: user3,
-            title: "Feather (feat. Cise Starr & Akin from CYNE)",
+            title: "Feather (feat. Cise Starr &amp; Akin from CYNE)",
             detail: "https://www.youtube.com/embed/hQ5x8pHoIPA",
             schema: BYTES
         });
@@ -490,7 +628,7 @@ contract Deploy is Script {
             review: false,
             expire: FUTURE,
             owner: user3,
-            title: "Feather (feat. Cise Starr & Akin from CYNE)",
+            title: "Feather (feat. Cise Starr &amp; Akin from CYNE)",
             detail: "https://www.youtube.com/embed/hQ5x8pHoIPA",
             schema: BYTES
         });
@@ -532,25 +670,5 @@ contract Deploy is Script {
             "The Nujabes Musical Collection",
             "Just a few tracks from the Japanese legend, the original lo-fi master that inspired the entire chill genre. Enjoy!"
         );
-    }
-
-    function registerList(
-        address user,
-        address bulletin,
-        Item[] memory _items,
-        string memory listTitle,
-        string memory listDetail
-    ) internal {
-        delete itemIds;
-        uint256 itemId = IBulletin(bulletinAddr).itemId();
-
-        IBulletin(bulletinAddr).registerItems(_items);
-
-        for (uint256 i = 1; i <= _items.length; ++i) {
-            itemIds.push(itemId + i);
-        }
-
-        List memory list = List({owner: user, title: listTitle, detail: listDetail, schema: BYTES, itemIds: itemIds});
-        IBulletin(bulletinAddr).registerList(list);
     }
 }

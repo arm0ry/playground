@@ -24,6 +24,11 @@ struct Curve {
     uint32 burn_c;
 }
 
+struct Collected {
+    uint256 amountInCurrency;
+    uint256 amountInStablecoin;
+}
+
 interface ITokenCurve {
     /// @notice Curve logic.
     function registerCurve(Curve memory curve) external payable;

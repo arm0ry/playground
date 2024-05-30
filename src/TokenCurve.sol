@@ -3,7 +3,7 @@ pragma solidity >=0.8.4;
 
 import {ICurrency} from "src/interface/ICurrency.sol";
 import {OwnableRoles} from "src/auth/OwnableRoles.sol";
-import {ITokenCurve, CurveType, Curve} from "src/interface/ITokenCurve.sol";
+import {ITokenCurve, CurveType, Curve, Collected} from "src/interface/ITokenCurve.sol";
 import {ITokenMinter} from "src/interface/ITokenMinter.sol";
 
 /// @notice .
@@ -28,6 +28,7 @@ contract TokenCurve {
     mapping(uint256 => Curve) public curves;
     mapping(uint256 => uint256) public treasuries;
     mapping(address => mapping(uint256 => uint256)) public patronBalances;
+    mapping(address => mapping(uint256 => Collected)) public collected;
 
     /// -----------------------------------------------------------------------
     /// Constructor
@@ -117,6 +118,9 @@ contract TokenCurve {
 
                     // Transfer coin.
                     safeTransferETH(curve.owner, _price - burnPrice - floor);
+
+                    collected[curve.owner][_curveId].amountInCurrency += floor;
+                    collected[curve.owner][_curveId].amountInStablecoin += _price - burnPrice - floor;
                 } else {
                     // Unsubsidized Currency Support.
                     // Without subsidy, increase payment based on amount of currency support.
@@ -127,17 +131,19 @@ contract TokenCurve {
 
                     // Transfer coin.
                     safeTransferETH(curve.owner, _price - burnPrice - amountInCurrency);
+
+                    collected[curve.owner][_curveId].amountInCurrency += amountInCurrency;
+                    collected[curve.owner][_curveId].amountInStablecoin += _price - burnPrice - amountInCurrency;
                 }
             } else {
                 // Stablecoins Support.
                 // Without subsidy, increase payment based on amount of currency support.
-                if (_price - amountInCurrency != msg.value) revert InvalidAmount(); // Assumes 1:1 ratio between base coin and currency.
-
-                // Transfer currency.
-                ICurrency(curve.currency).transferFrom(msg.sender, curve.owner, amountInCurrency);
+                if (_price != msg.value) revert InvalidAmount(); // Assumes 1:1 ratio between base coin and currency.
 
                 // Transfer coin.
-                safeTransferETH(curve.owner, _price - burnPrice - amountInCurrency);
+                safeTransferETH(curve.owner, _price - burnPrice);
+
+                collected[curve.owner][_curveId].amountInStablecoin += _price - burnPrice;
             }
         } else {
             // Full Currency Support.
@@ -148,6 +154,9 @@ contract TokenCurve {
 
             // Transfer coin.
             safeTransferETH(curve.owner, _price - burnPrice - floor);
+
+            collected[curve.owner][_curveId].amountInCurrency += floor;
+            collected[curve.owner][_curveId].amountInStablecoin += _price - burnPrice - floor;
         }
 
         // Mint.
@@ -166,10 +175,7 @@ contract TokenCurve {
     function burn(uint256 _curveId, address patron, uint256 tokenId) external payable {
         // Validate mint conditions.
         Curve memory curve = curves[_curveId];
-        if (ITokenMinter(curve.token).balanceOf(msg.sender, tokenId) == 0 || patronBalances[msg.sender][_curveId] == 0)
-        {
-            revert Unauthorized();
-        }
+        if (ITokenMinter(curve.token).balanceOf(msg.sender, tokenId) == 0) revert Unauthorized();
 
         --curves[_curveId].supply;
         --patronBalances[msg.sender][_curveId];
