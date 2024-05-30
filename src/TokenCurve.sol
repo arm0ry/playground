@@ -98,7 +98,7 @@ contract TokenCurve {
         // Validate mint conditions.
         Curve memory curve = curves[_curveId];
         (, uint256 limit) = ITokenMinter(curve.token).getTokenMarket(curve.id);
-        if (limit > ++curves[_curveId].supply) revert ExceedLimit();
+        if (curves[_curveId].supply == limit) revert ExceedLimit();
 
         uint256 _price = getCurvePrice(true, curve, 0);
         uint256 burnPrice = getCurvePrice(false, curve, 0);
@@ -151,7 +151,7 @@ contract TokenCurve {
         }
 
         // Mint.
-        ITokenMinter(curve.token).mintByCurve(patron, curve.id);
+        ITokenMinter(curve.token).mintByMarket(patron, curve.id);
 
         unchecked {
             ++curves[_curveId].supply;
@@ -179,7 +179,7 @@ contract TokenCurve {
         treasuries[_curveId] -= burnPrice;
 
         // Burn SupportToken.
-        ITokenMinter(curve.token).burnByCurve(msg.sender, tokenId);
+        ITokenMinter(curve.token).burnByMarket(msg.sender, tokenId);
 
         // Distribute burn to patron.
         safeTransferETH(patron, burnPrice);

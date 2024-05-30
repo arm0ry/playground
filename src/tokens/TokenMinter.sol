@@ -84,10 +84,6 @@ contract TokenMinter is OwnableRoles, ERC1155Batchless {
         owners[tokenId] = msg.sender;
     }
 
-    function updateBuilder(uint256 id, TokenBuilder calldata builder) external payable onlyTokenOwner(id) {
-        builders[id] = builder;
-    }
-
     /// -----------------------------------------------------------------------
     /// Mint by owner of token id / Burn by owner of token
     /// -----------------------------------------------------------------------

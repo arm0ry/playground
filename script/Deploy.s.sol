@@ -17,7 +17,7 @@ import {OnboardingSupportToken} from "src/tokens/g0v/OnboardingSupportToken.sol"
 import {HackathonSupportToken} from "src/tokens/g0v/HackathonSupportToken.sol";
 import {ParticipantSupportToken} from "src/tokens/g0v/ParticipantSupportToken.sol";
 import {TokenMinter} from "src/tokens/TokenMinter.sol";
-import {ITokenMinter, TokenBuilder, TokenOwner, TokenMetadata} from "src/interface/ITokenMinter.sol";
+import {ITokenMinter, TokenTitle, TokenBuilder, TokenSource, TokenMarket} from "src/interface/ITokenMinter.sol";
 import {Currency} from "src/tokens/Currency.sol";
 import {TokenUriBuilder} from "src/tokens/TokenUriBuilder.sol";
 
@@ -107,55 +107,47 @@ contract Deploy is Script {
         deployTokenCurve(patron);
 
         // Configure token
-        ITokenMinter(tokenMinterAddr).setMinter(
-            TokenMetadata({
+        ITokenMinter(tokenMinterAddr).registerMinter(
+            TokenTitle({
                 name: "Flat Collection Token: Community Onboarding",
-                desc: "Flat Collection is a way of collecting donations in local $Currency. The amount of $Currency to collect might reflect personal time involved and any local community values produced as a result of socializing the community service/talent/items from the List.",
-                bulletin: bulletinAddr,
-                listId: 1,
-                logger: loggerAddr
+                desc: "Flat Collection is a way of collecting donations in local $Currency. The amount of $Currency to collect might reflect personal time involved and any local community values produced as a result of socializing the community service/talent/items from the List."
             }),
+            TokenSource({bulletin: bulletinAddr, listId: 1, logger: loggerAddr}),
             TokenBuilder({builder: tokenBuilderAddr, builderId: 1}),
-            marketAddr
+            TokenMarket({market: marketAddr, limit: 100 ether})
         );
         uint256 tokenId = ITokenMinter(tokenMinterAddr).tokenId();
 
-        ITokenMinter(tokenMinterAddr).setMinter(
-            TokenMetadata({
+        ITokenMinter(tokenMinterAddr).registerMinter(
+            TokenTitle({
                 name: "Curved Support Token: Wildnerness Park (IRL activities)",
-                desc: "Curved Support adds a layer on top of Flat Collection and offers opportunities for supporters to exit. The Flat Collection portion of Curved Support collects donations in $Currency just like above, and it might further include any external values in stablecoins that may enter the local economy as a result of socializing the List.",
-                bulletin: bulletinAddr,
-                listId: 2,
-                logger: loggerAddr
+                desc: "Curved Support adds a layer on top of Flat Collection and offers opportunities for supporters to exit. The Flat Collection portion of Curved Support collects donations in $Currency just like above, and it might further include any external values in stablecoins that may enter the local economy as a result of socializing the List."
             }),
+            TokenSource({bulletin: bulletinAddr, listId: 2, logger: loggerAddr}),
             TokenBuilder({builder: tokenBuilderAddr, builderId: 1}),
-            marketAddr
+            TokenMarket({market: marketAddr, limit: 100 ether})
         );
         uint256 tokenId2 = ITokenMinter(tokenMinterAddr).tokenId();
 
-        ITokenMinter(tokenMinterAddr).setMinter(
-            TokenMetadata({
+        ITokenMinter(tokenMinterAddr).registerMinter(
+            TokenTitle({
                 name: "Curved Support Token 2: Music (IP)",
-                desc: "Curved Support is an elegant and efficient way to openly capture and distribute values from positive externalities. Local communities that manage $Currency might decide to subsidize the curve to jumpstart the $Currency economy or as means to provide ongoing support for local commerce.",
-                bulletin: bulletinAddr,
-                listId: 3,
-                logger: loggerAddr
+                desc: "Curved Support is an elegant and efficient way to openly capture and distribute values from positive externalities. Local communities that manage $Currency might decide to subsidize the curve to jumpstart the $Currency economy or as means to provide ongoing support for local commerce."
             }),
+            TokenSource({bulletin: bulletinAddr, listId: 3, logger: loggerAddr}),
             TokenBuilder({builder: tokenBuilderAddr, builderId: 1}),
-            marketAddr
+            TokenMarket({market: marketAddr, limit: 100 ether})
         );
         uint256 tokenId3 = ITokenMinter(tokenMinterAddr).tokenId();
 
-        ITokenMinter(tokenMinterAddr).setMinter(
-            TokenMetadata({
+        ITokenMinter(tokenMinterAddr).registerMinter(
+            TokenTitle({
                 name: "Harberger Sponsor: g0v Hackath0n [WIP]",
-                desc: "In addition to using bonding curve as the pricing and ownership mechanism for a List, we can also use Harberger Tax to maintain (serial) ownership of the Lists. This mechanism might be appropriate for supporters looking for more exclusive ownership and relationship with the owner of the List.",
-                bulletin: bulletinAddr,
-                listId: 4,
-                logger: loggerAddr
+                desc: "In addition to using bonding curve as the pricing and ownership mechanism for a List, we can also use Harberger Tax to maintain (serial) ownership of the Lists. This mechanism might be appropriate for supporters looking for more exclusive ownership and relationship with the owner of the List."
             }),
+            TokenSource({bulletin: bulletinAddr, listId: 4, logger: loggerAddr}),
             TokenBuilder({builder: tokenBuilderAddr, builderId: 1}),
-            marketAddr
+            TokenMarket({market: marketAddr, limit: 100 ether})
         );
         uint256 tokenId4 = ITokenMinter(tokenMinterAddr).tokenId();
 
