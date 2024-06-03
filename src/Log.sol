@@ -77,6 +77,7 @@ contract Log is OwnableRoles {
 
     modifier checkList(address bulletin, uint256 listId, uint256 itemId) {
         if (!IBulletin(bulletin).checkIsItemInList(itemId, listId)) revert InvalidList();
+        if (itemId == 0 && IBulletin(bulletin).hasItemExpired(listId)) revert InvalidItem();
         if (itemId == 0 && IBulletin(bulletin).hasListExpired(listId)) revert InvalidList();
         _;
     }
