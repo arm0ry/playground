@@ -68,11 +68,17 @@ contract Log is OwnableRoles {
     }
 
     /// -----------------------------------------------------------------------
-    /// Constructor
+    /// Constructor & Modifier
     /// -----------------------------------------------------------------------
 
     function initialize(address owner) public {
         _initializeOwner(owner);
+    }
+
+    modifier checkList(address bulletin, uint256 listId, uint256 itemId) {
+        if (!IBulletin(bulletin).checkIsItemInList(itemId, listId)) revert InvalidList();
+        if (itemId == 0 && IBulletin(bulletin).hasListExpired(listId)) revert InvalidList();
+        _;
     }
 
     /// -----------------------------------------------------------------------
@@ -82,10 +88,8 @@ contract Log is OwnableRoles {
     function log(address bulletin, uint256 listId, uint256 itemId, string calldata feedback, bytes calldata data)
         external
         payable
+        checkList(bulletin, listId, itemId)
     {
-        if (IBulletin(bulletin).hasItemExpired(itemId)) revert InvalidItem();
-        if (!IBulletin(bulletin).checkIsItemInList(itemId, listId)) revert InvalidList();
-
         _log(msg.sender, bulletin, listId, itemId, feedback, data);
     }
 
@@ -99,7 +103,7 @@ contract Log is OwnableRoles {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) external payable {
+    ) external payable checkList(bulletin, listId, itemId) {
         // Validate signed message.
         bytes32 digest = keccak256(
             abi.encodePacked(
@@ -122,7 +126,7 @@ contract Log is OwnableRoles {
         uint256 itemId,
         string calldata feedback,
         bytes calldata data
-    ) external payable onlyRoles(GASBUDDIES) {
+    ) external payable onlyRoles(GASBUDDIES) checkList(bulletin, listId, itemId) {
         _log(address(0), bulletin, listId, itemId, feedback, data);
     }
 

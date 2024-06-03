@@ -250,5 +250,21 @@ contract Bulletin is OwnableRoles {
         }
     }
 
+    function hasListExpired(uint256 id) public view returns (bool) {
+        List memory list;
+        uint256 itemCount;
+        bool expired;
+
+        // @notice Count number of times completed per activity.
+        list = lists[id];
+        itemCount = list.itemIds.length;
+
+        for (uint256 i; i < itemCount; ++i) {
+            hasItemExpired(lists[id].itemIds[i]) ? expired = true : expired;
+        }
+
+        return expired;
+    }
+
     receive() external payable virtual {}
 }
