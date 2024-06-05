@@ -9,9 +9,10 @@ import {OwnableRoles} from "src/auth/OwnableRoles.sol";
 
 /// @title Impact NFTs
 /// @notice SVG NFTs displaying impact results and metrics.
-contract TokenMinter is OwnableRoles, ERC1155Batchless {
+contract TokenMinter is ERC1155Batchless {
     error InvalidConfig();
     error AlreadyConfigured();
+    error Unauthorized();
 
     /// -----------------------------------------------------------------------
     /// Storage
@@ -27,10 +28,6 @@ contract TokenMinter is OwnableRoles, ERC1155Batchless {
     /// -----------------------------------------------------------------------
     /// Constructor & Modifiers
     /// -----------------------------------------------------------------------
-
-    function initialize(address admin) public {
-        _initializeOwner(admin);
-    }
 
     modifier onlyRegisteredMarket(uint256 id) {
         (address market,) = getTokenMarket(id);
@@ -54,9 +51,9 @@ contract TokenMinter is OwnableRoles, ERC1155Batchless {
     }
 
     function svg(uint256 id) public view returns (string memory) {
-        (address builder,) = getTokenBuilder(id);
-        (address bulletin, uint256 listId,) = getTokenSource(id);
-        return TokenUriBuilder(builder).generateSvg(bulletin, listId);
+        (address builder, uint256 builderId) = getTokenBuilder(id);
+        (address bulletin, uint256 listId, address logger) = getTokenSource(id);
+        return TokenUriBuilder(builder).generateSvg(builderId, bulletin, listId, logger);
     }
 
     /// -----------------------------------------------------------------------

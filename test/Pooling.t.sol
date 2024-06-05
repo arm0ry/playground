@@ -80,25 +80,25 @@ contract PoolingTest is LogTest {
 
     function test_ItemRunsByLog() public {
         test_Log_ReviewNotRequired_LoggerAuthorized();
-        uint256 count = Pooling.itemRunsByLog(address(logger));
+        uint256 count = Pooling.touchpointRunsByLog(address(logger));
         emit log_uint(count);
     }
 
     function test_AverageItemRunsByLog() public {
         test_Log_ReviewNotRequired_LoggerAuthorized();
-        uint256 count = Pooling.averageItemRunsByLog(address(logger));
+        uint256 count = Pooling.averageTouchpointRunsByLog(address(logger));
         emit log_uint(count);
     }
 
     function test_AverageItemRunsByListByLog() public {
         test_Log_ReviewNotRequired_LoggerAuthorized();
-        uint256 count = Pooling.averageItemRunsyByListByLog(address(logger), address(bulletin), 1);
+        uint256 count = Pooling.averageTouchpointRunsByListByLog(address(logger), address(bulletin), 1);
         emit log_uint(count);
     }
 
     function test_TotalItemRunsByListByLog() public {
         test_Log_ReviewNotRequired_LoggerAuthorized();
-        uint256 count = Pooling.totalItemRunsByListByLog(address(logger), address(bulletin), 1);
+        uint256 count = Pooling.totalTouchpointRunsByListByLog(address(logger), address(bulletin), 1);
         emit log_uint(count);
     }
 

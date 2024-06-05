@@ -44,7 +44,7 @@ library Pooling {
     /// Bulletin Lists & Items
     /// -----------------------------------------------------------------------
 
-    function itemRunsByLog(address log) public view returns (uint256 runs) {
+    function touchpointRunsByLog(address log) public view returns (uint256 runs) {
         uint256 count = ILog(log).logId();
 
         uint256 aNonce;
@@ -54,7 +54,7 @@ library Pooling {
         }
     }
 
-    function averageItemRunsByLog(address log) public view returns (uint256 runs) {
+    function averageTouchpointRunsByLog(address log) public view returns (uint256 runs) {
         uint256 count = ILog(log).logId();
 
         uint256 aNonce;
@@ -64,7 +64,7 @@ library Pooling {
         }
     }
 
-    function averageItemRunsyByListByLog(address log, address bulletin, uint256 listId)
+    function averageTouchpointRunsByListByLog(address log, address bulletin, uint256 listId)
         public
         view
         returns (uint256 runs)
@@ -85,7 +85,7 @@ library Pooling {
         }
     }
 
-    function totalItemRunsByListByLog(address log, address bulletin, uint256 listId)
+    function totalTouchpointRunsByListByLog(address log, address bulletin, uint256 listId)
         public
         view
         returns (uint256 runs)
@@ -170,17 +170,6 @@ library Pooling {
     /// @notice Query the number of activities started in a log by a user.
     function activityStartsByLog(address log) public view returns (uint256) {
         return ILog(log).logId();
-    }
-
-    /// @notice Query the number of touchpoints in a log by a user.
-    function touchpointRunsByLog(address log) public view returns (uint256 runs) {
-        uint256 count = ILog(log).logId();
-
-        uint256 aNonce;
-        for (uint256 i = 1; i <= count; ++i) {
-            (,,, aNonce) = ILog(log).getLog(i);
-            runs = runs + aNonce;
-        }
     }
 
     function touchpointRunsByLogs(address[] calldata logs) public view returns (uint256 runs) {
