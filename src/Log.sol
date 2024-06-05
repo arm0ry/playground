@@ -38,6 +38,12 @@ contract Log is OwnableRoles {
     // user => (keccak256(abi.encodePacked(bulletin, listId) => logId)
     mapping(address => mapping(bytes32 => uint256)) public lookupLogId;
 
+    // Mapping of touchpoints by data encoded with bulletin, listId, and itemId
+    // keccak256(abi.encodePacked(bulletin, listId, itemId) => nonce for itemId
+    mapping(bytes32 => uint256) nonceByItemId;
+    // keccak256(abi.encodePacked(bulletin, listId, itemId) => nonce for itemId => Touchpoint data
+    mapping(bytes32 => mapping(uint256 => bytes)) public touchpointDataByEncodedItemId;
+
     /// -----------------------------------------------------------------------
     /// Sign Storage
     /// -----------------------------------------------------------------------
@@ -76,9 +82,13 @@ contract Log is OwnableRoles {
     }
 
     modifier checkList(address bulletin, uint256 listId, uint256 itemId) {
-        if (!IBulletin(bulletin).checkIsItemInList(itemId, listId)) revert InvalidList();
-        if (itemId == 0 && IBulletin(bulletin).hasItemExpired(listId)) revert InvalidItem();
-        if (itemId == 0 && IBulletin(bulletin).hasListExpired(listId)) revert InvalidList();
+        if (itemId == 0) {
+            if (IBulletin(bulletin).hasListExpired(listId)) revert InvalidList();
+        } else {
+            if (IBulletin(bulletin).hasItemExpired(itemId)) revert InvalidItem();
+            if (!IBulletin(bulletin).checkIsItemInList(itemId, listId)) revert InvalidList();
+        }
+
         _;
     }
 
@@ -140,9 +150,10 @@ contract Log is OwnableRoles {
         bytes calldata data
     ) internal {
         uint256 id = lookupLogId[user][keccak256(abi.encodePacked(bulletin, listId))];
+
+        // Check if review by reviewer is required.
         Item memory item = IBulletin(bulletin).getItem(itemId);
         bool review = (item.review) ? false : true;
-        uint256 LOGGERS = IBulletin(bulletin).LOGGERS();
 
         if (id == 0) {
             unchecked {
@@ -167,6 +178,12 @@ contract Log is OwnableRoles {
             }
         }
 
+        unchecked {
+            bytes32 temp = keccak256(abi.encodePacked(bulletin, listId, itemId));
+            touchpointDataByEncodedItemId[temp][++nonceByItemId[temp]] = data;
+        }
+
+        uint256 LOGGERS = IBulletin(bulletin).LOGGERS();
         if (IBulletin(bulletin).hasAnyRole(address(this), LOGGERS) && review) {
             IBulletin(bulletin).submit(itemId);
         }
@@ -222,6 +239,20 @@ contract Log is OwnableRoles {
 
         for (uint256 i; i < aNonce; ++i) {
             tps[i] = logs[_logId].touchpoints[i];
+        }
+
+        return tps;
+    }
+
+    function getTouchpointsByLogByItemId(uint256 _logId, uint256 _itemId) external view returns (Touchpoint[] memory) {
+        (,,, uint256 aNonce) = getLog(_logId);
+        Touchpoint[] memory tps = new Touchpoint[](aNonce);
+
+        for (uint256 i; i < aNonce; ++i) {
+            Touchpoint memory tp = logs[_logId].touchpoints[i];
+            if (tp.itemId == _itemId) {
+                tps[i] = tp;
+            }
         }
 
         return tps;

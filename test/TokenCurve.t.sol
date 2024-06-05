@@ -398,7 +398,7 @@ contract TokenCurveTest is Test {
         assertEq(tc.treasuries(1), burnPrice);
 
         emit log_string(tokenMinter.uri(1));
-        emit log_string(tokenUriBuilder.generateSvg(address(bulletin), 1));
+        emit log_string(tokenUriBuilder.generateSvg(1, address(bulletin), 1, address(0)));
     }
 
     function test_LinearCurve_Support_SomeCurrency_Subsidized(
