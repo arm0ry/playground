@@ -92,6 +92,8 @@ contract Log is OwnableRoles {
         _;
     }
 
+    // TODO: Add a modifier to check permission (verified nft owner etc) to log activities
+
     /// -----------------------------------------------------------------------
     /// Log Logic
     /// -----------------------------------------------------------------------

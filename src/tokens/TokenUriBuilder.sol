@@ -7,28 +7,10 @@ import {ITokenCurve} from "src/interface/ITokenCurve.sol";
 import {IBulletin, List, Item} from "src/interface/IBulletin.sol";
 import {ILog, Activity, Touchpoint} from "src/interface/ILog.sol";
 import {ITokenMinter, TokenTitle, TokenSource, TokenBuilder} from "src/interface/ITokenMinter.sol";
-import {LibMap} from "lib/solady/src/utils/LibMap.sol";
-import {LibBitmap} from "lib/solady/src/utils/LibBitmap.sol";
-import {LibBytemap} from "lib/solbase/src/utils/LibBytemap.sol";
 
 /// @title
 /// @notice
 contract TokenUriBuilder {
-    /// -----------------------------------------------------------------------
-    /// Builder Storage
-    /// -----------------------------------------------------------------------
-
-    // using LibBitmap for LibBitmap.Bitmap;
-    // using LibMap for LibMap.Uint8Map;
-    // using LibBytemap for LibBytemap.Bytemap;
-
-    // LibBitmap.Bitmap bitmap;
-    // LibMap.Uint8Map uint8Map;
-    // LibBytemap.Bytemap bytemap;
-
-    // mapping(bytes32 => uint256) public counter;
-    // uint8[7] public counters;
-
     /// -----------------------------------------------------------------------
     /// Builder Router
     /// -----------------------------------------------------------------------
@@ -41,9 +23,11 @@ contract TokenUriBuilder {
         if (id == 1) {
             return listOverview(title, source);
         } else if (id == 2) {
-            return feedbackForColdBrew(title, source);
+            return feedbackForBeverages(title, source);
         } else if (id == 3) {
             // return feedbackForEspresso(title, source);
+            return "";
+        } else {
             return "";
         }
     }
@@ -60,9 +44,11 @@ contract TokenUriBuilder {
         if (id == 1) {
             return generateSvgForListOverview(bulletin, listId);
         } else if (id == 2) {
-            return generateSvgForColdBrewFeedback(bulletin, listId, logger);
+            return generateSvgForBeverages(bulletin, listId, logger);
         } else if (id == 3) {
             // return generateSvgForEspressoFeedback(bulletin, listId, logger);
+            return "";
+        } else {
             return "";
         }
     }
@@ -203,21 +189,29 @@ contract TokenUriBuilder {
     /// SVG Template #2: Feedback for Cold Brew
     /// -----------------------------------------------------------------------
 
-    function feedbackForColdBrew(TokenTitle memory title, TokenSource memory source)
+    function feedbackForBeverages(TokenTitle memory title, TokenSource memory source)
         public
         view
         returns (string memory)
     {
         return JSON._formattedMetadata(
-            title.name, title.desc, generateSvgForColdBrewFeedback(source.bulletin, source.listId, source.logger)
+            title.name, title.desc, generateSvgForBeverages(source.bulletin, source.listId, source.logger)
         );
     }
 
-    function generateSvgForColdBrewFeedback(address bulletin, uint256 listId, address logger)
+    function generateSvgForBeverages(address bulletin, uint256 listId, address logger)
         public
         view
         returns (string memory)
     {
+        List memory list;
+        (bulletin != address(0)) ? list = IBulletin(bulletin).getList(listId) : list;
+
+        (uint256 flavor, uint256 body, uint256 aroma, uint256 nonce) = getData(bulletin, listId, logger);
+        flavor = flavor / nonce * 15;
+        body = body / nonce * 15;
+        aroma = aroma / nonce * 15;
+
         return string.concat(
             '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" style="background:#FFFBF5">',
             SVG._text(
@@ -227,7 +221,7 @@ contract TokenUriBuilder {
                     SVG._prop("font-size", "20"),
                     SVG._prop("fill", "#00040a")
                 ),
-                "Supporter"
+                list.title
             ),
             SVG._rect(
                 string.concat(
@@ -239,257 +233,201 @@ contract TokenUriBuilder {
                 ),
                 SVG.NULL
             ),
-            buildColdBrew(bulletin, listId, logger),
-            // buildTicker(curve, curveId),
+            buildConsumption(bulletin, listId),
+            buildPerformanceBars(flavor, body, aroma),
+            SVG._text(
+                string.concat(
+                    SVG._prop("x", "200"),
+                    SVG._prop("y", "285"),
+                    SVG._prop("font-size", "9"),
+                    SVG._prop("fill", "#c4c7c4")
+                ),
+                shorten(list.owner)
+            ),
             "</svg>"
         );
     }
 
-    function buildColdBrew(address bulletin, uint256 listId, address logger) internal view returns (string memory) {
-        uint8[7] memory counters;
+    function getData(address bulletin, uint256 listId, address logger)
+        internal
+        view
+        returns (uint256 flavor, uint256 body, uint256 aroma, uint256 nonce)
+    {
+        nonce = (logger != address(0))
+            ? ILog(logger).nonceByItemId(keccak256(abi.encodePacked(bulletin, listId, uint256(0))))
+            : 0;
 
-        uint256 data;
-        uint256 nonce = ILog(logger).nonceByItemId(keccak256(abi.encodePacked(bulletin, listId, uint256(0))));
-
-        for (uint256 i; i < nonce; ++i) {
-            data = uint256(
-                bytes32(
-                    ILog(logger).touchpointDataByEncodedItemId(
-                        keccak256(abi.encodePacked(bulletin, listId, uint256(0))), i
-                    )
-                )
+        for (uint256 i = 1; i <= nonce; ++i) {
+            // Decode data and count user response.
+            (uint256 _flavor, uint256 _body, uint256 _aroma) = abi.decode(
+                ILog(logger).touchpointDataByEncodedItemId(keccak256(abi.encodePacked(bulletin, listId, uint256(0))), i),
+                (uint256, uint256, uint256)
             );
 
-            // Decode data and count user response.
-            for (uint256 j; j < 7; ++j) {
-                if ((data / (10 ** j)) % 10 == 1) {
-                    unchecked {
-                        ++counters[j];
-                    }
-                }
-            }
+            flavor += _flavor;
+            body += _body;
+            aroma += _aroma;
         }
+    }
+
+    function buildConsumption(address bulletin, uint256 listId) internal view returns (string memory) {
+        uint256 runs;
+        (bulletin != address(0)) ? runs = IBulletin(bulletin).runsByList(listId) : runs;
 
         return string.concat(
             SVG._text(
                 string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "100"),
-                    SVG._prop("font-size", "20"),
+                    SVG._prop("x", "70"),
+                    SVG._prop("y", "115"),
+                    SVG._prop("font-size", "40"),
                     SVG._prop("fill", "#00040a")
                 ),
-                "Cold Brew"
+                SVG._uint2str(runs)
             ),
             SVG._text(
                 string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "160"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
+                    SVG._prop("x", "155"),
+                    SVG._prop("y", "115"),
+                    SVG._prop("font-size", "15"),
+                    SVG._prop("fill", "#899499")
                 ),
-                string.concat(unicode"👍 幫 g0v 粉專按讚： ", SVG._uint2str(counters[0]))
-            ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "180"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat(unicode"🔔 打開任一專案頻道通知： ", SVG._uint2str(counters[1]))
-            ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "200"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat(unicode"📝 截圖任一提案的專案共筆： ", SVG._uint2str(counters[2]))
-            ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "220"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat(unicode"🏷️ 貼上三張符合你的技能貼紙：", SVG._uint2str(counters[3]))
-            ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "240"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat(unicode"🧐 加入三個有趣的 Slack 頻道： ", SVG._uint2str(counters[4]))
-            ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "260"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat(unicode"👀 瀏覽並截圖最新『社群九分鐘』： ", SVG._uint2str(counters[5]))
-            ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "280"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat(unicode"🎙️ 在有興趣的專案共筆上自我介紹： ", SVG._uint2str(counters[6]))
+                "# of cups"
             )
         );
     }
 
-    /// -----------------------------------------------------------------------
-    /// SVG Template #3: Feedback for Espresso
-    /// -----------------------------------------------------------------------
-
-    function feedbackForEspresso(TokenTitle memory title, TokenSource memory source)
-        public
-        view
-        returns (string memory)
-    {
-        return JSON._formattedMetadata(
-            title.name, title.desc, generateSvgForColdBrewFeedback(source.bulletin, source.listId, source.logger)
-        );
+    function buildPerformanceBars(uint256 flavor, uint256 body, uint256 aroma) internal pure returns (string memory) {
+        return string.concat(buildFlavorBars(flavor), buildBodyBars(body), buildAromaBars(aroma));
     }
 
-    function generateSvgForEspressoFeedback(address bulletin, uint256 listId, address logger)
-        public
-        view
-        returns (string memory)
-    {
+    function buildFlavorBars(uint256 flavor) internal pure returns (string memory) {
         return string.concat(
-            '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" style="background:#FFFBF5">',
             SVG._text(
                 string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "40"),
-                    SVG._prop("font-size", "20"),
-                    SVG._prop("fill", "#00040a")
+                    SVG._prop("x", "30"),
+                    SVG._prop("y", "160"),
+                    SVG._prop("font-size", "12"),
+                    SVG._prop("fill", "#7f7053")
                 ),
-                "Supporter"
+                "Flavor"
             ),
             SVG._rect(
                 string.concat(
-                    SVG._prop("fill", "#FFBE0B"),
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "50"),
-                    SVG._prop("width", SVG._uint2str(160)),
-                    SVG._prop("height", SVG._uint2str(5))
+                    SVG._prop("fill", "#ffecb6"),
+                    SVG._prop("x", "80"),
+                    SVG._prop("y", "145"),
+                    SVG._prop("width", SVG._uint2str(150)),
+                    SVG._prop("height", SVG._uint2str(20)),
+                    SVG._prop("rx", SVG._uint2str(2))
                 ),
                 SVG.NULL
             ),
-            buildColdBrew(bulletin, listId, logger),
-            // buildTicker(curve, curveId),
-            "</svg>"
+            SVG._rect(
+                string.concat(
+                    SVG._prop("fill", "#da2121"),
+                    SVG._prop("x", "80"),
+                    SVG._prop("y", "145"),
+                    SVG._prop("width", SVG._uint2str(flavor)),
+                    SVG._prop("height", SVG._uint2str(20)),
+                    SVG._prop("rx", SVG._uint2str(2))
+                ),
+                SVG.NULL
+            )
         );
     }
 
-    function buildColdBrew(address bulletin, uint256 listId, address logger) internal view returns (string memory) {
-        uint8[7] memory counters;
-
-        uint256 data;
-        uint256 nonce = ILog(logger).nonceByItemId(keccak256(abi.encodePacked(bulletin, listId, uint256(0))));
-
-        for (uint256 i; i < nonce; ++i) {
-            data = uint256(
-                bytes32(
-                    ILog(logger).touchpointDataByEncodedItemId(
-                        keccak256(abi.encodePacked(bulletin, listId, uint256(0))), i
-                    )
-                )
-            );
-
-            // Decode data and count user response.
-            for (uint256 j; j < 7; ++j) {
-                if ((data / (10 ** j)) % 10 == 1) {
-                    unchecked {
-                        ++counters[j];
-                    }
-                }
-            }
-        }
-
+    function buildBodyBars(uint256 body) internal pure returns (string memory) {
         return string.concat(
             SVG._text(
                 string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "100"),
-                    SVG._prop("font-size", "20"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat(unicode"黑客松新參者小紙條")
-            ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
+                    SVG._prop("x", "30"),
                     SVG._prop("y", "160"),
                     SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
+                    SVG._prop("fill", "#7f7053")
                 ),
-                string.concat(unicode"👍 幫 g0v 粉專按讚： ", SVG._uint2str(counters[0]))
+                "Flavor"
             ),
-            SVG._text(
+            SVG._rect(
                 string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "180"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
+                    SVG._prop("fill", "#ffecb6"),
+                    SVG._prop("x", "80"),
+                    SVG._prop("y", "145"),
+                    SVG._prop("width", SVG._uint2str(150)),
+                    SVG._prop("height", SVG._uint2str(20)),
+                    SVG._prop("rx", SVG._uint2str(2))
                 ),
-                string.concat(unicode"🔔 打開任一專案頻道通知： ", SVG._uint2str(counters[1]))
+                SVG.NULL
             ),
-            SVG._text(
+            SVG._rect(
                 string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "200"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
+                    SVG._prop("fill", "#da2121"),
+                    SVG._prop("x", "80"),
+                    SVG._prop("y", "145"),
+                    SVG._prop("width", SVG._uint2str(body)),
+                    SVG._prop("height", SVG._uint2str(20)),
+                    SVG._prop("rx", SVG._uint2str(2))
                 ),
-                string.concat(unicode"📝 截圖任一提案的專案共筆： ", SVG._uint2str(counters[2]))
-            ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "220"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat(unicode"🏷️ 貼上三張符合你的技能貼紙：", SVG._uint2str(counters[3]))
-            ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "240"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat(unicode"🧐 加入三個有趣的 Slack 頻道： ", SVG._uint2str(counters[4]))
-            ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "260"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat(unicode"👀 瀏覽並截圖最新『社群九分鐘』： ", SVG._uint2str(counters[5]))
-            ),
-            SVG._text(
-                string.concat(
-                    SVG._prop("x", "20"),
-                    SVG._prop("y", "280"),
-                    SVG._prop("font-size", "12"),
-                    SVG._prop("fill", "#00040a")
-                ),
-                string.concat(unicode"🎙️ 在有興趣的專案共筆上自我介紹： ", SVG._uint2str(counters[6]))
+                SVG.NULL
             )
         );
+    }
+
+    function buildAromaBars(uint256 aroma) internal pure returns (string memory) {
+        return string.concat(
+            SVG._text(
+                string.concat(
+                    SVG._prop("x", "30"),
+                    SVG._prop("y", "160"),
+                    SVG._prop("font-size", "12"),
+                    SVG._prop("fill", "#7f7053")
+                ),
+                "Flavor"
+            ),
+            SVG._rect(
+                string.concat(
+                    SVG._prop("fill", "#ffecb6"),
+                    SVG._prop("x", "80"),
+                    SVG._prop("y", "145"),
+                    SVG._prop("width", SVG._uint2str(150)),
+                    SVG._prop("height", SVG._uint2str(20)),
+                    SVG._prop("rx", SVG._uint2str(2))
+                ),
+                SVG.NULL
+            ),
+            SVG._rect(
+                string.concat(
+                    SVG._prop("fill", "#da2121"),
+                    SVG._prop("x", "80"),
+                    SVG._prop("y", "145"),
+                    SVG._prop("width", SVG._uint2str(aroma)),
+                    SVG._prop("height", SVG._uint2str(20)),
+                    SVG._prop("rx", SVG._uint2str(2))
+                ),
+                SVG.NULL
+            )
+        );
+    }
+
+    // credit: https://ethereum.stackexchange.com/questions/46321/store-literal-bytes4-as-string
+    function shorten(address user) internal pure returns (string memory) {
+        bytes4 _address = bytes4(abi.encodePacked(user));
+
+        bytes memory result = new bytes(10);
+        result[0] = bytes1("0");
+        result[1] = bytes1("x");
+        for (uint256 i = 0; i < 4; ++i) {
+            result[2 * i + 2] = toHexDigit(uint8(_address[i]) / 16);
+            result[2 * i + 3] = toHexDigit(uint8(_address[i]) % 16);
+        }
+        return string(result);
+    }
+
+    function toHexDigit(uint8 d) internal pure returns (bytes1) {
+        if (0 <= d && d <= 9) {
+            return bytes1(uint8(bytes1("0")) + d);
+        } else if (10 <= uint8(d) && uint8(d) <= 15) {
+            return bytes1(uint8(bytes1("a")) + d - 10);
+        }
+        revert();
     }
 }
