@@ -15,16 +15,16 @@ contract TokenUriBuilder {
     /// Builder Router
     /// -----------------------------------------------------------------------
 
-    function build(uint256 id, TokenTitle memory title, TokenSource memory source)
+    function build(uint256 builderId, TokenTitle memory title, TokenSource memory source)
         external
         view
         returns (string memory)
     {
-        if (id == 1) {
+        if (builderId == 1) {
             return listOverview(title, source);
-        } else if (id == 2) {
+        } else if (builderId == 2) {
             return feedbackForBeverages(title, source);
-        } else if (id == 3) {
+        } else if (builderId == 3) {
             // return feedbackForEspresso(title, source);
             return "";
         } else {
@@ -36,16 +36,16 @@ contract TokenUriBuilder {
     ///  Getter
     /// -----------------------------------------------------------------------
 
-    function generateSvg(uint256 id, address bulletin, uint256 listId, address logger)
+    function generateSvg(uint256 builderId, address bulletin, uint256 listId, address logger)
         public
         view
         returns (string memory)
     {
-        if (id == 1) {
+        if (builderId == 1) {
             return generateSvgForListOverview(bulletin, listId);
-        } else if (id == 2) {
+        } else if (builderId == 2) {
             return generateSvgForBeverages(bulletin, listId, logger);
-        } else if (id == 3) {
+        } else if (builderId == 3) {
             // return generateSvgForEspressoFeedback(bulletin, listId, logger);
             return "";
         } else {
@@ -207,10 +207,7 @@ contract TokenUriBuilder {
         List memory list;
         (bulletin != address(0)) ? list = IBulletin(bulletin).getList(listId) : list;
 
-        (uint256 flavor, uint256 body, uint256 aroma, uint256 nonce) = getData(bulletin, listId, logger);
-        flavor = flavor / nonce * 15;
-        body = body / nonce * 15;
-        aroma = aroma / nonce * 15;
+        (uint256 flavor, uint256 body, uint256 aroma) = getPerformanceData(bulletin, listId, logger);
 
         return string.concat(
             '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" style="background:#FFFBF5">',
@@ -242,35 +239,45 @@ contract TokenUriBuilder {
                     SVG._prop("font-size", "9"),
                     SVG._prop("fill", "#c4c7c4")
                 ),
-                shorten(list.owner)
+                string.concat("by ", shorten(list.owner))
             ),
             "</svg>"
         );
     }
 
-    function getData(address bulletin, uint256 listId, address logger)
-        internal
+    function getPerformanceData(address bulletin, uint256 listId, address logger)
+        public
         view
-        returns (uint256 flavor, uint256 body, uint256 aroma, uint256 nonce)
+        returns (uint256 flavor, uint256 body, uint256 aroma)
     {
-        nonce = (logger != address(0))
-            ? ILog(logger).nonceByItemId(keccak256(abi.encodePacked(bulletin, listId, uint256(0))))
-            : 0;
+        uint256 _flavor;
+        uint256 _body;
+        uint256 _aroma;
 
-        for (uint256 i = 1; i <= nonce; ++i) {
-            // Decode data and count user response.
-            (uint256 _flavor, uint256 _body, uint256 _aroma) = abi.decode(
-                ILog(logger).touchpointDataByEncodedItemId(keccak256(abi.encodePacked(bulletin, listId, uint256(0))), i),
-                (uint256, uint256, uint256)
-            );
+        if (logger != address(0)) {
+            uint256 nonce = ILog(logger).getNonceByItemId(bulletin, listId, uint256(0));
 
-            flavor += _flavor;
-            body += _body;
-            aroma += _aroma;
+            if (nonce > 0) {
+                for (uint256 i = 1; i <= nonce; ++i) {
+                    // Decode data and count user response.
+                    (_flavor, _body, _aroma) = abi.decode(
+                        ILog(logger).getTouchpointDataByItemIdByNonce(bulletin, listId, uint256(0), i),
+                        (uint256, uint256, uint256)
+                    );
+
+                    flavor += _flavor;
+                    body += _body;
+                    aroma += _aroma;
+                }
+
+                flavor = flavor / nonce * 15;
+                body = body / nonce * 15;
+                aroma = aroma / nonce * 15;
+            }
         }
     }
 
-    function buildConsumption(address bulletin, uint256 listId) internal view returns (string memory) {
+    function buildConsumption(address bulletin, uint256 listId) public view returns (string memory) {
         uint256 runs;
         (bulletin != address(0)) ? runs = IBulletin(bulletin).runsByList(listId) : runs;
 
@@ -296,11 +303,11 @@ contract TokenUriBuilder {
         );
     }
 
-    function buildPerformanceBars(uint256 flavor, uint256 body, uint256 aroma) internal pure returns (string memory) {
+    function buildPerformanceBars(uint256 flavor, uint256 body, uint256 aroma) public pure returns (string memory) {
         return string.concat(buildFlavorBars(flavor), buildBodyBars(body), buildAromaBars(aroma));
     }
 
-    function buildFlavorBars(uint256 flavor) internal pure returns (string memory) {
+    function buildFlavorBars(uint256 flavor) public pure returns (string memory) {
         return string.concat(
             SVG._text(
                 string.concat(
@@ -341,17 +348,17 @@ contract TokenUriBuilder {
             SVG._text(
                 string.concat(
                     SVG._prop("x", "30"),
-                    SVG._prop("y", "160"),
+                    SVG._prop("y", "200"),
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#7f7053")
                 ),
-                "Flavor"
+                "Body"
             ),
             SVG._rect(
                 string.concat(
                     SVG._prop("fill", "#ffecb6"),
                     SVG._prop("x", "80"),
-                    SVG._prop("y", "145"),
+                    SVG._prop("y", "185"),
                     SVG._prop("width", SVG._uint2str(150)),
                     SVG._prop("height", SVG._uint2str(20)),
                     SVG._prop("rx", SVG._uint2str(2))
@@ -362,7 +369,7 @@ contract TokenUriBuilder {
                 string.concat(
                     SVG._prop("fill", "#da2121"),
                     SVG._prop("x", "80"),
-                    SVG._prop("y", "145"),
+                    SVG._prop("y", "185"),
                     SVG._prop("width", SVG._uint2str(body)),
                     SVG._prop("height", SVG._uint2str(20)),
                     SVG._prop("rx", SVG._uint2str(2))
@@ -377,17 +384,17 @@ contract TokenUriBuilder {
             SVG._text(
                 string.concat(
                     SVG._prop("x", "30"),
-                    SVG._prop("y", "160"),
+                    SVG._prop("y", "240"),
                     SVG._prop("font-size", "12"),
                     SVG._prop("fill", "#7f7053")
                 ),
-                "Flavor"
+                "Aroma"
             ),
             SVG._rect(
                 string.concat(
                     SVG._prop("fill", "#ffecb6"),
                     SVG._prop("x", "80"),
-                    SVG._prop("y", "145"),
+                    SVG._prop("y", "225"),
                     SVG._prop("width", SVG._uint2str(150)),
                     SVG._prop("height", SVG._uint2str(20)),
                     SVG._prop("rx", SVG._uint2str(2))
@@ -398,7 +405,7 @@ contract TokenUriBuilder {
                 string.concat(
                     SVG._prop("fill", "#da2121"),
                     SVG._prop("x", "80"),
-                    SVG._prop("y", "145"),
+                    SVG._prop("y", "225"),
                     SVG._prop("width", SVG._uint2str(aroma)),
                     SVG._prop("height", SVG._uint2str(20)),
                     SVG._prop("rx", SVG._uint2str(2))
