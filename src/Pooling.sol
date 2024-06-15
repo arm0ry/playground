@@ -49,7 +49,7 @@ library Pooling {
 
         uint256 aNonce;
         for (uint256 i = 1; i <= count; ++i) {
-            (,,, aNonce) = ILog(log).getLog(i);
+            (,,,, aNonce) = ILog(log).getLog(i);
             runs = runs + aNonce;
         }
     }
@@ -59,7 +59,7 @@ library Pooling {
 
         uint256 aNonce;
         for (uint256 i = 1; i <= count; ++i) {
-            (,,, aNonce) = ILog(log).getLog(i);
+            (,,,, aNonce) = ILog(log).getLog(i);
             runs = (runs + aNonce) / count;
         }
     }
@@ -75,7 +75,7 @@ library Pooling {
         uint256 aListId;
         uint256 aNonce;
         for (uint256 i = 1; i <= count; ++i) {
-            (, aBulletin, aListId, aNonce) = ILog(log).getLog(i);
+            (,, aBulletin, aListId, aNonce) = ILog(log).getLog(i);
 
             if (bulletin == aBulletin && aListId == listId) {
                 runs = (runs + aNonce) / count;
@@ -96,7 +96,7 @@ library Pooling {
         uint256 aListId;
         uint256 aNonce;
         for (uint256 i = 1; i <= count; ++i) {
-            (, aBulletin, aListId, aNonce) = ILog(log).getLog(i);
+            (,, aBulletin, aListId, aNonce) = ILog(log).getLog(i);
 
             if (bulletin == aBulletin && aListId == listId) {
                 runs = runs + aNonce;
@@ -113,7 +113,7 @@ library Pooling {
         address aBulletin;
         uint256 aListId;
         for (uint256 i = 1; i <= count; ++i) {
-            (aUser, aBulletin, aListId,) = ILog(log).getLog(i);
+            (, aUser, aBulletin, aListId,) = ILog(log).getLog(i);
             runs = runs + IBulletin(aBulletin).runsByList(aListId);
         }
     }
@@ -128,7 +128,7 @@ library Pooling {
         uint256 count = ILog(log).logId();
 
         for (uint256 i = 1; i <= count; ++i) {
-            (aUser,,,) = ILog(log).getLog(i);
+            (, aUser,,,) = ILog(log).getLog(i);
             (aUser == user) ? ++starts : starts;
         }
     }
@@ -140,7 +140,7 @@ library Pooling {
 
         uint256 count = ILog(log).logId();
         for (uint256 i = 1; i <= count; ++i) {
-            (aUser,,, aNonce) = ILog(log).getLog(i);
+            (, aUser,,, aNonce) = ILog(log).getLog(i);
             if (aUser == user) {
                 runs = runs + aNonce;
             }

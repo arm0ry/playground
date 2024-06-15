@@ -9,6 +9,7 @@ struct Item {
     string title; // The title of the item.
     string detail; // The detail of the item.
     bytes schema; // Custom data solicited when interacting with this item.
+    uint256 drip;
 }
 
 /// @notice A struct representing the parameters of a list.
@@ -18,11 +19,12 @@ struct List {
     string detail; // The detail of the list.
     bytes schema; // Custom data solicited when interacting with this list.
     uint256[] itemIds; // The items in the list.
+    uint256 drip;
 }
 
 interface IBulletin {
     function LOGGERS() external view returns (uint256);
-    function MEMBERS() external view returns (uint256);
+    function STAFF() external view returns (uint256);
 
     function initialize(address owner) external;
     function owner() external view returns (address);
@@ -42,7 +44,9 @@ interface IBulletin {
     function removeList(uint256 id) external payable;
 
     function getItem(uint256 id) external view returns (Item memory);
+    function getItemDrip(uint256 id) external view returns (uint256);
     function getList(uint256 id) external view returns (List memory);
+    function getListDrip(uint256 id) external view returns (uint256);
     function hasItemExpired(uint256 id) external view returns (bool);
     function hasListExpired(uint256 id) external view returns (bool);
     function checkIsItemInList(uint256 itemId, uint256 listId) external view returns (bool);

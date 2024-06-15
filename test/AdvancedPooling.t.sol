@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import "forge-std/console2.sol";
 
 import {Log} from "src/Log.sol";
-import {ILog, Activity, Touchpoint} from "src/interface/ILog.sol";
+import {ILog, LogType, Activity, Touchpoint} from "src/interface/ILog.sol";
 import {Bulletin} from "src/Bulletin.sol";
 import {IBulletin, Item, List} from "src/interface/IBulletin.sol";
 import {Pooling} from "src/Pooling.sol";

@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
+enum LogType {
+    PUBLIC,
+    SIGNATURE,
+    SPONSORED,
+    TOKEN_OWNERS
+}
+
 struct Activity {
+    LogType logType;
     address user;
     address bulletin;
     uint256 listId;
@@ -41,7 +49,7 @@ interface ILog {
         bytes32 r,
         bytes32 s
     ) external payable;
-    function sponsoredLog(
+    function logBySponsorship(
         address bulletin,
         uint256 listId,
         uint256 itemId,
@@ -50,15 +58,12 @@ interface ILog {
     ) external payable;
 
     function logId() external view returns (uint256);
-    function getLog(uint256 logId)
-        external
-        view
-        returns (address user, address bulletin, uint256 listId, uint256 nonce);
+    function getLog(uint256 logId) external view returns (LogType, address, address, uint256, uint256);
     function lookupLogId(address user, bytes32 encodePackedBulletinListId) external view returns (uint256);
     function getLogTouchpoints(uint256 logId) external view returns (Touchpoint[] memory);
     function getLogTouchpointsByItemId(uint256 _logId, uint256 _itemId) external view returns (Touchpoint[] memory);
-    function nonceByItemId(bytes32 encodePackedBulletinListIdItemId) external view returns (uint256);
-    function touchpointDataByEncodedItemId(bytes32 encodePackedBulletinListIdItemId, uint256 nonce)
+    function getNonceByItemId(address bulletin, uint256 listId, uint256 itemId) external view returns (uint256);
+    function getTouchpointDataByItemIdByNonce(address bulletin, uint256 listId, uint256 itemId, uint256 nonce)
         external
         view
         returns (bytes memory);

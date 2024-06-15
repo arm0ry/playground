@@ -43,16 +43,46 @@ contract BulletinTest is Test {
     uint256 defaultBulletinBalance = 10 ether;
 
     Item[] items;
-    Item item1 = Item({review: false, expire: PAST, owner: makeAddr("alice"), title: TEST, detail: TEST, schema: BYTES});
-    Item item2 = Item({review: true, expire: FUTURE, owner: makeAddr("bob"), title: TEST, detail: TEST, schema: BYTES});
-    Item item3 =
-        Item({review: false, expire: FUTURE, owner: makeAddr("charlie"), title: TEST, detail: TEST, schema: BYTES});
-    Item item4 =
-        Item({review: true, expire: FUTURE, owner: makeAddr("charlie"), title: TEST, detail: TEST, schema: BYTES});
-    Item item5 =
-        Item({review: true, expire: FUTURE, owner: makeAddr("charlie"), title: TEST, detail: TEST, schema: BYTES});
-    Item item6 =
-        Item({review: false, expire: FUTURE, owner: makeAddr("charlie"), title: TEST, detail: TEST, schema: BYTES});
+    Item item1 =
+        Item({review: false, expire: PAST, owner: makeAddr("alice"), title: TEST, detail: TEST, schema: BYTES, drip: 0});
+    Item item2 =
+        Item({review: true, expire: FUTURE, owner: makeAddr("bob"), title: TEST, detail: TEST, schema: BYTES, drip: 0});
+    Item item3 = Item({
+        review: false,
+        expire: FUTURE,
+        owner: makeAddr("charlie"),
+        title: TEST,
+        detail: TEST,
+        schema: BYTES,
+        drip: 0
+    });
+    Item item4 = Item({
+        review: true,
+        expire: FUTURE,
+        owner: makeAddr("charlie"),
+        title: TEST,
+        detail: TEST,
+        schema: BYTES,
+        drip: 0
+    });
+    Item item5 = Item({
+        review: true,
+        expire: FUTURE,
+        owner: makeAddr("charlie"),
+        title: TEST,
+        detail: TEST,
+        schema: BYTES,
+        drip: 0
+    });
+    Item item6 = Item({
+        review: false,
+        expire: FUTURE,
+        owner: makeAddr("charlie"),
+        title: TEST,
+        detail: TEST,
+        schema: BYTES,
+        drip: 0
+    });
 
     /// -----------------------------------------------------------------------
     /// Setup Tests
@@ -112,16 +142,16 @@ contract BulletinTest is Test {
         bulletin.setFee(fee);
     }
 
-    function testSetFaucet(address token, uint256 amount) public payable {
+    function testSetFaucet(address currency, uint256 drip) public payable {
         vm.prank(owner);
-        bulletin.setFaucet(token, amount);
-        assertEq(token, bulletin.token());
-        assertEq(amount, bulletin.amount());
+        bulletin.setFaucet(currency, drip);
+        assertEq(currency, bulletin.currency());
+        assertEq(drip, bulletin.drip());
     }
 
-    function testSetFaucet_NotOwner(address token, uint256 amount) public payable {
+    function testSetFaucet_NotOwner(address currency, uint256 drip) public payable {
         vm.expectRevert(Ownable.Unauthorized.selector);
-        bulletin.setFaucet(token, amount);
+        bulletin.setFaucet(currency, drip);
     }
 
     function test_GrantRoles(address user, uint256 role) public payable {
@@ -149,8 +179,8 @@ contract BulletinTest is Test {
         testSetFaucet(address(mock), drip);
 
         // Grant Alice member role.
-        uint256 MEMBERS = IBulletin(address(bulletin)).MEMBERS();
-        test_GrantRoles(alice, MEMBERS);
+        uint256 STAFF = IBulletin(address(bulletin)).STAFF();
+        test_GrantRoles(alice, STAFF);
 
         uint256 id = bulletin.itemId();
         uint256 prevAliceBalance = mock.balanceOf(alice);
@@ -171,6 +201,7 @@ contract BulletinTest is Test {
         assertEq(_item.title, item1.title);
         assertEq(_item.detail, item1.detail);
         assertEq(_item.schema, item1.schema);
+        assertEq(_item.drip, item1.drip);
     }
 
     function test_ContributeItem_FaucetDepleted(uint256 drip) public payable {
@@ -197,6 +228,7 @@ contract BulletinTest is Test {
         assertEq(_item.title, item1.title);
         assertEq(_item.detail, item1.detail);
         assertEq(_item.schema, item1.schema);
+        assertEq(_item.drip, item1.drip);
     }
 
     function testRegisterItem_TransferFailed() public payable {
@@ -231,6 +263,7 @@ contract BulletinTest is Test {
             assertEq(_item.title, items[i].title);
             assertEq(_item.detail, items[i].detail);
             assertEq(_item.schema, items[i].schema);
+            assertEq(_item.drip, items[i].drip);
         }
     }
 
@@ -280,15 +313,15 @@ contract BulletinTest is Test {
         itemIds.push(1);
         itemIds.push(2);
         itemIds.push(3);
-        List memory list1 = List({owner: alice, title: TEST, detail: TEST, schema: BYTES, itemIds: itemIds});
+        List memory list1 = List({owner: alice, title: TEST, detail: TEST, schema: BYTES, itemIds: itemIds, drip: 0});
 
         // Set faucet.
         drip = bound(drip, 1 ether, defaultBulletinBalance / 2);
         testSetFaucet(address(mock), drip);
 
         // Grant Alice member role.
-        uint256 MEMBERS = IBulletin(address(bulletin)).MEMBERS();
-        test_GrantRoles(alice, MEMBERS);
+        uint256 STAFF = IBulletin(address(bulletin)).STAFF();
+        test_GrantRoles(alice, STAFF);
 
         uint256 prevAliceBalance = mock.balanceOf(alice);
 
@@ -305,6 +338,7 @@ contract BulletinTest is Test {
         assertEq(list.title, list1.title);
         assertEq(list.detail, list1.detail);
         assertEq(list.schema, list1.schema);
+        assertEq(list.drip, list1.drip);
     }
 
     function test_ContributeList_FaucetDepleted(uint256 drip) public payable {
@@ -315,7 +349,7 @@ contract BulletinTest is Test {
         itemIds.push(1);
         itemIds.push(2);
         itemIds.push(3);
-        List memory list1 = List({owner: alice, title: TEST, detail: TEST, schema: BYTES, itemIds: itemIds});
+        List memory list1 = List({owner: alice, title: TEST, detail: TEST, schema: BYTES, itemIds: itemIds, drip: 0});
 
         vm.expectRevert();
         bulletin.contributeList(list1);
@@ -327,7 +361,7 @@ contract BulletinTest is Test {
         itemIds.push(1);
         itemIds.push(2);
         itemIds.push(3);
-        List memory list1 = List({owner: alice, title: TEST, detail: TEST, schema: BYTES, itemIds: itemIds});
+        List memory list1 = List({owner: alice, title: TEST, detail: TEST, schema: BYTES, itemIds: itemIds, drip: 0});
 
         uint256 id = bulletin.listId();
         bulletin.registerList(list1);
@@ -348,7 +382,7 @@ contract BulletinTest is Test {
     }
 
     function testRegisterList_InvalidList() public payable {
-        List memory list1 = List({owner: alice, title: TEST, detail: TEST, schema: BYTES, itemIds: itemIds});
+        List memory list1 = List({owner: alice, title: TEST, detail: TEST, schema: BYTES, itemIds: itemIds, drip: 0});
 
         vm.expectRevert(Bulletin.InvalidList.selector);
         bulletin.registerList(list1);
@@ -358,7 +392,8 @@ contract BulletinTest is Test {
         itemIds.push(1);
         itemIds.push(2);
         itemIds.push(3);
-        List memory list1 = List({owner: address(0), title: TEST, detail: TEST, schema: BYTES, itemIds: itemIds});
+        List memory list1 =
+            List({owner: address(0), title: TEST, detail: TEST, schema: BYTES, itemIds: itemIds, drip: 0});
 
         vm.expectRevert(Bulletin.NotAuthorized.selector);
         bulletin.registerList(list1);
@@ -371,7 +406,7 @@ contract BulletinTest is Test {
         itemIds.push(4);
         itemIds.push(5);
         itemIds.push(6);
-        List memory list1 = List({owner: bob, title: TEST, detail: TEST, schema: BYTES, itemIds: itemIds});
+        List memory list1 = List({owner: bob, title: TEST, detail: TEST, schema: BYTES, itemIds: itemIds, drip: 0});
 
         uint256 id = bulletin.listId();
         List memory list = bulletin.getList(id);

@@ -23,7 +23,7 @@ contract Bulletin is OwnableRoles {
 
     /// @notice Role constants.
     uint256 public constant LOGGERS = 1 << 0;
-    uint256 public constant MEMBERS = 1 << 1;
+    uint256 public constant STAFF = 1 << 1;
 
     /// @notice Bulletin storage.
     uint256 public fee;
@@ -33,8 +33,8 @@ contract Bulletin is OwnableRoles {
     mapping(uint256 => List) public lists;
 
     /// @notice Currency faucet.
-    address public token;
-    uint256 public amount;
+    address public currency;
+    uint256 public drip;
 
     /// @dev itemId => listId => bool
     mapping(uint256 => mapping(uint256 => bool)) public isItemInList;
@@ -46,15 +46,15 @@ contract Bulletin is OwnableRoles {
     /// Modifier
     /// -----------------------------------------------------------------------
 
-    modifier payFee() {
-        (bool success,) = owner().call{value: fee}("");
+    modifier payFee(uint256 frequency) {
+        (bool success,) = owner().call{value: fee * frequency}("");
         if (!success) revert TransferFailed();
         _;
     }
 
-    modifier drip(uint256 frequency) {
+    modifier drop(uint256 frequency) {
         _;
-        ICurrency(token).transferFrom(address(this), msg.sender, amount * frequency);
+        ICurrency(currency).transferFrom(address(this), msg.sender, drip * frequency);
     }
 
     /// -----------------------------------------------------------------------
@@ -73,20 +73,20 @@ contract Bulletin is OwnableRoles {
         fee = _fee;
     }
 
-    function setFaucet(address _token, uint256 _amount) external payable onlyOwner {
-        token = _token;
-        amount = _amount;
+    function setFaucet(address _currency, uint256 _drip) external payable onlyOwner {
+        currency = _currency;
+        drip = _drip;
     }
 
     /// -----------------------------------------------------------------------
     /// Item Logic - Setter
     /// -----------------------------------------------------------------------
 
-    function contributeItem(Item calldata item) public payable onlyRoles(MEMBERS) drip(1) {
+    function contributeItem(Item calldata item) public payable onlyRoles(STAFF) drop(1) {
         _registerItem(item);
     }
 
-    function registerItem(Item calldata item) public payable payFee {
+    function registerItem(Item calldata item) public payable payFee(1) {
         _registerItem(item);
     }
 
@@ -101,14 +101,14 @@ contract Bulletin is OwnableRoles {
         emit ItemUpdated(itemId, item);
     }
 
-    function contributeItems(Item[] calldata _items) public payable onlyRoles(MEMBERS) drip(_items.length) {
+    function contributeItems(Item[] calldata _items) public payable onlyRoles(STAFF) drop(_items.length) {
         uint256 length = _items.length;
         for (uint256 i = 0; i < length; i++) {
             contributeItem(_items[i]);
         }
     }
 
-    function registerItems(Item[] calldata _items) external payable payFee {
+    function registerItems(Item[] calldata _items) external payable payFee(_items.length) {
         uint256 length = _items.length;
         for (uint256 i = 0; i < length; i++) {
             registerItem(_items[i]);
@@ -137,11 +137,11 @@ contract Bulletin is OwnableRoles {
     /// List Logic - Setter
     /// -----------------------------------------------------------------------
 
-    function contributeList(List calldata list) public payable onlyRoles(MEMBERS) drip(1) {
+    function contributeList(List calldata list) public payable onlyRoles(STAFF) drop(1) {
         _registerList(list);
     }
 
-    function registerList(List calldata list) public payable payFee {
+    function registerList(List calldata list) public payable payFee(1) {
         _registerList(list);
     }
 
@@ -213,6 +213,10 @@ contract Bulletin is OwnableRoles {
         return items[id];
     }
 
+    function getItemDrip(uint256 id) external view returns (uint256) {
+        return items[id].drip;
+    }
+
     function hasItemExpired(uint256 id) public view returns (bool) {
         if (block.timestamp > items[id].expire) return true;
         else return false;
@@ -230,7 +234,11 @@ contract Bulletin is OwnableRoles {
         return lists[id];
     }
 
-    /// @notice Query the number of times MEMBERS have completed a list on a bulletin.
+    function getListDrip(uint256 id) external view returns (uint256) {
+        return lists[id].drip;
+    }
+
+    /// @notice Query the number of times STAFF have completed a list on a bulletin.
     function runsByList(uint256 id) external view returns (uint256 runs) {
         List memory list;
         uint256 itemCount;

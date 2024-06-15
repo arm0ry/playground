@@ -4,7 +4,7 @@ pragma solidity ^0.8.17;
 import "forge-std/Test.sol";
 
 import {Log} from "src/Log.sol";
-import {ILog, Activity, Touchpoint} from "src/interface/ILog.sol";
+import {ILog, LogType, Activity, Touchpoint} from "src/interface/ILog.sol";
 import {Bulletin} from "src/Bulletin.sol";
 import {IBulletin, Item, List} from "src/interface/IBulletin.sol";
 
@@ -33,15 +33,39 @@ contract LogTest is Test {
 
     Item[] items;
     uint256[] itemIds;
-    Item item1 = Item({review: false, expire: PAST, owner: makeAddr("alice"), title: TEST, detail: TEST, schema: BYTES});
-    Item item2 = Item({review: false, expire: FUTURE, owner: makeAddr("bob"), title: TEST, detail: TEST, schema: BYTES});
-    Item item3 =
-        Item({review: false, expire: FUTURE, owner: makeAddr("charlie"), title: TEST, detail: TEST, schema: BYTES});
-    Item item4 =
-        Item({review: true, expire: PAST, owner: makeAddr("charlie"), title: TEST, detail: TEST, schema: BYTES});
-    Item item5 =
-        Item({review: true, expire: FUTURE, owner: makeAddr("alice"), title: TEST, detail: TEST, schema: BYTES});
-    Item item6 = Item({review: true, expire: FUTURE, owner: makeAddr("bob"), title: TEST, detail: TEST, schema: BYTES});
+    Item item1 =
+        Item({review: false, expire: PAST, owner: makeAddr("alice"), title: TEST, detail: TEST, schema: BYTES, drip: 0});
+    Item item2 =
+        Item({review: false, expire: FUTURE, owner: makeAddr("bob"), title: TEST, detail: TEST, schema: BYTES, drip: 0});
+    Item item3 = Item({
+        review: false,
+        expire: FUTURE,
+        owner: makeAddr("charlie"),
+        title: TEST,
+        detail: TEST,
+        schema: BYTES,
+        drip: 0
+    });
+    Item item4 = Item({
+        review: true,
+        expire: PAST,
+        owner: makeAddr("charlie"),
+        title: TEST,
+        detail: TEST,
+        schema: BYTES,
+        drip: 0
+    });
+    Item item5 = Item({
+        review: true,
+        expire: FUTURE,
+        owner: makeAddr("alice"),
+        title: TEST,
+        detail: TEST,
+        schema: BYTES,
+        drip: 0
+    });
+    Item item6 =
+        Item({review: true, expire: FUTURE, owner: makeAddr("bob"), title: TEST, detail: TEST, schema: BYTES, drip: 0});
 
     /// @dev Helpers.
     uint256 taskId;
@@ -143,6 +167,7 @@ contract LogTest is Test {
         registerList_ReviewNotRequired();
         authorizeLogger();
 
+        // logItemByTokenOwnership(user, token, tokenId, _itemId);
         logItem(alice, address(bulletin), listId, 1);
         logItem(alice, address(bulletin), listId, 2);
         logItemBySig(string("alice"), address(bulletin), listId, 3);
@@ -297,6 +322,7 @@ contract LogTest is Test {
             assertEq(_item.title, items[i].title);
             assertEq(_item.detail, items[i].detail);
             assertEq(_item.schema, items[i].schema);
+            assertEq(_item.drip, items[i].drip);
         }
     }
 
@@ -307,7 +333,7 @@ contract LogTest is Test {
         itemIds.push(1);
         itemIds.push(2);
         itemIds.push(3);
-        List memory list = List({owner: alice, title: TEST, detail: TEST, schema: BYTES, itemIds: itemIds});
+        List memory list = List({owner: alice, title: TEST, detail: TEST, schema: BYTES, itemIds: itemIds, drip: 0});
 
         uint256 id = bulletin.listId();
         bulletin.registerList(list);
@@ -334,7 +360,7 @@ contract LogTest is Test {
         itemIds.push(4);
         itemIds.push(5);
         itemIds.push(6);
-        List memory list = List({owner: bob, title: TEST, detail: TEST, schema: BYTES, itemIds: itemIds});
+        List memory list = List({owner: bob, title: TEST, detail: TEST, schema: BYTES, itemIds: itemIds, drip: 0});
 
         uint256 id = bulletin.listId();
         bulletin.registerList(list);
@@ -360,7 +386,7 @@ contract LogTest is Test {
         delete itemIds;
         itemIds.push(1);
         itemIds.push(6);
-        List memory list = List({owner: charlie, title: TEST, detail: TEST, schema: BYTES, itemIds: itemIds});
+        List memory list = List({owner: charlie, title: TEST, detail: TEST, schema: BYTES, itemIds: itemIds, drip: 0});
 
         uint256 id = bulletin.listId();
         bulletin.registerList(list);
@@ -382,12 +408,30 @@ contract LogTest is Test {
 
     function logItem(address user, address _bulletin, uint256 _listId, uint256 _itemId) internal {
         uint256 id = logger.lookupLogId(user, keccak256(abi.encodePacked(_bulletin, _listId)));
-        (,,, uint256 aNonce) = logger.getLog(id);
+        (,,,, uint256 aNonce) = logger.getLog(id);
 
         vm.prank(user);
         logger.log(_bulletin, _listId, _itemId, TEST, BYTES);
         id = logger.lookupLogId(user, keccak256(abi.encodePacked(_bulletin, _listId)));
-        (,,, uint256 _aNonce) = logger.getLog(id);
+        (,,,, uint256 _aNonce) = logger.getLog(id);
+        assertEq(aNonce + 1, _aNonce);
+
+        bytes memory data;
+        uint256 nonceByItemId = logger.getNonceByItemId(_bulletin, _listId, _itemId);
+        data = logger.getTouchpointDataByItemIdByNonce(_bulletin, _listId, _itemId, nonceByItemId);
+        assertEq(BYTES, data);
+    }
+
+    function logItemByTokenOwnership(address user, address token, uint256 tokenId, uint256 _itemId) internal {
+        uint256 id = logger.lookupLogId(user, keccak256(abi.encodePacked(_bulletin, _listId)));
+        (,,,, uint256 aNonce) = logger.getLog(id);
+
+        vm.prank(user);
+        logger.logByToken(token, tokenId, _itemId, TEST, BYTES);
+
+        (address _bulletin, uint256 _listId,) = ITokenMinter(token).getTokenSource(tokenId);
+        id = logger.lookupLogId(user, keccak256(abi.encodePacked(_bulletin, _listId)));
+        (,,,, uint256 _aNonce) = logger.getLog(id);
         assertEq(aNonce + 1, _aNonce);
     }
 
@@ -395,7 +439,7 @@ contract LogTest is Test {
         (address _user, uint256 _userPk) = makeAddrAndKey(user);
 
         uint256 id = logger.lookupLogId(_user, keccak256(abi.encodePacked(_bulletin, _listId)));
-        (,,, uint256 aNonce) = logger.getLog(id);
+        (,,,, uint256 aNonce) = logger.getLog(id);
 
         // Prepare message.
         bytes32 message = keccak256(
@@ -411,20 +455,20 @@ contract LogTest is Test {
         logger.logBySig(_user, _bulletin, _listId, _itemId, TEST, BYTES, v, r, s);
 
         id = logger.lookupLogId(_user, keccak256(abi.encodePacked(_bulletin, _listId)));
-        (,,, uint256 _aNonce) = logger.getLog(id);
+        (,,,, uint256 _aNonce) = logger.getLog(id);
         assertEq(aNonce + 1, _aNonce);
     }
 
     function logItemBySponsorship(address _bulletin, uint256 _listId, uint256 _itemId) internal {
         uint256 id = logger.lookupLogId(address(0), keccak256(abi.encodePacked(_bulletin, _listId)));
-        (,,, uint256 aNonce) = logger.getLog(id);
+        (,,,, uint256 aNonce) = logger.getLog(id);
 
         testSetGasBuddy(buddy);
 
         vm.prank(buddy);
-        logger.sponsoredLog(_bulletin, _listId, _itemId, TEST, BYTES);
+        logger.logBySponsorship(_bulletin, _listId, _itemId, TEST, BYTES);
         id = logger.lookupLogId(address(0), keccak256(abi.encodePacked(_bulletin, _listId)));
-        (,,, uint256 _aNonce) = logger.getLog(id);
+        (,,,, uint256 _aNonce) = logger.getLog(id);
         assertEq(aNonce + 1, _aNonce);
     }
 }
