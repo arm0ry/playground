@@ -29,7 +29,13 @@ contract TokenMinter is ERC1155Batchless {
     /// Constructor & Modifiers
     /// -----------------------------------------------------------------------
 
-    modifier onlyRegisteredMarket(uint256 id) {
+    modifier onlyLogger(uint256 id) {
+        (,, address logger) = getTokenSource(id);
+        if (logger == address(0) || msg.sender != logger) revert Unauthorized();
+        _;
+    }
+
+    modifier onlyMarket(uint256 id) {
         (address market,) = getTokenMarket(id);
         if (market == address(0) || msg.sender != market) revert Unauthorized();
         _;
@@ -97,20 +103,30 @@ contract TokenMinter is ERC1155Batchless {
     }
 
     /// -----------------------------------------------------------------------
-    /// Mint / Burn by registered market
+    /// Mint / Burn by logger
+    /// -----------------------------------------------------------------------
+
+    /// @notice Mint function limited to logger.
+    function mintByLogger(address to, uint256 id) external payable onlyLogger(id) {
+        _mint(to, id, 1, "");
+    }
+
+    /// @notice Burn function limited to logger.
+    function burnByLogger(address from, uint256 id) external payable onlyLogger(id) {
+        _burn(from, id, 1);
+    }
+
+    /// -----------------------------------------------------------------------
+    /// Mint / Burn by market
     /// -----------------------------------------------------------------------
 
     /// @notice Mint function limited to market registered by token owner.
-    function mintByMarket(address to, uint256 id) external payable onlyRegisteredMarket(id) {
-        // Get market.
-        (address market,) = getTokenMarket(id);
-        if (market == address(0) || msg.sender != market) revert Unauthorized();
-
+    function mintByMarket(address to, uint256 id) external payable onlyMarket(id) {
         _mint(to, id, 1, "");
     }
 
     /// @notice Burn function limited to market registered by token owner.
-    function burnByMarket(address from, uint256 id) external payable onlyRegisteredMarket(id) {
+    function burnByMarket(address from, uint256 id) external payable onlyMarket(id) {
         _burn(from, id, 1);
     }
 

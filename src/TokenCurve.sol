@@ -28,7 +28,7 @@ contract TokenCurve {
     mapping(uint256 => Curve) public curves;
     mapping(uint256 => uint256) public treasuries;
     mapping(address => mapping(uint256 => uint256)) public patronBalances;
-    mapping(address => mapping(uint256 => Collected)) public collected;
+    mapping(uint256 => Collected) public collected;
 
     /// -----------------------------------------------------------------------
     /// Constructor
@@ -107,10 +107,10 @@ contract TokenCurve {
 
         if (floor > amountInCurrency) {
             if (curve.currency != address(0)) {
-                // Subsidized Currency Support. Availability of subsidy is determined by currency balance of this contract.
-                if (ICurrency(curve.currency).balanceOf(address(this)) + amountInCurrency > floor) {
-                    // With subsidy, payment is reduced up to floor amount.
-                    if (_price - floor != msg.value) revert InvalidAmount(); // Assumes 1:1 ratio between base coin and currency.
+                // TODO: Convert stablecoin to cover any currency amount lower than floor
+                // Partial-Floor Currency Support.
+                if (ICurrency(curve.currency).balanceOf(address(this)) >= floor - amountInCurrency) {
+                    if (_price - amountInCurrency != msg.value) revert InvalidAmount(); // Assumes 1:1 ratio between base coin and currency.
 
                     // Transfer currency.
                     ICurrency(curve.currency).transferFrom(msg.sender, curve.owner, amountInCurrency);
@@ -119,34 +119,26 @@ contract TokenCurve {
                     // Transfer coin.
                     safeTransferETH(curve.owner, _price - burnPrice - floor);
 
-                    collected[curve.owner][_curveId].amountInCurrency += floor;
-                    collected[curve.owner][_curveId].amountInStablecoin += _price - burnPrice - floor;
+                    collected[_curveId].amountInCurrency += floor;
+                    collected[_curveId].amountInStablecoin += _price - burnPrice - floor;
+
+                    // TODO: Someone should have access to this amount.
+                    collected[_curveId].amountConverted += floor - amountInCurrency;
                 } else {
-                    // Unsubsidized Currency Support.
-                    // Without subsidy, increase payment based on amount of currency support.
-                    if (_price - amountInCurrency != msg.value) revert InvalidAmount(); // Assumes 1:1 ratio between base coin and currency.
-
-                    // Transfer currency.
-                    ICurrency(curve.currency).transferFrom(msg.sender, curve.owner, amountInCurrency);
-
-                    // Transfer coin.
-                    safeTransferETH(curve.owner, _price - burnPrice - amountInCurrency);
-
-                    collected[curve.owner][_curveId].amountInCurrency += amountInCurrency;
-                    collected[curve.owner][_curveId].amountInStablecoin += _price - burnPrice - amountInCurrency;
+                    revert InsufficientCurrency();
                 }
             } else {
-                // Stablecoins Support.
+                // Full Stablecoin Support.
                 // Without subsidy, increase payment based on amount of currency support.
                 if (_price != msg.value) revert InvalidAmount(); // Assumes 1:1 ratio between base coin and currency.
 
                 // Transfer coin.
                 safeTransferETH(curve.owner, _price - burnPrice);
 
-                collected[curve.owner][_curveId].amountInStablecoin += _price - burnPrice;
+                collected[_curveId].amountInStablecoin += _price - burnPrice;
             }
         } else {
-            // Full Currency Support.
+            // Floor Currency Support.
             if (_price - floor != msg.value) revert InvalidAmount(); // Assumes 1:1 ratio between base coin and currency.
 
             // Transfer currency.
@@ -155,8 +147,8 @@ contract TokenCurve {
             // Transfer coin.
             safeTransferETH(curve.owner, _price - burnPrice - floor);
 
-            collected[curve.owner][_curveId].amountInCurrency += floor;
-            collected[curve.owner][_curveId].amountInStablecoin += _price - burnPrice - floor;
+            collected[_curveId].amountInCurrency += floor;
+            collected[_curveId].amountInStablecoin += _price - burnPrice - floor;
         }
 
         // Mint.

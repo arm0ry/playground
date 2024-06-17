@@ -23,7 +23,6 @@ contract Log is OwnableRoles {
         bool review,
         bytes data
     );
-    event TouchpointDataLogged(bytes data);
     event Evaluated(uint256 logId, address bulletin, uint256 listId, uint256 nonce, bool pass);
 
     error NotAuthorized();
@@ -38,7 +37,7 @@ contract Log is OwnableRoles {
 
     /// @notice Role constants.
     uint256 public constant GASBUDDIES = 1 << 0;
-    uint256 public constant REVIEWERS = 1 << 1;
+    uint256 public constant MEMBERS = 1 << 1;
 
     /// @notice Currency faucet.
     address public currency;
@@ -53,10 +52,10 @@ contract Log is OwnableRoles {
     mapping(address => mapping(bytes32 => uint256)) public lookupLogId;
 
     // Mapping of touchpoints by encoded itemId data
-    // keccak256(abi.encodePacked(bulletin, listId, itemId) => nonce for itemId
+    // keccak256(abi.encodePacked(bulletin, itemId) => nonce for itemId
     mapping(bytes32 => uint256) nonceByItemId;
-    // keccak256(abi.encodePacked(bulletin, listId, itemId) => nonce for itemId => Touchpoint data
-    mapping(bytes32 => mapping(uint256 => bytes)) public touchpointDataByEncodedItemId;
+    // keccak256(abi.encodePacked(bulletin, itemId) => nonce for itemId => Touchpoint
+    mapping(bytes32 => mapping(uint256 => Touchpoint)) public touchpointByItemId;
 
     /// -----------------------------------------------------------------------
     /// Sign Storage
@@ -114,6 +113,7 @@ contract Log is OwnableRoles {
     function log(address bulletin, uint256 listId, uint256 itemId, string calldata feedback, bytes calldata data)
         external
         payable
+        onlyRoles(MEMBERS)
         checkList(bulletin, listId, itemId)
     {
         _log(LogType.PUBLIC, msg.sender, bulletin, listId, itemId, feedback, data);
@@ -128,7 +128,7 @@ contract Log is OwnableRoles {
         uint256 itemId,
         string calldata feedback,
         bytes calldata data
-    ) external payable {
+    ) external payable onlyRoles(MEMBERS) {
         // check token balance
         if (ITokenMinter(token).balanceOf(msg.sender, tokenId) == 0) revert NotAuthorized();
 
@@ -137,6 +137,8 @@ contract Log is OwnableRoles {
         if (logger != address(this)) revert InvalidLogger();
 
         _log(LogType.TOKEN_OWNERS, msg.sender, bulletin, listId, itemId, feedback, data);
+
+        ITokenMinter(token).burnByLogger(msg.sender, tokenId);
     }
 
     /// @notice Permissionless logging by signature.
@@ -150,7 +152,7 @@ contract Log is OwnableRoles {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) external payable checkList(bulletin, listId, itemId) {
+    ) external payable onlyRoles(GASBUDDIES) checkList(bulletin, listId, itemId) {
         // Validate signed message.
         bytes32 digest = keccak256(
             abi.encodePacked(
@@ -192,40 +194,42 @@ contract Log is OwnableRoles {
         Item memory item = IBulletin(bulletin).getItem(itemId);
         bool review = (item.review) ? false : true;
 
+        // Set up touchpoint.
+        Touchpoint memory tp =
+            Touchpoint({logType: logType, pass: review, itemId: itemId, feedback: feedback, data: data});
+
+        // Store touchpoint by logId.
         if (id == 0) {
             unchecked {
                 lookupLogId[user][keccak256(abi.encodePacked(bulletin, listId))] = ++logId;
             }
 
-            logs[logId].logType = logType;
             logs[logId].user = user;
             logs[logId].bulletin = bulletin;
             logs[logId].listId = listId;
 
-            logs[logId].touchpoints[logs[logId].nonce] =
-                Touchpoint({pass: review, itemId: itemId, feedback: feedback, data: data});
+            logs[logId].touchpoints[logs[logId].nonce] = tp;
 
             unchecked {
                 ++logs[logId].nonce;
             }
         } else {
-            logs[id].touchpoints[logs[id].nonce] =
-                Touchpoint({pass: review, itemId: itemId, feedback: feedback, data: data});
+            logs[id].touchpoints[logs[id].nonce] = tp;
             unchecked {
                 ++logs[id].nonce;
             }
         }
 
+        // Also store touchpoint by itemId.
         unchecked {
-            bytes32 temp = keccak256(abi.encodePacked(bulletin, listId, itemId));
-            ++nonceByItemId[temp];
-            touchpointDataByEncodedItemId[temp][nonceByItemId[temp]] = data;
-
-            emit TouchpointDataLogged(touchpointDataByEncodedItemId[temp][nonceByItemId[temp]]);
+            ++nonceByItemId[keccak256(abi.encodePacked(bulletin, itemId))];
+            touchpointByItemId[keccak256(abi.encodePacked(bulletin, itemId))][nonceByItemId[keccak256(
+                abi.encodePacked(bulletin, itemId)
+            )]] = tp;
         }
 
-        uint256 LOGGERS = IBulletin(bulletin).LOGGERS();
-        if (IBulletin(bulletin).hasAnyRole(address(this), LOGGERS) && review) {
+        // Finally, log data
+        if (IBulletin(bulletin).hasAnyRole(address(this), IBulletin(bulletin).LOGGERS()) && review) {
             IBulletin(bulletin).submit(itemId);
         }
 
@@ -239,21 +243,22 @@ contract Log is OwnableRoles {
     function evaluate(uint256 id, address bulletin, uint256 listId, uint256 order, uint256 itemId, bool pass)
         external
         payable
-        onlyRoles(REVIEWERS)
+        onlyRoles(MEMBERS)
+        checkList(bulletin, listId, itemId)
     {
-        uint256 LOGGERS = IBulletin(bulletin).LOGGERS();
-        (, address user, address _bulletin, uint256 _listId, uint256 nonce) = getLog(id);
+        // Already reviewed.
+        Item memory item = IBulletin(bulletin).getItem(itemId);
+        if (!item.review) revert InvalidItem();
 
+        (address user, address _bulletin, uint256 _listId, uint256 nonce) = getLog(id);
         if (order > nonce || bulletin != _bulletin || listId != _listId || logs[id].touchpoints[order].itemId != itemId)
         {
             revert InvalidEvaluation();
         }
 
-        if (!IBulletin(bulletin).checkIsItemInList(itemId, listId)) revert InvalidList();
-
         logs[id].touchpoints[order].pass = pass;
 
-        if (IBulletin(bulletin).hasAnyRole(address(this), LOGGERS) && pass) {
+        if (IBulletin(bulletin).hasAnyRole(address(this), IBulletin(bulletin).LOGGERS()) && pass) {
             IBulletin(bulletin).submit(itemId);
         }
 
@@ -264,7 +269,6 @@ contract Log is OwnableRoles {
                 (itemId == 0) ? IBulletin(bulletin).getListDrip(listId) : IBulletin(bulletin).getItemDrip(itemId)
             );
         }
-
         emit Evaluated(id, bulletin, listId, order, pass);
     }
 
@@ -275,17 +279,16 @@ contract Log is OwnableRoles {
     function getLog(uint256 _logId)
         public
         view
-        returns (LogType logType, address user, address bulletin, uint256 listId, uint256 nonce)
+        returns (address user, address bulletin, uint256 listId, uint256 nonce)
     {
-        logType = logs[_logId].logType;
         user = logs[_logId].user;
         bulletin = logs[_logId].bulletin;
         listId = logs[_logId].listId;
         nonce = logs[_logId].nonce;
     }
 
-    function getLogTouchpoints(uint256 _logId) external view returns (Touchpoint[] memory) {
-        (,,,, uint256 aNonce) = getLog(_logId);
+    function getTouchpointsByLog(uint256 _logId) external view returns (Touchpoint[] memory) {
+        (,,, uint256 aNonce) = getLog(_logId);
         Touchpoint[] memory tps = new Touchpoint[](aNonce);
 
         for (uint256 i; i < aNonce; ++i) {
@@ -296,7 +299,7 @@ contract Log is OwnableRoles {
     }
 
     function getTouchpointsByLogByItemId(uint256 _logId, uint256 _itemId) external view returns (Touchpoint[] memory) {
-        (,,,, uint256 aNonce) = getLog(_logId);
+        (,,, uint256 aNonce) = getLog(_logId);
         Touchpoint[] memory tps = new Touchpoint[](aNonce);
 
         for (uint256 i; i < aNonce; ++i) {
@@ -309,15 +312,23 @@ contract Log is OwnableRoles {
         return tps;
     }
 
-    function getNonceByItemId(address bulletin, uint256 listId, uint256 itemId) public view returns (uint256) {
-        return nonceByItemId[keccak256(abi.encodePacked(bulletin, listId, itemId))];
+    function getNonceByItemId(address bulletin, uint256 itemId) public view returns (uint256) {
+        return nonceByItemId[keccak256(abi.encodePacked(bulletin, itemId))];
     }
 
-    function getTouchpointDataByItemIdByNonce(address bulletin, uint256 listId, uint256 itemId, uint256 nonce)
+    function getTouchpointByItemIdByNonce(address bulletin, uint256 itemId, uint256 nonce)
         external
         view
-        returns (bytes memory)
+        returns (Touchpoint memory)
     {
-        return touchpointDataByEncodedItemId[keccak256(abi.encodePacked(bulletin, listId, itemId))][nonce];
+        return touchpointByItemId[keccak256(abi.encodePacked(bulletin, itemId))][nonce];
     }
+
+    // function getTouchpointDataByItemIdByNonce(address bulletin, uint256 listId, uint256 itemId, uint256 nonce)
+    //     external
+    //     view
+    //     returns (bytes memory)
+    // {
+    //     return touchpointByItemId[keccak256(abi.encodePacked(bulletin, listId, itemId))][nonce];
+    // }
 }

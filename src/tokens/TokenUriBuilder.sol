@@ -5,7 +5,7 @@ import {SVG} from "src/utils/SVG.sol";
 import {JSON} from "src/utils/JSON.sol";
 import {ITokenCurve} from "src/interface/ITokenCurve.sol";
 import {IBulletin, List, Item} from "src/interface/IBulletin.sol";
-import {ILog, Activity, Touchpoint} from "src/interface/ILog.sol";
+import {ILog, LogType, Activity, Touchpoint} from "src/interface/ILog.sol";
 import {ITokenMinter, TokenTitle, TokenSource, TokenBuilder} from "src/interface/ITokenMinter.sol";
 
 /// @title
@@ -189,6 +189,8 @@ contract TokenUriBuilder {
     /// SVG Template #2: Feedback for Cold Brew
     /// -----------------------------------------------------------------------
 
+    // TODO: show # of tokenholders that have logged.
+
     function feedbackForBeverages(TokenTitle memory title, TokenSource memory source)
         public
         view
@@ -250,6 +252,7 @@ contract TokenUriBuilder {
         view
         returns (uint256 flavor, uint256 body, uint256 aroma)
     {
+        Touchpoint memory tp;
         uint256 _flavor;
         uint256 _body;
         uint256 _aroma;
@@ -259,15 +262,16 @@ contract TokenUriBuilder {
 
             if (nonce > 0) {
                 for (uint256 i = 1; i <= nonce; ++i) {
-                    // Decode data and count user response.
-                    (_flavor, _body, _aroma) = abi.decode(
-                        ILog(logger).getTouchpointDataByItemIdByNonce(bulletin, listId, uint256(0), i),
-                        (uint256, uint256, uint256)
-                    );
+                    tp = ILog(logger).getTouchpointByItemIdByNonce(bulletin, listId, uint256(0), i);
 
-                    flavor += _flavor;
-                    body += _body;
-                    aroma += _aroma;
+                    // Decode data and count user response.
+                    if (tp.logType == LogType.TOKEN_OWNERS) {
+                        (_flavor, _body, _aroma) = abi.decode(tp.data, (uint256, uint256, uint256));
+
+                        flavor += _flavor;
+                        body += _body;
+                        aroma += _aroma;
+                    }
                 }
 
                 flavor = flavor / nonce * 15;

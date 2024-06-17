@@ -36,6 +36,8 @@ interface ITokenMinter {
     function burn(address from, uint256 id) external payable;
     function mintByMarket(address to, uint256 id) external payable;
     function burnByMarket(address from, uint256 id) external payable;
+    function mintByLogger(address to, uint256 id) external payable;
+    function burnByLogger(address from, uint256 id) external payable;
 
     function balanceOf(address _owner, uint256 _id) external view returns (uint256);
     function uri(uint256 id) external view returns (string memory);

@@ -198,10 +198,8 @@ contract Bulletin is OwnableRoles {
     /// -----------------------------------------------------------------------
 
     function submit(uint256 _itemId) external onlyRoles(LOGGERS) {
-        if (_itemId > 0) {
-            unchecked {
-                ++runsByItem[_itemId];
-            }
+        unchecked {
+            ++runsByItem[_itemId];
         }
     }
 

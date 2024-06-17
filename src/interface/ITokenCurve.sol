@@ -27,6 +27,7 @@ struct Curve {
 struct Collected {
     uint256 amountInCurrency;
     uint256 amountInStablecoin;
+    uint256 amountConverted;
 }
 
 interface ITokenCurve {

@@ -34,15 +34,39 @@ contract TokenCurveTest is Test {
     /// @dev For bulletin use.
     Item[] items;
     uint256[] itemIds;
-    Item item1 = Item({review: false, expire: PAST, owner: makeAddr("alice"), title: TEST, detail: TEST, schema: BYTES});
-    Item item2 = Item({review: false, expire: FUTURE, owner: makeAddr("bob"), title: TEST, detail: TEST, schema: BYTES});
-    Item item3 =
-        Item({review: false, expire: FUTURE, owner: makeAddr("charlie"), title: TEST, detail: TEST, schema: BYTES});
-    Item item4 =
-        Item({review: true, expire: PAST, owner: makeAddr("charlie"), title: TEST, detail: TEST, schema: BYTES});
-    Item item5 =
-        Item({review: true, expire: FUTURE, owner: makeAddr("alice"), title: TEST, detail: TEST, schema: BYTES});
-    Item item6 = Item({review: true, expire: FUTURE, owner: makeAddr("bob"), title: TEST, detail: TEST, schema: BYTES});
+    Item item1 =
+        Item({review: false, expire: PAST, owner: makeAddr("alice"), title: TEST, detail: TEST, schema: BYTES, drip: 0});
+    Item item2 =
+        Item({review: false, expire: FUTURE, owner: makeAddr("bob"), title: TEST, detail: TEST, schema: BYTES, drip: 0});
+    Item item3 = Item({
+        review: false,
+        expire: FUTURE,
+        owner: makeAddr("charlie"),
+        title: TEST,
+        detail: TEST,
+        schema: BYTES,
+        drip: 0
+    });
+    Item item4 = Item({
+        review: true,
+        expire: PAST,
+        owner: makeAddr("charlie"),
+        title: TEST,
+        detail: TEST,
+        schema: BYTES,
+        drip: 0
+    });
+    Item item5 = Item({
+        review: true,
+        expire: FUTURE,
+        owner: makeAddr("alice"),
+        title: TEST,
+        detail: TEST,
+        schema: BYTES,
+        drip: 0
+    });
+    Item item6 =
+        Item({review: true, expire: FUTURE, owner: makeAddr("bob"), title: TEST, detail: TEST, schema: BYTES, drip: 0});
 
     /// @dev For currency use.
     Curve curve;
@@ -972,6 +996,7 @@ contract TokenCurveTest is Test {
             assertEq(_item.title, items[i].title);
             assertEq(_item.detail, items[i].detail);
             assertEq(_item.schema, items[i].schema);
+            assertEq(_item.drip, items[i].drip);
         }
     }
 
@@ -982,7 +1007,7 @@ contract TokenCurveTest is Test {
         itemIds.push(1);
         itemIds.push(2);
         itemIds.push(3);
-        List memory list = List({owner: alice, title: TEST, detail: TEST, schema: BYTES, itemIds: itemIds});
+        List memory list = List({owner: alice, title: TEST, detail: TEST, schema: BYTES, itemIds: itemIds, drip: 0});
 
         uint256 id = bulletin.listId();
         bulletin.registerList(list);

@@ -34,9 +34,9 @@ contract AdvancedPooling {
     function getActivityProgress(address log, uint256 id) public returns (uint256) {
         bitmap.unsetBatch(0, 255);
         uint256 progress;
-        (,, address aBulletin, uint256 aListId, uint256 aNonce) = ILog(log).getLog(id);
+        (, address aBulletin, uint256 aListId, uint256 aNonce) = ILog(log).getLog(id);
         Touchpoint[] memory tps = new Touchpoint[](aNonce);
-        tps = ILog(log).getLogTouchpoints(id);
+        tps = ILog(log).getTouchpointsByLog(id);
         List memory list = IBulletin(aBulletin).getList(aListId);
 
         uint256 length = list.itemIds.length;
@@ -122,7 +122,7 @@ contract AdvancedPooling {
 
         uint256 count = ILog(log).logId();
         for (uint256 i = 1; i <= count; ++i) {
-            (, aUser,,,) = ILog(log).getLog(i);
+            (aUser,,,) = ILog(log).getLog(i);
             percentage = getActivityProgress(log, i);
             (aUser == user && percentage == 100) ? ++runs : runs;
         }
@@ -143,7 +143,7 @@ contract AdvancedPooling {
 
         uint256 count = ILog(log).logId();
         for (uint256 i = 1; i <= count; ++i) {
-            (, aUser,,,) = ILog(log).getLog(i);
+            (aUser,,,) = ILog(log).getLog(i);
             if (aUser == user) {
                 percentage = getActivityProgress(log, i);
 
@@ -171,7 +171,7 @@ contract AdvancedPooling {
         address aBulletin;
         uint256 aListId;
         for (uint256 i = 1; i <= numOfActivities; ++i) {
-            (,, aBulletin, aListId,) = ILog(log).getLog(i);
+            (, aBulletin, aListId,) = ILog(log).getLog(i);
             data = bytes32(abi.encodePacked(aBulletin, aListId));
             unchecked {
                 ++counter[data];
@@ -224,7 +224,7 @@ contract AdvancedPooling {
         uint256 aListId;
         bytes32 data;
         for (uint256 i = 1; i <= numOfActivities; ++i) {
-            (,, aBulletin, aListId,) = ILog(log).getLog(i);
+            (, aBulletin, aListId,) = ILog(log).getLog(i);
             data = bytes32(abi.encodePacked(aBulletin, aListId));
             delete counter[data];
         }

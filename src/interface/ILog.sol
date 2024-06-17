@@ -9,7 +9,6 @@ enum LogType {
 }
 
 struct Activity {
-    LogType logType;
     address user;
     address bulletin;
     uint256 listId;
@@ -19,6 +18,7 @@ struct Activity {
 }
 
 struct Touchpoint {
+    LogType logType;
     bool pass;
     uint256 itemId;
     string feedback;
@@ -27,7 +27,7 @@ struct Touchpoint {
 
 interface ILog {
     function GASBUDDIES() external view returns (uint256);
-    function REVIEWERS() external view returns (uint256);
+    function MEMBERS() external view returns (uint256);
 
     function initialize(address owner) external;
     function owner() external view returns (address);
@@ -58,11 +58,15 @@ interface ILog {
     ) external payable;
 
     function logId() external view returns (uint256);
-    function getLog(uint256 logId) external view returns (LogType, address, address, uint256, uint256);
+    function getLog(uint256 logId) external view returns (address, address, uint256, uint256);
     function lookupLogId(address user, bytes32 encodePackedBulletinListId) external view returns (uint256);
-    function getLogTouchpoints(uint256 logId) external view returns (Touchpoint[] memory);
-    function getLogTouchpointsByItemId(uint256 _logId, uint256 _itemId) external view returns (Touchpoint[] memory);
+    function getTouchpointsByLog(uint256 logId) external view returns (Touchpoint[] memory);
+    function getTouchpointsByLogByItemId(uint256 _logId, uint256 _itemId) external view returns (Touchpoint[] memory);
     function getNonceByItemId(address bulletin, uint256 listId, uint256 itemId) external view returns (uint256);
+    function getTouchpointByItemIdByNonce(address bulletin, uint256 listId, uint256 itemId, uint256 nonce)
+        external
+        view
+        returns (Touchpoint memory);
     function getTouchpointDataByItemIdByNonce(address bulletin, uint256 listId, uint256 itemId, uint256 nonce)
         external
         view
