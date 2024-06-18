@@ -246,7 +246,7 @@ contract Deploy is Script {
             supply: 0,
             curveType: CurveType.QUADRATIC,
             currency: currencyAddr,
-            scale: 0.1 ether,
+            scale: 0.01 ether,
             mint_a: 0,
             mint_b: 5,
             mint_c: 50,
@@ -265,16 +265,20 @@ contract Deploy is Script {
         ILog(loggerAddr).log(bulletinAddr, 2, 0, "Wonderful service!", BYTES);
 
         // Full stablecoin support.
-        TokenCurve(marketAddr).support(1, patron, 5 ether);
+        uint256 price = TokenCurve(marketAddr).getCurvePrice(true, 1, 0);
+        TokenCurve(marketAddr).support(1, patron, price);
 
         // Floor currency support.
-        TokenCurve(marketAddr).support{value: 0.003 ether}(2, patron, 3 ether);
+        price = TokenCurve(marketAddr).getCurvePrice(true, 2, 0);
+        TokenCurve(marketAddr).support{value: price - 3 ether}(2, patron, 3 ether);
 
         // Partial-floor stablecoin support.
-        TokenCurve(marketAddr).support{value: 5.01 ether}(3, patron, 5 ether);
+        price = TokenCurve(marketAddr).getCurvePrice(true, 3, 0);
+        TokenCurve(marketAddr).support{value: price - 9.9995 ether}(3, patron, 9.9995 ether);
 
         // Floor currency support.
-        TokenCurve(marketAddr).support{value: 0.5 ether}(4, patron, 5 ether);
+        price = TokenCurve(marketAddr).getCurvePrice(true, 4, 0);
+        TokenCurve(marketAddr).support{value: price - 0.5 ether}(4, patron, 0.5 ether);
     }
 
     function deployBulletin(bool factory, address user) internal {
