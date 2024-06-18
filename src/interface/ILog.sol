@@ -2,10 +2,10 @@
 pragma solidity ^0.8.17;
 
 enum LogType {
-    PUBLIC,
+    MEMBER,
     SIGNATURE,
     SPONSORED,
-    TOKEN_OWNERS
+    TOKEN_OWNER
 }
 
 struct Activity {

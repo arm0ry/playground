@@ -265,7 +265,7 @@ contract TokenUriBuilder {
                     tp = ILog(logger).getTouchpointByItemIdByNonce(bulletin, listId, uint256(0), i);
 
                     // Decode data and count user response.
-                    if (tp.logType == LogType.TOKEN_OWNERS) {
+                    if (tp.logType == LogType.TOKEN_OWNER) {
                         (_flavor, _body, _aroma) = abi.decode(tp.data, (uint256, uint256, uint256));
 
                         flavor += _flavor;

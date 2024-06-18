@@ -41,6 +41,5 @@ interface ITokenCurve {
 
     /// @notice Getter logic.
     function getCurve(uint256 curveId) external view returns (Curve memory);
-    function getCurvePrice(bool mint, Curve memory curve, uint256 supply) external view returns (uint256);
     function getCurvePrice(bool mint, uint256 curveId, uint256 supply) external view returns (uint256);
 }

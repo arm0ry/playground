@@ -113,7 +113,7 @@ contract TokenCurve {
                     if (_price - amountInCurrency != msg.value) revert InvalidAmount(); // Assumes 1:1 ratio between base coin and currency.
 
                     // Transfer currency.
-                    ICurrency(curve.currency).transferFrom(msg.sender, curve.owner, amountInCurrency);
+                    ICurrency(curve.currency).transferFrom(patron, curve.owner, amountInCurrency);
                     ICurrency(curve.currency).transferFrom(address(this), curve.owner, floor - amountInCurrency);
 
                     // Transfer coin.
@@ -142,7 +142,7 @@ contract TokenCurve {
             if (_price - floor != msg.value) revert InvalidAmount(); // Assumes 1:1 ratio between base coin and currency.
 
             // Transfer currency.
-            ICurrency(curve.currency).transferFrom(msg.sender, curve.owner, floor);
+            ICurrency(curve.currency).transferFrom(patron, curve.owner, floor);
 
             // Transfer coin.
             safeTransferETH(curve.owner, _price - burnPrice - floor);
@@ -190,11 +190,6 @@ contract TokenCurve {
     /// @notice Return owner of a curve.
     function getCurve(uint256 _curveId) external view returns (Curve memory) {
         return curves[_curveId];
-    }
-
-    /// @notice Calculate mint and burn price.
-    function getCurvePrice(bool _mint, Curve memory curve, uint256 _supply) public view returns (uint256) {
-        return _getCurvePrice(_mint, 0, curve, _supply);
     }
 
     /// @notice Calculate mint and burn price.
@@ -261,6 +256,15 @@ contract TokenCurve {
         returns (uint256)
     {
         return constant_a * (supply ** 2) * scale + constant_b * supply * scale + constant_c * scale;
+    }
+
+    /// -----------------------------------------------------------------------
+    /// Internal Logic
+    /// -----------------------------------------------------------------------
+
+    /// @notice Calculate mint and burn price.
+    function getCurvePrice(bool _mint, Curve memory curve, uint256 _supply) internal view returns (uint256) {
+        return _getCurvePrice(_mint, 0, curve, _supply);
     }
 
     receive() external payable virtual {}

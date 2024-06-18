@@ -116,7 +116,7 @@ contract Log is OwnableRoles {
         onlyRoles(MEMBERS)
         checkList(bulletin, listId, itemId)
     {
-        _log(LogType.PUBLIC, msg.sender, bulletin, listId, itemId, feedback, data);
+        _log(LogType.MEMBER, msg.sender, bulletin, listId, itemId, feedback, data);
     }
 
     /// @notice Token ownership logging.
@@ -136,7 +136,7 @@ contract Log is OwnableRoles {
         (address bulletin, uint256 listId, address logger) = ITokenMinter(token).getTokenSource(tokenId);
         if (logger != address(this)) revert InvalidLogger();
 
-        _log(LogType.TOKEN_OWNERS, msg.sender, bulletin, listId, itemId, feedback, data);
+        _log(LogType.TOKEN_OWNER, msg.sender, bulletin, listId, itemId, feedback, data);
 
         ITokenMinter(token).burnByLogger(msg.sender, tokenId);
     }

@@ -13,9 +13,6 @@ import {Factory} from "src/Factory.sol";
 import {TokenCurve} from "src/TokenCurve.sol";
 
 import {ITokenCurve, Curve, CurveType} from "src/interface/ITokenCurve.sol";
-import {OnboardingSupportToken} from "src/tokens/g0v/OnboardingSupportToken.sol";
-import {HackathonSupportToken} from "src/tokens/g0v/HackathonSupportToken.sol";
-import {ParticipantSupportToken} from "src/tokens/g0v/ParticipantSupportToken.sol";
 import {TokenMinter} from "src/tokens/TokenMinter.sol";
 import {ITokenMinter, TokenTitle, TokenBuilder, TokenSource, TokenMarket} from "src/interface/ITokenMinter.sol";
 import {Currency} from "src/tokens/Currency.sol";
@@ -46,6 +43,7 @@ contract Deploy is Script {
     // Tokens.
     address tokenMinterAddr;
     address currencyAddr;
+    address currencyAddr2;
     address tokenBuilderAddr;
 
     // Users.
@@ -60,6 +58,7 @@ contract Deploy is Script {
     Curve curve2;
     Curve curve3;
     Curve curve4;
+    Curve curve5;
 
     // Prep for item submission.
     Item[] items;
@@ -77,24 +76,41 @@ contract Deploy is Script {
         vm.startBroadcast(privateKey);
 
         deployCommons(account, user1, gasbuddy);
+        // deployTokenBuilder();
 
         vm.stopBroadcast();
+    }
+
+    function runSupport(address patron) internal {
+        marketAddr = payable(address(0xc0Cb59917D6632bDaa04a9223Ff3FD700fD367E0));
+        Currency(0x53680ac74673922705a009D5fCd6469A9E67fa88).mint(patron, 1 ether, marketAddr);
+
+        uint256 price;
+        TokenCurve(marketAddr).support(1, patron, 0.001 ether);
+
+        price = TokenCurve(marketAddr).getCurvePrice(true, 2, 0);
+        TokenCurve(marketAddr).support{value: price - 0.003 ether}(2, patron, 0.003 ether);
+
+        price = TokenCurve(marketAddr).getCurvePrice(true, 3, 0);
+        TokenCurve(marketAddr).support{value: price - 0.0001 ether}(3, patron, 0.0001 ether);
     }
 
     function deployCommons(address patron, address user, address _gasbuddy) internal {
         // Deploy quest contract and set gasbuddy.
         deployLogger(false, patron);
         ILog(loggerAddr).grantRoles(gasbuddy, ILog(loggerAddr).GASBUDDIES());
+        ILog(loggerAddr).grantRoles(patron, ILog(loggerAddr).MEMBERS());
 
         // Deploy bulletin contract and grant roles.
         deployBulletin(false, patron);
         IBulletin(bulletinAddr).grantRoles(loggerAddr, IBulletin(bulletinAddr).LOGGERS());
 
         // Prepare lists.
-        registerChiadoPoloHat();
-        registerColdBrewCoffee();
-        registerEspresso();
+        registerColdBrew();
+        registerDeliverColdBrew();
+        // registerEspresso();
         // registerNujabes();
+        // registerMakingEspresso();
         // registerListTutorial();
         // registerWildernessPark();
         // registerHackath0n();
@@ -103,69 +119,86 @@ contract Deploy is Script {
         deployTokenMinter();
         deployTokenBuilder();
 
-        // Deploy currency.
-        deployCurrency(patron);
-
         // Deploy curve.
         deployTokenCurve(patron);
+
+        // Deploy currency.
+        deployCurrency("Coffee", "COFFEE", patron);
+        Currency(currencyAddr).mint(patron, 1000 ether, marketAddr);
+        Currency(currencyAddr).mint(marketAddr, 10 ether, marketAddr);
+
+        deployCurrency2("Croissaint", "CROISSANT", patron);
+        Currency(currencyAddr2).mint(patron, 1000 ether, marketAddr);
+        Currency(currencyAddr2).mint(marketAddr, 10 ether, marketAddr);
 
         // Configure token
         ITokenMinter(tokenMinterAddr).registerMinter(
             TokenTitle({
-                name: "Flat Collection Token: Community Onboarding",
-                desc: "Flat Collection is a way of collecting donations in local $Currency. The amount of $Currency to collect might reflect personal time involved and any local community values produced as a result of socializing the community service/talent/items from the List."
+                name: "Cold Brew Coffee",
+                desc: "Giving back to the $coffee community, we take $coffee for our labor and time and the rest in $stablecoins for our continued commitment in sourcing local beans and practicing sustainable waste practices."
             }),
             TokenSource({bulletin: bulletinAddr, listId: 1, logger: loggerAddr}),
-            TokenBuilder({builder: tokenBuilderAddr, builderId: 1}),
-            TokenMarket({market: marketAddr, limit: 100 ether})
+            TokenBuilder({builder: tokenBuilderAddr, builderId: 2}),
+            TokenMarket({market: marketAddr, limit: 1000})
         );
         uint256 tokenId = ITokenMinter(tokenMinterAddr).tokenId();
 
         ITokenMinter(tokenMinterAddr).registerMinter(
             TokenTitle({
-                name: "Curved Support Token: Wildnerness Park (IRL activities)",
-                desc: "Curved Support adds a layer on top of Flat Collection and offers opportunities for supporters to exit. The Flat Collection portion of Curved Support collects donations in $Currency just like above, and it might further include any external values in stablecoins that may enter the local economy as a result of socializing the List."
+                name: "Cold Brew Coffee", // $BREAD
+                desc: "In partnership with the $bread community, we offer our coffee with $bread."
             }),
-            TokenSource({bulletin: bulletinAddr, listId: 2, logger: loggerAddr}),
-            TokenBuilder({builder: tokenBuilderAddr, builderId: 1}),
-            TokenMarket({market: marketAddr, limit: 100 ether})
+            TokenSource({bulletin: bulletinAddr, listId: 1, logger: loggerAddr}),
+            TokenBuilder({builder: tokenBuilderAddr, builderId: 2}),
+            TokenMarket({market: marketAddr, limit: 100})
         );
         uint256 tokenId2 = ITokenMinter(tokenMinterAddr).tokenId();
 
         ITokenMinter(tokenMinterAddr).registerMinter(
             TokenTitle({
-                name: "Curved Support Token 2: Music (IP)",
-                desc: "Curved Support is an elegant and efficient way to openly capture and distribute values from positive externalities. Local communities that manage $Currency might decide to subsidize the curve to jumpstart the $Currency economy or as means to provide ongoing support for local commerce."
+                name: "Deliver a Pitcher of Cold Brew", // Pay for delivery in $COFFEE via drop and receive service payments in $COFFEE via curve
+                desc: "We can also deliver a pitch of cold brew locally for $coffee to cover labor, and the rest in $stablecoin for our commitment to recycle pitchers and deliver with zero-emission."
             }),
-            TokenSource({bulletin: bulletinAddr, listId: 3, logger: loggerAddr}),
+            TokenSource({bulletin: bulletinAddr, listId: 2, logger: loggerAddr}),
             TokenBuilder({builder: tokenBuilderAddr, builderId: 1}),
-            TokenMarket({market: marketAddr, limit: 100 ether})
+            TokenMarket({market: marketAddr, limit: 100})
         );
         uint256 tokenId3 = ITokenMinter(tokenMinterAddr).tokenId();
 
+        ITokenMinter(tokenMinterAddr).registerMinter(
+            TokenTitle({
+                name: "[Help Wanted] Deliver a Pitcher of Cold Brew",
+                desc: "Get tokens, make delivery with zero-emission, and earn $coffee."
+            }),
+            TokenSource({bulletin: bulletinAddr, listId: 2, logger: loggerAddr}),
+            TokenBuilder({builder: tokenBuilderAddr, builderId: 1}),
+            TokenMarket({market: marketAddr, limit: 10})
+        );
+        uint256 tokenId4 = ITokenMinter(tokenMinterAddr).tokenId();
+
         // ITokenMinter(tokenMinterAddr).registerMinter(
         //     TokenTitle({
-        //         name: "Harberger Sponsor: g0v Hackath0n [WIP]",
-        //         desc: "In addition to using bonding curve as the pricing and ownership mechanism for a List, we can also use Harberger Tax to maintain (serial) ownership of the Lists. This mechanism might be appropriate for supporters looking for more exclusive ownership and relationship with the owner of the List."
+        //         name: "[Harberger Sponsor] How to Make Espresso for Beginners",
+        //         desc: "[WIP] Our espresso-making process is a one-of-a-kind artistic endeavor. If you want to know more, show your support and become a Harberger sponsor!"
         //     }),
         //     TokenSource({bulletin: bulletinAddr, listId: 4, logger: loggerAddr}),
         //     TokenBuilder({builder: tokenBuilderAddr, builderId: 1}),
-        //     TokenMarket({market: marketAddr, limit: 100 ether})
+        //     TokenMarket({market: marketAddr, limit: 1})
         // );
-        // uint256 tokenId4 = ITokenMinter(tokenMinterAddr).tokenId();
+        // uint256 tokenId5 = ITokenMinter(tokenMinterAddr).tokenId();
 
         // Register curves.
         curve1 = Curve({
-            owner: patron,
+            owner: user1,
             token: tokenMinterAddr,
             id: tokenId,
             supply: 0,
             curveType: CurveType.LINEAR,
-            currency: currencyAddr,
-            scale: 0.0001 ether,
+            currency: currencyAddr2,
+            scale: 1 ether,
             mint_a: 0,
             mint_b: 0,
-            mint_c: 10,
+            mint_c: 5,
             burn_a: 0,
             burn_b: 0,
             burn_c: 0
@@ -173,7 +206,7 @@ contract Deploy is Script {
         TokenCurve(marketAddr).registerCurve(curve1);
 
         curve2 = Curve({
-            owner: patron,
+            owner: user2,
             token: tokenMinterAddr,
             id: tokenId2,
             supply: 0,
@@ -181,61 +214,67 @@ contract Deploy is Script {
             currency: currencyAddr,
             scale: 0.0001 ether,
             mint_a: 0,
-            mint_b: 5,
-            mint_c: 30,
+            mint_b: 30,
+            mint_c: 30000,
             burn_a: 0,
-            burn_b: 2,
+            burn_b: 1,
             burn_c: 0
         });
         TokenCurve(marketAddr).registerCurve(curve2);
 
         curve3 = Curve({
-            owner: patron,
+            owner: user1,
             token: tokenMinterAddr,
             id: tokenId3,
             supply: 0,
-            curveType: CurveType.QUADRATIC,
+            curveType: CurveType.LINEAR,
             currency: currencyAddr,
             scale: 0.0001 ether,
-            mint_a: 10,
-            mint_b: 10,
-            mint_c: 1,
-            burn_a: 5,
-            burn_b: 5,
+            mint_a: 0,
+            mint_b: 100,
+            mint_c: 100000,
+            burn_a: 0,
+            burn_b: 1,
             burn_c: 0
         });
         TokenCurve(marketAddr).registerCurve(curve3);
 
-        // curve4 = Curve({
-        //     owner: patron,
-        //     token: tokenMinterAddr,
-        //     id: tokenId4,
-        //     supply: 0,
-        //     curveType: CurveType.QUADRATIC,
-        //     currency: currencyAddr,
-        //     scale: 0.0001 ether,
-        //     mint_a: 10,
-        //     mint_b: 10,
-        //     mint_c: 1,
-        //     burn_a: 5,
-        //     burn_b: 5,
-        //     burn_c: 0
-        // });
-        // TokenCurve(marketAddr).registerCurve(curve4);
+        curve4 = Curve({
+            owner: user2,
+            token: tokenMinterAddr,
+            id: tokenId4,
+            supply: 0,
+            curveType: CurveType.QUADRATIC,
+            currency: currencyAddr,
+            scale: 0.1 ether,
+            mint_a: 0,
+            mint_b: 5,
+            mint_c: 50,
+            burn_a: 0,
+            burn_b: 1,
+            burn_c: 0
+        });
+        TokenCurve(marketAddr).registerCurve(curve4);
 
         // Update admin.
         // Need this only if deployer account is different from account operating the contract
         Bulletin(payable(bulletinAddr)).transferOwnership(user);
 
         // Submit mock user input.
-        ILog(loggerAddr).log(bulletinAddr, 1, 1, "Alright not too hard to follow!", BYTES);
-        ILog(loggerAddr).log(bulletinAddr, 1, 2, "Wow!", BYTES);
+        ILog(loggerAddr).log(bulletinAddr, 1, 0, "Flavorful!", abi.encode(uint256(3), uint256(7), uint256(9)));
+        ILog(loggerAddr).log(bulletinAddr, 2, 0, "Wonderful service!", BYTES);
 
-        // Mint.
-        support(1, patron, 0);
-        // (tokenMinterAddr).updateInputs(1, 1, 1);
-        // support(2, patron);
-        // support(3, patron);
+        // Full stablecoin support.
+        TokenCurve(marketAddr).support(1, patron, 5 ether);
+
+        // Floor currency support.
+        TokenCurve(marketAddr).support{value: 0.003 ether}(2, patron, 3 ether);
+
+        // Partial-floor stablecoin support.
+        TokenCurve(marketAddr).support{value: 5.01 ether}(3, patron, 5 ether);
+
+        // Floor currency support.
+        TokenCurve(marketAddr).support{value: 0.5 ether}(4, patron, 5 ether);
     }
 
     function deployBulletin(bool factory, address user) internal {
@@ -275,9 +314,14 @@ contract Deploy is Script {
         tokenBuilderAddr = address(new TokenUriBuilder());
     }
 
-    function deployCurrency(address owner) internal {
+    function deployCurrency(string memory name, string memory symbol, address owner) internal {
         delete currencyAddr;
-        currencyAddr = address(new Currency("Currency", "CURRENCY", owner));
+        currencyAddr = address(new Currency(name, symbol, owner));
+    }
+
+    function deployCurrency2(string memory name, string memory symbol, address owner) internal {
+        delete currencyAddr2;
+        currencyAddr2 = address(new Currency(name, symbol, owner));
     }
 
     function support(uint256 curveId, address patron, uint256 amountInCurrency) internal {
@@ -290,7 +334,8 @@ contract Deploy is Script {
         address bulletin,
         Item[] memory _items,
         string memory listTitle,
-        string memory listDetail
+        string memory listDetail,
+        uint256 drip
     ) internal {
         delete itemIds;
         uint256 itemId = IBulletin(bulletinAddr).itemId();
@@ -301,7 +346,8 @@ contract Deploy is Script {
             itemIds.push(itemId + i);
         }
 
-        List memory list = List({owner: user, title: listTitle, detail: listDetail, schema: BYTES, itemIds: itemIds});
+        List memory list =
+            List({owner: user, title: listTitle, detail: listDetail, schema: BYTES, itemIds: itemIds, drip: drip});
         IBulletin(bulletinAddr).registerList(list);
     }
 
@@ -309,47 +355,66 @@ contract Deploy is Script {
     /// Register Lists
     /// -----------------------------------------------------------------------
 
-    function registerColdBrewCoffee() public {
+    function registerColdBrew() public {
         delete items;
 
         Item memory item1 = Item({
             review: false,
             expire: FUTURE,
             owner: user1,
-            title: "ABC Iced Blend",
-            detail: "https://mameyacoffee.com/products/ice-blend?variant=47852310331707",
-            schema: BYTES
+            title: "ABC Iced Blend Beans",
+            detail: "https://hackmd.io/@audsssy/rkHLIFwVC",
+            schema: BYTES,
+            drip: 0
         });
         Item memory item2 = Item({
             review: false,
             expire: FUTURE,
             owner: user1,
-            title: "Baratza Encore Electric Grinder",
-            detail: "https://www.baratza.com/en-us/product/encoretm-zcg485",
-            schema: BYTES
+            title: "Filtered Water",
+            detail: "",
+            schema: BYTES,
+            drip: 0
         });
-        Item memory item3 = Item({
-            review: false,
-            expire: FUTURE,
-            owner: user1,
-            title: "Cold Brew",
-            detail: "https://www.youtube.com/embed/CjOXSwJZEhM",
-            schema: BYTES
-        });
-        Item memory item4 =
-            Item({review: false, expire: FUTURE, owner: user1, title: "Filtered Water", detail: "", schema: BYTES});
 
         items.push(item1);
         items.push(item2);
-        items.push(item3);
-        items.push(item4);
 
         registerList(
             account,
             bulletinAddr,
             items,
             "Cold Brew",
-            "A smooth and refreshing coffee experience crafted to balance bold flavors and ethical sourcing, perfect for those who savor quality in every sip"
+            "A smooth and refreshing coffee experience crafted to balance bold flavors and ethical sourcing.",
+            0
+        );
+    }
+
+    function registerDeliverColdBrew() public {
+        delete items;
+
+        Item memory item1 = Item({
+            review: false,
+            expire: FUTURE,
+            owner: user1,
+            title: "Grab a Pitcher of Cold Brew",
+            detail: "",
+            schema: BYTES,
+            drip: 0
+        });
+        Item memory item2 =
+            Item({review: false, expire: FUTURE, owner: user1, title: "Delivery", detail: "", schema: BYTES, drip: 0});
+
+        items.push(item1);
+        items.push(item2);
+
+        registerList(
+            account,
+            bulletinAddr,
+            items,
+            "Deliver a Pitcher of Cold Brew",
+            "Reserve a pitcher of cold brew for delivery next Monday!",
+            60 ether
         );
     }
 
@@ -360,28 +425,73 @@ contract Deploy is Script {
             review: false,
             expire: FUTURE,
             owner: user1,
-            title: "ABC Espresso Blend",
-            detail: "https://mameyacoffee.com/products/espresso-blend",
-            schema: BYTES
+            title: "ABC Espresso Beans",
+            detail: "https://hackmd.io/@audsssy/rkHLIFwVC",
+            schema: BYTES,
+            drip: 0
         });
         Item memory item2 = Item({
             review: false,
             expire: FUTURE,
             owner: user1,
-            title: "Eureka Atom Espresso Grinder",
-            detail: "https://www.eureka.co.it/en/products/eureka+1920/commercial+grinders/atom+range/8.aspx",
-            schema: BYTES
+            title: "Boiled Water",
+            detail: "",
+            schema: BYTES,
+            drip: 0
+        });
+
+        items.push(item1);
+        items.push(item2);
+
+        registerList(
+            account,
+            bulletinAddr,
+            items,
+            "Espresso",
+            "Discover our expertly crafted espresso, delivering bold, rich flavor and a velvety crema, perfect for starting your day with a touch of excellence.",
+            0
+        );
+    }
+
+    function registerMakingEspresso() public {
+        delete items;
+
+        Item memory item1 = Item({
+            review: false,
+            expire: FUTURE,
+            owner: user1,
+            title: "Preheat Machine",
+            detail: "https://hackmd.io/@audsssy/BJHHDtPEA",
+            schema: BYTES,
+            drip: 0
+        });
+        Item memory item2 = Item({
+            review: false,
+            expire: FUTURE,
+            owner: user1,
+            title: "Grind Beans",
+            detail: "https://hackmd.io/@audsssy/SkN9wYv40",
+            schema: BYTES,
+            drip: 0
         });
         Item memory item3 = Item({
             review: false,
             expire: FUTURE,
             owner: user1,
-            title: "Breville Bambino Plus",
-            detail: "https://www.breville.com/us/en/products/espresso/bes500.html",
-            schema: BYTES
+            title: "Tamp Coffee",
+            detail: "https://hackmd.io/@audsssy/rJ__K2vEC",
+            schema: BYTES,
+            drip: 0
         });
-        Item memory item4 =
-            Item({review: false, expire: FUTURE, owner: user1, title: "Filtered Water", detail: "", schema: BYTES});
+        Item memory item4 = Item({
+            review: false,
+            expire: FUTURE,
+            owner: user1,
+            title: "Brew Espresso",
+            detail: "https://www.youtube.com/embed/fbHPjiST8Is",
+            schema: BYTES,
+            drip: 0
+        });
 
         items.push(item1);
         items.push(item2);
@@ -392,8 +502,9 @@ contract Deploy is Script {
             account,
             bulletinAddr,
             items,
-            "Espresso",
-            "A bold and ethically sourced coffee blend, meticulously crafted to deliver an exceptional and responsible espresso experience in every cup"
+            "Making Espresso",
+            "Making an espresso is an art. We want to share with you how we do it.",
+            0
         );
     }
 
@@ -404,9 +515,20 @@ contract Deploy is Script {
             review: false,
             expire: FUTURE,
             owner: user1,
-            title: "Polo Hat",
-            detail: "https://onlyny.com/collections/headwear/products/berry-polo-hat?variant=41087202951252",
-            schema: BYTES
+            title: "6-panel",
+            detail: "https://hackmd.io/@audsssy/HJC9SFvNA",
+            schema: BYTES,
+            drip: 0
+        });
+
+        Item memory item2 = Item({
+            review: false,
+            expire: FUTURE,
+            owner: user1,
+            title: "Chino Twill",
+            detail: "https://hackmd.io/@audsssy/r1PJocwEC",
+            schema: BYTES,
+            drip: 0
         });
 
         items.push(item1);
@@ -416,7 +538,8 @@ contract Deploy is Script {
             bulletinAddr,
             items,
             "Chiado Polo Hat",
-            "Chiado Coffee brings you the best looking outfit that makes you proud."
+            "Chiado Coffee brings you the best looking outfit that makes you proud.",
+            0
         );
     }
 
@@ -429,7 +552,8 @@ contract Deploy is Script {
             owner: user1,
             title: unicode"第陸拾次記得投票黑客松 － 60th Hackath0n",
             detail: "https://g0v.hackmd.io/@jothon/B1IwtQNrT",
-            schema: BYTES
+            schema: BYTES,
+            drip: 0
         });
         Item memory item2 = Item({
             review: false,
@@ -437,7 +561,8 @@ contract Deploy is Script {
             owner: user1,
             title: unicode"第陸拾壹次龍來 Open Data Day 黑客松 － 61st Hackath0n",
             detail: "https://g0v.hackmd.io/@jothon/B1DqSeaK6",
-            schema: BYTES
+            schema: BYTES,
+            drip: 0
         });
 
         items.push(item1);
@@ -448,7 +573,8 @@ contract Deploy is Script {
             bulletinAddr,
             items,
             "g0v bi-monthly Hackath0n",
-            "Founded in Taiwan, 'g0v' (gov-zero) is a decentralised civic tech community with information transparency, open results and open cooperation as its core values. g0v engages in public affairs by drawing from the grassroot power of the community."
+            "Founded in Taiwan, 'g0v' (gov-zero) is a decentralised civic tech community with information transparency, open results and open cooperation as its core values. g0v engages in public affairs by drawing from the grassroot power of the community.",
+            0
         );
     }
 
@@ -460,7 +586,8 @@ contract Deploy is Script {
             owner: user1,
             title: "Navigating the 'Create a Task' page",
             detail: "https://hackmd.io/@audsssy/H1bZW6h66",
-            schema: BYTES
+            schema: BYTES,
+            drip: 0
         });
         Item memory item2 = Item({
             review: false,
@@ -468,7 +595,8 @@ contract Deploy is Script {
             owner: user2,
             title: "Navigating the 'Create a List' page",
             detail: "https://hackmd.io/@audsssy/rJrera2TT",
-            schema: BYTES
+            schema: BYTES,
+            drip: 0
         });
         Item memory item3 = Item({
             review: false,
@@ -476,7 +604,8 @@ contract Deploy is Script {
             owner: user3,
             title: "Navigating Lists",
             detail: "https://hackmd.io/@audsssy/BkrQSah6p",
-            schema: BYTES
+            schema: BYTES,
+            drip: 0
         });
 
         items.push(item1);
@@ -488,7 +617,8 @@ contract Deploy is Script {
             bulletinAddr,
             items,
             "'Create a List' Tutorial",
-            "This is a tutorial to create, and interact with, a list onchain."
+            "This is a tutorial to create, and interact with, a list onchain.",
+            0
         );
     }
 
@@ -501,7 +631,8 @@ contract Deploy is Script {
             owner: user2,
             title: "Trail Post #45",
             detail: "https://www.indianaoutfitters.com/Maps/knobstone_trail/deam_lake_to_jackson_road.jpg",
-            schema: BYTES
+            schema: BYTES,
+            drip: 0
         });
         Item memory item2 = Item({
             review: false,
@@ -509,7 +640,8 @@ contract Deploy is Script {
             owner: user1,
             title: "Trail Post #44",
             detail: "https://www.indianaoutfitters.com/Maps/knobstone_trail/deam_lake_to_jackson_road.jpg",
-            schema: BYTES
+            schema: BYTES,
+            drip: 0
         });
         Item memory item3 = Item({
             review: false,
@@ -517,7 +649,8 @@ contract Deploy is Script {
             owner: user3,
             title: "Trail Post #43",
             detail: "https://www.indianaoutfitters.com/Maps/knobstone_trail/deam_lake_to_jackson_road.jpg",
-            schema: BYTES
+            schema: BYTES,
+            drip: 0
         });
         Item memory item4 = Item({
             review: false,
@@ -525,7 +658,8 @@ contract Deploy is Script {
             owner: user2,
             title: "Trail Post #28",
             detail: "https://www.indianaoutfitters.com/Maps/knobstone_trail/deam_lake_to_jackson_road.jpg",
-            schema: BYTES
+            schema: BYTES,
+            drip: 0
         });
         Item memory item5 = Item({
             review: false,
@@ -533,7 +667,8 @@ contract Deploy is Script {
             owner: user3,
             title: "Trail Post #29",
             detail: "https://www.indianaoutfitters.com/Maps/knobstone_trail/deam_lake_to_jackson_road.jpg",
-            schema: BYTES
+            schema: BYTES,
+            drip: 0
         });
         Item memory item6 = Item({
             review: false,
@@ -541,7 +676,8 @@ contract Deploy is Script {
             owner: user3,
             title: "Trail Post #48",
             detail: "https://www.indianaoutfitters.com/Maps/knobstone_trail/deam_lake_to_jackson_road.jpg",
-            schema: BYTES
+            schema: BYTES,
+            drip: 0
         });
 
         items.push(item1);
@@ -556,7 +692,8 @@ contract Deploy is Script {
             bulletinAddr,
             items,
             "TESTNET Wilderness Park",
-            "Scan QR codes at each trail post to help build a real-time heat map of hiking activities!"
+            "Scan QR codes at each trail post to help build a real-time heat map of hiking activities!",
+            0
         );
     }
 
@@ -569,7 +706,8 @@ contract Deploy is Script {
             owner: user3,
             title: "Seeing Practice Seeing Clearly by Tara Brach",
             detail: "https://www.youtube.com/embed/aoypkPAB1aA",
-            schema: BYTES
+            schema: BYTES,
+            drip: 0
         });
         Item memory item2 = Item({
             review: false,
@@ -577,7 +715,8 @@ contract Deploy is Script {
             owner: user3,
             title: "Feather (feat. Cise Starr &amp; Akin from CYNE)",
             detail: "https://www.youtube.com/embed/hQ5x8pHoIPA",
-            schema: BYTES
+            schema: BYTES,
+            drip: 0
         });
         Item memory item3 = Item({
             review: false,
@@ -585,7 +724,8 @@ contract Deploy is Script {
             owner: user3,
             title: "Luv(sic.) pt3 (feat. Shing02)",
             detail: "https://www.youtube.com/embed/Fwv2gnCFDOc",
-            schema: BYTES
+            schema: BYTES,
+            drip: 0
         });
         Item memory item4 = Item({
             review: false,
@@ -593,7 +733,8 @@ contract Deploy is Script {
             owner: user3,
             title: "After Hanabi -listen to my beats-",
             detail: "https://www.youtube.com/embed/UkhVp85_BnA",
-            schema: BYTES
+            schema: BYTES,
+            drip: 0
         });
         Item memory item5 = Item({
             review: false,
@@ -601,7 +742,8 @@ contract Deploy is Script {
             owner: user3,
             title: "Counting Stars",
             detail: "https://www.youtube.com/embed/IXa0kLOKfwQ",
-            schema: BYTES
+            schema: BYTES,
+            drip: 0
         });
 
         items.push(item1);
@@ -610,7 +752,7 @@ contract Deploy is Script {
         items.push(item4);
         items.push(item5);
 
-        registerList(account, bulletinAddr, items, unicode"Storytime with Aster // 胖比媽咪說故事", "");
+        registerList(account, bulletinAddr, items, unicode"Storytime with Aster // 胖比媽咪說故事", "", 0);
     }
 
     function registerNujabes() internal {
@@ -622,7 +764,8 @@ contract Deploy is Script {
             owner: user3,
             title: "Aruarian Dance",
             detail: "https://www.youtube.com/embed/HkZ8BitJhvc",
-            schema: BYTES
+            schema: BYTES,
+            drip: 0
         });
         Item memory item2 = Item({
             review: false,
@@ -630,7 +773,8 @@ contract Deploy is Script {
             owner: user3,
             title: "Feather (feat. Cise Starr &amp; Akin from CYNE)",
             detail: "https://www.youtube.com/embed/hQ5x8pHoIPA",
-            schema: BYTES
+            schema: BYTES,
+            drip: 0
         });
         Item memory item3 = Item({
             review: false,
@@ -638,7 +782,8 @@ contract Deploy is Script {
             owner: user3,
             title: "Luv(sic.) pt3 (feat. Shing02)",
             detail: "https://www.youtube.com/embed/Fwv2gnCFDOc",
-            schema: BYTES
+            schema: BYTES,
+            drip: 0
         });
         Item memory item4 = Item({
             review: false,
@@ -646,7 +791,8 @@ contract Deploy is Script {
             owner: user3,
             title: "After Hanabi -listen to my beats-",
             detail: "https://www.youtube.com/embed/UkhVp85_BnA",
-            schema: BYTES
+            schema: BYTES,
+            drip: 0
         });
         Item memory item5 = Item({
             review: false,
@@ -654,7 +800,8 @@ contract Deploy is Script {
             owner: user3,
             title: "Counting Stars",
             detail: "https://www.youtube.com/embed/IXa0kLOKfwQ",
-            schema: BYTES
+            schema: BYTES,
+            drip: 0
         });
 
         items.push(item1);
@@ -668,7 +815,8 @@ contract Deploy is Script {
             bulletinAddr,
             items,
             "The Nujabes Musical Collection",
-            "Just a few tracks from the Japanese legend, the original lo-fi master that inspired the entire chill genre. Enjoy!"
+            "Just a few tracks from the Japanese legend, the original lo-fi master that inspired the entire chill genre. Enjoy!",
+            0
         );
     }
 }
