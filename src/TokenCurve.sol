@@ -108,7 +108,7 @@ contract TokenCurve {
         if (floor > amountInCurrency) {
             if (curve.currency != address(0)) {
                 // TODO: Convert stablecoin to cover any currency amount lower than floor
-                // Partial-Floor Currency Support.
+                // Partial Currency Support .
                 if (ICurrency(curve.currency).balanceOf(address(this)) >= floor - amountInCurrency) {
                     if (_price - amountInCurrency != msg.value) revert InvalidAmount(); // Assumes 1:1 ratio between base coin and currency.
 
@@ -245,6 +245,14 @@ contract TokenCurve {
                 return 0;
             }
         }
+    }
+
+    /// -----------------------------------------------------------------------
+    /// Collection Logic
+    /// -----------------------------------------------------------------------
+
+    function getCollection(uint256 _curveId) external view returns (Collected memory) {
+        return collected[_curveId];
     }
 
     function calculatePrice(uint256 supply, uint256 scale, uint256 constant_a, uint256 constant_b, uint256 constant_c)

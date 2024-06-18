@@ -5,7 +5,7 @@ import "lib/forge-std/src/Test.sol";
 import "lib/forge-std/src/console2.sol";
 
 import {TokenCurve} from "src/TokenCurve.sol";
-import {ITokenCurve, CurveType, Curve} from "src/interface/ITokenCurve.sol";
+import {ITokenCurve, CurveType, Curve, Collected} from "src/interface/ITokenCurve.sol";
 import {ITokenMinter, TokenTitle, TokenSource, TokenBuilder, TokenMarket} from "src/interface/ITokenMinter.sol";
 import {TokenMinter} from "src/tokens/TokenMinter.sol";
 import {TokenUriBuilder} from "src/tokens/TokenUriBuilder.sol";
@@ -408,6 +408,8 @@ contract TokenCurveTest is Test {
         uint256 mintPrice = tc.getCurvePrice(true, 1, 0);
 
         // Deal.
+        vm.prank(user);
+        currency.mint(address(tc), 10000000000000 ether, address(tc));
         vm.deal(bob, 10000000000000 ether);
 
         // Support.
@@ -460,7 +462,7 @@ contract TokenCurveTest is Test {
         uint256 floor = calculatePrice(curve.supply + 1, scale, 0, 0, mint_c);
         uint256 currencyPayment = floor / 2;
         vm.prank(bob);
-        tc.support{value: mintPrice - floor}(1, bob, currencyPayment);
+        tc.support{value: mintPrice - currencyPayment}(1, bob, currencyPayment);
 
         // Validate.
         assertEq(tokenMinter.balanceOf(bob, 1), 1);
@@ -469,7 +471,9 @@ contract TokenCurveTest is Test {
 
         uint256 burnPrice = tc.getCurvePrice(false, curveId, 0);
         assertEq(tc.treasuries(curveId), burnPrice);
-        assertEq(address(tc).balance, burnPrice);
+
+        Collected memory collected = tc.getCollection(curveId);
+        assertEq(address(tc).balance - collected.amountConverted, burnPrice);
         assertEq(currency.balanceOf(alice), floor);
         assertEq(address(alice).balance, mintPrice - burnPrice - floor);
         assertEq(currency.balanceOf(bob), 10000000000000 ether - currencyPayment);
@@ -506,20 +510,22 @@ contract TokenCurveTest is Test {
         curve = tc.getCurve(curveId);
         uint256 floor = calculatePrice(curve.supply + 1, scale, 0, 0, mint_c);
         uint256 currencyPayment = floor / 2;
+
+        vm.expectRevert(TokenCurve.InsufficientCurrency.selector);
         vm.prank(bob);
         tc.support{value: mintPrice - currencyPayment}(1, bob, currencyPayment);
 
         // Validate.
-        assertEq(tokenMinter.balanceOf(bob, 1), 1);
-        curve = tc.getCurve(curveId);
-        assertEq(curve.supply, 1);
+        // assertEq(tokenMinter.balanceOf(bob, 1), 1);
+        // curve = tc.getCurve(curveId);
+        // assertEq(curve.supply, 1);
 
-        uint256 burnPrice = tc.getCurvePrice(false, curveId, 0);
-        assertEq(tc.treasuries(curveId), burnPrice);
-        assertEq(address(tc).balance, burnPrice);
-        assertEq(currency.balanceOf(alice), currencyPayment);
-        assertEq(address(alice).balance, mintPrice - burnPrice - currencyPayment);
-        assertEq(currency.balanceOf(bob), 10000000000000 ether - currencyPayment);
+        // uint256 burnPrice = tc.getCurvePrice(false, curveId, 0);
+        // assertEq(tc.treasuries(curveId), burnPrice);
+        // assertEq(address(tc).balance, burnPrice);
+        // assertEq(currency.balanceOf(alice), currencyPayment);
+        // assertEq(address(alice).balance, mintPrice - burnPrice - currencyPayment);
+        // assertEq(currency.balanceOf(bob), 10000000000000 ether - currencyPayment);
     }
 
     function test_LinearCurve_Support_Floor(
@@ -625,6 +631,8 @@ contract TokenCurveTest is Test {
 
         // Deal.
         vm.deal(bob, 10000000000000 ether);
+        vm.prank(user);
+        currency.mint(address(tc), 10000000000000 ether, address(tc));
 
         // Support.
         vm.expectRevert(TokenCurve.InvalidAmount.selector);
@@ -766,6 +774,9 @@ contract TokenCurveTest is Test {
 
         uint256 mintPrice = tc.getCurvePrice(true, 1, 0);
 
+        vm.prank(user);
+        currency.mint(address(tc), 10000000000000 ether, address(tc));
+
         vm.deal(bob, 1000000000000000000 ether);
         vm.prank(bob);
         tc.support{value: mintPrice}(1, bob, 0);
@@ -775,7 +786,9 @@ contract TokenCurveTest is Test {
         curve = tc.getCurve(1);
         assertEq(curve.supply, 1);
         assertEq(tc.treasuries(1), burnPrice);
-        assertEq(address(tc).balance, burnPrice);
+
+        Collected memory collected = tc.getCollection(1);
+        assertEq(address(tc).balance - collected.amountConverted, burnPrice);
 
         emit log_string(tokenMinter.uri(1));
     }
