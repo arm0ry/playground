@@ -258,11 +258,11 @@ contract TokenUriBuilder {
         uint256 _aroma;
 
         if (logger != address(0)) {
-            uint256 nonce = ILog(logger).getNonceByItemId(bulletin, listId, uint256(0));
+            uint256 nonce = ILog(logger).getNonceByItemId(bulletin, uint256(0));
 
             if (nonce > 0) {
                 for (uint256 i = 1; i <= nonce; ++i) {
-                    tp = ILog(logger).getTouchpointByItemIdByNonce(bulletin, listId, uint256(0), i);
+                    tp = ILog(logger).getTouchpointByItemIdByNonce(bulletin, uint256(0), i);
 
                     // Decode data and count user response.
                     if (tp.logType == LogType.TOKEN_OWNER) {

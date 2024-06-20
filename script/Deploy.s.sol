@@ -106,14 +106,8 @@ contract Deploy is Script {
         IBulletin(bulletinAddr).grantRoles(loggerAddr, IBulletin(bulletinAddr).LOGGERS());
 
         // Prepare lists.
-        registerColdBrew();
-        registerDeliverColdBrew();
-        // registerEspresso();
-        // registerNujabes();
-        // registerMakingEspresso();
-        // registerListTutorial();
-        // registerWildernessPark();
-        // registerHackath0n();
+        registerCoffee();
+        registerDeliverCoffee();
 
         // Deploy token minter and uri builder.
         deployTokenMinter();
@@ -134,7 +128,7 @@ contract Deploy is Script {
         // Configure token
         ITokenMinter(tokenMinterAddr).registerMinter(
             TokenTitle({
-                name: "Cold Brew Coffee",
+                name: "Coffee",
                 desc: "Giving back to the $coffee community, we take $coffee for our labor and time and the rest in $stablecoins for our continued commitment in sourcing local beans and practicing sustainable waste practices."
             }),
             TokenSource({bulletin: bulletinAddr, listId: 1, logger: loggerAddr}),
@@ -145,8 +139,8 @@ contract Deploy is Script {
 
         ITokenMinter(tokenMinterAddr).registerMinter(
             TokenTitle({
-                name: "Cold Brew Coffee", // $BREAD
-                desc: "In partnership with the $bread community, we offer our coffee with $bread."
+                name: "Coffee", // $BREAD
+                desc: "For the $bread community, we offer our coffee with $bread."
             }),
             TokenSource({bulletin: bulletinAddr, listId: 1, logger: loggerAddr}),
             TokenBuilder({builder: tokenBuilderAddr, builderId: 2}),
@@ -156,7 +150,7 @@ contract Deploy is Script {
 
         ITokenMinter(tokenMinterAddr).registerMinter(
             TokenTitle({
-                name: "Deliver a Pitcher of Cold Brew", // Pay for delivery in $COFFEE via drop and receive service payments in $COFFEE via curve
+                name: "Deliver a Pitcher of Coffee", // Pay for delivery in $COFFEE via drop and receive service payments in $COFFEE via curve
                 desc: "We can also deliver a pitch of cold brew locally for $coffee to cover labor, and the rest in $stablecoin for our commitment to recycle pitchers and deliver with zero-emission."
             }),
             TokenSource({bulletin: bulletinAddr, listId: 2, logger: loggerAddr}),
@@ -167,7 +161,7 @@ contract Deploy is Script {
 
         ITokenMinter(tokenMinterAddr).registerMinter(
             TokenTitle({
-                name: "[Help Wanted] Deliver a Pitcher of Cold Brew",
+                name: "[Help Wanted] Deliver a Pitcher of Coffee",
                 desc: "Get tokens, make delivery with zero-emission, and earn $coffee."
             }),
             TokenSource({bulletin: bulletinAddr, listId: 2, logger: loggerAddr}),
@@ -359,7 +353,7 @@ contract Deploy is Script {
     /// Register Lists
     /// -----------------------------------------------------------------------
 
-    function registerColdBrew() public {
+    function registerCoffee() public {
         delete items;
 
         Item memory item1 = Item({
@@ -388,20 +382,20 @@ contract Deploy is Script {
             account,
             bulletinAddr,
             items,
-            "Cold Brew",
+            "Coffee",
             "A smooth and refreshing coffee experience crafted to balance bold flavors and ethical sourcing.",
             0
         );
     }
 
-    function registerDeliverColdBrew() public {
+    function registerDeliverCoffee() public {
         delete items;
 
         Item memory item1 = Item({
             review: false,
             expire: FUTURE,
             owner: user1,
-            title: "Grab a Pitcher of Cold Brew",
+            title: "Grab a Pitcher of Coffee",
             detail: "",
             schema: BYTES,
             drip: 0
@@ -416,8 +410,8 @@ contract Deploy is Script {
             account,
             bulletinAddr,
             items,
-            "Deliver a Pitcher of Cold Brew",
-            "Reserve a pitcher of cold brew for delivery next Monday!",
+            "Deliver a Pitcher of Coffee",
+            "Reserve a pitcher of Coffee for delivery next Monday!",
             60 ether
         );
     }

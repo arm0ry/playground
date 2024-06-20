@@ -298,13 +298,13 @@ contract Log is OwnableRoles {
         return tps;
     }
 
-    function getTouchpointsByLogByItemId(uint256 _logId, uint256 _itemId) external view returns (Touchpoint[] memory) {
+    function getTouchpointsByLogByItemId(uint256 _logId, uint256 itemId) external view returns (Touchpoint[] memory) {
         (,,, uint256 aNonce) = getLog(_logId);
         Touchpoint[] memory tps = new Touchpoint[](aNonce);
 
         for (uint256 i; i < aNonce; ++i) {
             Touchpoint memory tp = logs[_logId].touchpoints[i];
-            if (tp.itemId == _itemId) {
+            if (tp.itemId == itemId) {
                 tps[i] = tp;
             }
         }

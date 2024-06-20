@@ -397,7 +397,7 @@ contract TokenCurveTest is Test {
         // Set up token data.
         TokenTitle memory title = TokenTitle({name: "Token1", desc: "Token Numba 1"});
         TokenSource memory source = TokenSource({bulletin: address(bulletin), listId: 1, logger: address(0)});
-        TokenBuilder memory builder = TokenBuilder({builder: address(tokenUriBuilder), builderId: 1});
+        TokenBuilder memory builder = TokenBuilder({builder: address(tokenUriBuilder), builderId: 2});
         TokenMarket memory market = TokenMarket({market: address(tc), limit: 10 ether});
 
         // Set up minter.
@@ -423,8 +423,14 @@ contract TokenCurveTest is Test {
         uint256 burnPrice = tc.getCurvePrice(false, 1, 0);
         assertEq(tc.treasuries(1), burnPrice);
 
-        emit log_string(tokenMinter.uri(1));
-        emit log_string(tokenUriBuilder.generateSvg(1, address(bulletin), 1, address(0)));
+        // emit log_string(tokenUriBuilder.generateSvg(2, address(bulletin), 1, address(0)));
+        emit log_string(tokenUriBuilder.generateSvgForBeverages(address(bulletin), 1, address(0)));
+
+        (uint256 flavor, uint256 aroma, uint256 body) =
+            tokenUriBuilder.getPerformanceData(address(bulletin), 1, address(0));
+        // emit log_uint(flavor);
+        // emit log_uint(aroma);
+        // emit log_uint(body);
     }
 
     function test_LinearCurve_Support_SomeCurrency_Subsidized(
