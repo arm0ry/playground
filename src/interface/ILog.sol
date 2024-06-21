@@ -4,8 +4,8 @@ pragma solidity ^0.8.17;
 enum LogType {
     MEMBER,
     SIGNATURE,
-    SPONSORED,
-    TOKEN_OWNER
+    TOKEN,
+    PUBLIC
 }
 
 struct Activity {
@@ -49,7 +49,7 @@ interface ILog {
         bytes32 r,
         bytes32 s
     ) external payable;
-    function logBySponsorship(
+    function logByPublic(
         address bulletin,
         uint256 listId,
         uint256 itemId,

@@ -25,7 +25,6 @@ contract Log is OwnableRoles {
     );
     event Evaluated(uint256 logId, address bulletin, uint256 listId, uint256 nonce, bool pass);
 
-    error NotAuthorized();
     error InvalidEvaluation();
     error InvalidLogger();
     error InvalidList();
@@ -120,23 +119,19 @@ contract Log is OwnableRoles {
     }
 
     /// @notice Token ownership logging.
-    function logByToken(
-        // address bulletin,
-        // uint256 listId,
-        address token,
-        uint256 tokenId,
-        uint256 itemId,
-        string calldata feedback,
-        bytes calldata data
-    ) external payable onlyRoles(MEMBERS) {
+    function logByToken(address token, uint256 tokenId, uint256 itemId, string calldata feedback, bytes calldata data)
+        external
+        payable
+        onlyRoles(MEMBERS)
+    {
         // check token balance
-        if (ITokenMinter(token).balanceOf(msg.sender, tokenId) == 0) revert NotAuthorized();
+        if (ITokenMinter(token).balanceOf(msg.sender, tokenId) == 0) revert Unauthorized();
 
         // get token source
         (address bulletin, uint256 listId, address logger) = ITokenMinter(token).getTokenSource(tokenId);
         if (logger != address(this)) revert InvalidLogger();
 
-        _log(LogType.TOKEN_OWNER, msg.sender, bulletin, listId, itemId, feedback, data);
+        _log(LogType.TOKEN, msg.sender, bulletin, listId, itemId, feedback, data);
 
         ITokenMinter(token).burnByLogger(msg.sender, tokenId);
     }
@@ -153,6 +148,8 @@ contract Log is OwnableRoles {
         bytes32 r,
         bytes32 s
     ) external payable onlyRoles(GASBUDDIES) checkList(bulletin, listId, itemId) {
+        if (!hasAnyRole(signer, MEMBERS)) revert Unauthorized();
+
         // Validate signed message.
         bytes32 digest = keccak256(
             abi.encodePacked(
@@ -163,20 +160,20 @@ contract Log is OwnableRoles {
         );
 
         address recoveredAddress = ecrecover(digest, v, r, s);
-        if (recoveredAddress == address(0) || recoveredAddress != signer) revert NotAuthorized();
+        if (recoveredAddress == address(0) || recoveredAddress != signer) revert Unauthorized();
 
         _log(LogType.SIGNATURE, signer, bulletin, listId, itemId, feedback, data);
     }
 
-    /// @notice Sponsor log is used in combination with gas buddy, which provide gas subsidy.
-    function logBySponsorship(
+    /// @notice An experimental function to enable logging by anyone.
+    function logByPublic(
         address bulletin,
         uint256 listId,
         uint256 itemId,
         string calldata feedback,
         bytes calldata data
     ) external payable onlyRoles(GASBUDDIES) checkList(bulletin, listId, itemId) {
-        _log(LogType.SPONSORED, address(0), bulletin, listId, itemId, feedback, data);
+        _log(LogType.PUBLIC, address(0), bulletin, listId, itemId, feedback, data);
     }
 
     function _log(

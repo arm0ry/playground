@@ -481,7 +481,7 @@ contract LogTest is Test {
         testSetGasBuddy(buddy);
 
         vm.prank(buddy);
-        logger.logBySponsorship(_bulletin, _listId, _itemId, TEST, BYTES);
+        logger.logByPublic(_bulletin, _listId, _itemId, TEST, BYTES);
         id = logger.lookupLogId(address(0), keccak256(abi.encodePacked(_bulletin, _listId)));
         (,,, uint256 _aNonce) = logger.getLog(id);
         assertEq(aNonce + 1, _aNonce);

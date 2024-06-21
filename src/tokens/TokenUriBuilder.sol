@@ -209,7 +209,7 @@ contract TokenUriBuilder {
         List memory list;
         (bulletin != address(0)) ? list = IBulletin(bulletin).getList(listId) : list;
 
-        (uint256 flavor, uint256 body, uint256 aroma) = getPerformanceData(bulletin, listId, logger);
+        (uint256 flavor, uint256 body, uint256 aroma) = getPerformanceData(bulletin, logger);
 
         return string.concat(
             '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" style="background:#FFFBF5">',
@@ -247,7 +247,7 @@ contract TokenUriBuilder {
         );
     }
 
-    function getPerformanceData(address bulletin, uint256 listId, address logger)
+    function getPerformanceData(address bulletin, address logger)
         public
         view
         returns (uint256 flavor, uint256 body, uint256 aroma)
@@ -265,7 +265,7 @@ contract TokenUriBuilder {
                     tp = ILog(logger).getTouchpointByItemIdByNonce(bulletin, uint256(0), i);
 
                     // Decode data and count user response.
-                    if (tp.logType == LogType.TOKEN_OWNER) {
+                    if (tp.logType == LogType.TOKEN) {
                         (_flavor, _body, _aroma) = abi.decode(tp.data, (uint256, uint256, uint256));
 
                         flavor += _flavor;
