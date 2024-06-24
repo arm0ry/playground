@@ -284,6 +284,10 @@ contract Log is OwnableRoles {
         nonce = logs[_logId].nonce;
     }
 
+    function getLogId(address user, address bulletin, uint256 listId) external view returns (uint256) {
+        return lookupLogId[user][keccak256(abi.encodePacked(bulletin, listId))];
+    }
+
     function getTouchpointsByLog(uint256 _logId) external view returns (Touchpoint[] memory) {
         (,,, uint256 aNonce) = getLog(_logId);
         Touchpoint[] memory tps = new Touchpoint[](aNonce);
@@ -320,12 +324,4 @@ contract Log is OwnableRoles {
     {
         return touchpointByItemId[keccak256(abi.encodePacked(bulletin, itemId))][nonce];
     }
-
-    // function getTouchpointDataByItemIdByNonce(address bulletin, uint256 listId, uint256 itemId, uint256 nonce)
-    //     external
-    //     view
-    //     returns (bytes memory)
-    // {
-    //     return touchpointByItemId[keccak256(abi.encodePacked(bulletin, listId, itemId))][nonce];
-    // }
 }

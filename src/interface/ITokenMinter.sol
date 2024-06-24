@@ -7,6 +7,7 @@ struct TokenTitle {
 }
 
 struct TokenSource {
+    address user;
     address bulletin;
     uint256 listId;
     address logger;
@@ -45,6 +46,6 @@ interface ITokenMinter {
 
     function getTokenTitle(uint256 id) external payable returns (string memory, string memory);
     function getTokenBuilder(uint256 id) external payable returns (address, uint256);
-    function getTokenSource(uint256 id) external payable returns (address, uint256, address);
+    function getTokenSource(uint256 id) external payable returns (address, address, uint256, address);
     function getTokenMarket(uint256 id) external payable returns (address, uint256);
 }

@@ -59,6 +59,7 @@ interface ILog {
 
     function logId() external view returns (uint256);
     function getLog(uint256 logId) external view returns (address, address, uint256, uint256);
+    function getLogId(address user, address bulletin, uint256 listId) external view returns (uint256);
     function lookupLogId(address user, bytes32 encodePackedBulletinListId) external view returns (uint256);
     function getTouchpointsByLog(uint256 logId) external view returns (Touchpoint[] memory);
     function getTouchpointsByLogByItemId(uint256 logId, uint256 itemId) external view returns (Touchpoint[] memory);

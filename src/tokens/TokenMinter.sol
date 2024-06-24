@@ -4,6 +4,7 @@ pragma solidity >=0.8.4;
 import {ERC1155Batchless} from "src/tokens/ERC1155Batchless.sol";
 import {TokenUriBuilder} from "src/tokens/TokenUriBuilder.sol";
 import {IBulletin, List} from "src/interface/IBulletin.sol";
+import {ILog} from "src/interface/ILog.sol";
 import {ITokenMinter, TokenTitle, TokenSource, TokenBuilder, TokenMarket} from "src/interface/ITokenMinter.sol";
 import {OwnableRoles} from "src/auth/OwnableRoles.sol";
 
@@ -30,7 +31,7 @@ contract TokenMinter is ERC1155Batchless {
     /// -----------------------------------------------------------------------
 
     modifier onlyLogger(uint256 id) {
-        (,, address logger) = getTokenSource(id);
+        (,,, address logger) = getTokenSource(id);
         if (logger == address(0) || msg.sender != logger) revert Unauthorized();
         _;
     }
@@ -58,7 +59,7 @@ contract TokenMinter is ERC1155Batchless {
 
     function svg(uint256 id) public view returns (string memory) {
         (address builder, uint256 builderId) = getTokenBuilder(id);
-        (address bulletin, uint256 listId, address logger) = getTokenSource(id);
+        (, address bulletin, uint256 listId, address logger) = getTokenSource(id);
         return TokenUriBuilder(builder).generateSvg(builderId, bulletin, listId, logger);
     }
 
@@ -66,6 +67,7 @@ contract TokenMinter is ERC1155Batchless {
     /// Configuration
     /// -----------------------------------------------------------------------
 
+    /// @notice Minter registration for list owners.
     function registerMinter(
         TokenTitle calldata title,
         TokenSource calldata source,
@@ -87,8 +89,29 @@ contract TokenMinter is ERC1155Batchless {
         owners[tokenId] = msg.sender;
     }
 
+    /// @notice Minter registration for list users.
+    function registerUserMinter(
+        TokenTitle calldata title,
+        TokenSource calldata source,
+        TokenBuilder calldata builder,
+        TokenMarket calldata market
+    ) external payable {
+        if (builder.builder == address(0)) revert InvalidConfig();
+        if (msg.sender != source.user) revert Unauthorized();
+
+        unchecked {
+            ++tokenId;
+        }
+
+        titles[tokenId] = title;
+        builders[tokenId] = builder;
+        markets[tokenId] = market;
+        sources[tokenId] = source;
+        owners[tokenId] = msg.sender;
+    }
+
     /// -----------------------------------------------------------------------
-    /// Mint by owner of token id / Burn by owner of token
+    /// Mint by owner of token id / Burn by owner of token id
     /// -----------------------------------------------------------------------
 
     /// @notice Mint function limited to owner of token.
@@ -98,8 +121,11 @@ contract TokenMinter is ERC1155Batchless {
 
     /// @notice Burn function limited to owner of token.
     function burn(address from, uint256 id) external payable {
-        if (balanceOf[from][id] == 0) revert Unauthorized();
         _burn(from, id, 1);
+    }
+
+    function updateSource(address user, uint256 id) external payable {
+        if (balanceOf[user][id] == 0) revert Unauthorized();
     }
 
     /// -----------------------------------------------------------------------
@@ -148,9 +174,9 @@ contract TokenMinter is ERC1155Batchless {
         return (builder.builder, builder.builderId);
     }
 
-    function getTokenSource(uint256 id) public view returns (address, uint256, address) {
+    function getTokenSource(uint256 id) public view returns (address, address, uint256, address) {
         TokenSource memory source = sources[id];
-        return (source.bulletin, source.listId, source.logger);
+        return (source.user, source.bulletin, source.listId, source.logger);
     }
 
     function getTokenMarket(uint256 id) public view returns (address, uint256) {

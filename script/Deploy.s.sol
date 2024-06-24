@@ -132,7 +132,7 @@ contract Deploy is Script {
                 desc: "For the $croissant community, we offer our coffee for 5 $croissant."
             }),
             TokenSource({bulletin: bulletinAddr, listId: 1, logger: loggerAddr}),
-            TokenBuilder({builder: tokenBuilderAddr, builderId: 2}),
+            TokenBuilder({builder: tokenBuilderAddr, builderId: 1}),
             TokenMarket({market: marketAddr, limit: 100})
         );
         uint256 tokenId = ITokenMinter(tokenMinterAddr).tokenId();
@@ -154,7 +154,7 @@ contract Deploy is Script {
                 desc: "We can deliver a pitch of cold brew locally for 10 $coffee to cover labor, and the rest in $stablecoin for our commitment to recycle pitchers and deliver with zero-emission."
             }),
             TokenSource({bulletin: bulletinAddr, listId: 2, logger: loggerAddr}),
-            TokenBuilder({builder: tokenBuilderAddr, builderId: 1}),
+            TokenBuilder({builder: tokenBuilderAddr, builderId: 3}),
             TokenMarket({market: marketAddr, limit: 20})
         );
         uint256 tokenId3 = ITokenMinter(tokenMinterAddr).tokenId();
@@ -165,7 +165,7 @@ contract Deploy is Script {
                 desc: "Reserve a spot with 0.5 $coffee to help us deliver with zero-emission. Hop into our Discord for more delivery detail~"
             }),
             TokenSource({bulletin: bulletinAddr, listId: 2, logger: loggerAddr}),
-            TokenBuilder({builder: tokenBuilderAddr, builderId: 1}),
+            TokenBuilder({builder: tokenBuilderAddr, builderId: 4}),
             TokenMarket({market: marketAddr, limit: 10})
         );
         uint256 tokenId4 = ITokenMinter(tokenMinterAddr).tokenId();
@@ -360,7 +360,7 @@ contract Deploy is Script {
             review: false,
             expire: FUTURE,
             owner: user1,
-            title: "ABC Iced Blend Beans",
+            title: "ABC Beans",
             detail: "https://hackmd.io/@audsssy/rkHLIFwVC",
             schema: BYTES,
             drip: 0
@@ -374,9 +374,19 @@ contract Deploy is Script {
             schema: BYTES,
             drip: 0
         });
+        Item memory item3 = Item({
+            review: false,
+            expire: FUTURE,
+            owner: user1,
+            title: "Compost Coffee Beans",
+            detail: "",
+            schema: BYTES,
+            drip: 0
+        });
 
         items.push(item1);
         items.push(item2);
+        items.push(item3);
 
         registerList(
             account,
@@ -395,16 +405,33 @@ contract Deploy is Script {
             review: false,
             expire: FUTURE,
             owner: user1,
-            title: "Grab a Pitcher of Coffee",
+            title: "Grab a Pitcher",
             detail: "",
             schema: BYTES,
             drip: 0
         });
-        Item memory item2 =
-            Item({review: false, expire: FUTURE, owner: user1, title: "Delivery", detail: "", schema: BYTES, drip: 0});
+        Item memory item2 = Item({
+            review: false,
+            expire: FUTURE,
+            owner: user1,
+            title: "Deliver to Recipient",
+            detail: "",
+            schema: BYTES,
+            drip: 0
+        });
+        Item memory item3 = Item({
+            review: false,
+            expire: FUTURE,
+            owner: user1,
+            title: "Recycle Pitcher",
+            detail: "",
+            schema: BYTES,
+            drip: 0
+        });
 
         items.push(item1);
         items.push(item2);
+        items.push(item3);
 
         registerList(
             account,
