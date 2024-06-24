@@ -396,7 +396,8 @@ contract TokenCurveTest is Test {
 
         // Set up token data.
         TokenTitle memory title = TokenTitle({name: "Token1", desc: "Token Numba 1"});
-        TokenSource memory source = TokenSource({bulletin: address(bulletin), listId: 1, logger: address(0)});
+        TokenSource memory source =
+            TokenSource({user: address(0), bulletin: address(bulletin), listId: 1, logger: address(0)});
         TokenBuilder memory builder = TokenBuilder({builder: address(tokenUriBuilder), builderId: 2});
         TokenMarket memory market = TokenMarket({market: address(tc), limit: 10 ether});
 
@@ -848,7 +849,8 @@ contract TokenCurveTest is Test {
 
         // Set up token data.
         TokenTitle memory title = TokenTitle({name: "Token1", desc: "Token Numba 1"});
-        TokenSource memory source = TokenSource({bulletin: address(bulletin), listId: 1, logger: address(0)});
+        TokenSource memory source =
+            TokenSource({user: address(0), bulletin: address(bulletin), listId: 1, logger: address(0)});
         TokenBuilder memory builder = TokenBuilder({builder: address(tokenUriBuilder), builderId: 1});
         TokenMarket memory market = TokenMarket({market: address(tc), limit: 10 ether});
 

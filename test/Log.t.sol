@@ -432,7 +432,7 @@ contract LogTest is Test {
 
     // TODO
     function logItemByTokenOwnership(address user, address token, uint256 tokenId, uint256 _itemId) internal {
-        (address _bulletin, uint256 _listId,) = ITokenMinter(token).getTokenSource(tokenId);
+        (, address _bulletin, uint256 _listId,) = ITokenMinter(token).getTokenSource(tokenId);
 
         uint256 id = logger.lookupLogId(user, keccak256(abi.encodePacked(_bulletin, _listId)));
         (,,, uint256 aNonce) = logger.getLog(id);

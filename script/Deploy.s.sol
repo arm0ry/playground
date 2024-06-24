@@ -131,7 +131,7 @@ contract Deploy is Script {
                 name: "Coffee with $croissant",
                 desc: "For the $croissant community, we offer our coffee for 5 $croissant."
             }),
-            TokenSource({bulletin: bulletinAddr, listId: 1, logger: loggerAddr}),
+            TokenSource({user: user1, bulletin: bulletinAddr, listId: 1, logger: loggerAddr}),
             TokenBuilder({builder: tokenBuilderAddr, builderId: 1}),
             TokenMarket({market: marketAddr, limit: 100})
         );
@@ -142,7 +142,7 @@ contract Deploy is Script {
                 name: "Coffee",
                 desc: "Giving back to the $coffee community, we take 3 $coffee for our labor and time ,and the rest in $stablecoins for our continued commitment in sourcing local beans and practicing sustainable waste practices."
             }),
-            TokenSource({bulletin: bulletinAddr, listId: 1, logger: loggerAddr}),
+            TokenSource({user: user1, bulletin: bulletinAddr, listId: 1, logger: loggerAddr}),
             TokenBuilder({builder: tokenBuilderAddr, builderId: 2}),
             TokenMarket({market: marketAddr, limit: 300})
         );
@@ -153,7 +153,7 @@ contract Deploy is Script {
                 name: "[Service] Deliver a Pitcher of Coffee", // Pay for delivery in $COFFEE via drop and receive service payments in $COFFEE via curve
                 desc: "We can deliver a pitch of cold brew locally for 10 $coffee to cover labor, and the rest in $stablecoin for our commitment to recycle pitchers and deliver with zero-emission."
             }),
-            TokenSource({bulletin: bulletinAddr, listId: 2, logger: loggerAddr}),
+            TokenSource({user: user1, bulletin: bulletinAddr, listId: 2, logger: loggerAddr}),
             TokenBuilder({builder: tokenBuilderAddr, builderId: 3}),
             TokenMarket({market: marketAddr, limit: 20})
         );
@@ -164,7 +164,7 @@ contract Deploy is Script {
                 name: "[Help Wanted] Deliver a Pitcher of Coffee",
                 desc: "Reserve a spot with 0.5 $coffee to help us deliver with zero-emission. Hop into our Discord for more delivery detail~"
             }),
-            TokenSource({bulletin: bulletinAddr, listId: 2, logger: loggerAddr}),
+            TokenSource({user: user1, bulletin: bulletinAddr, listId: 2, logger: loggerAddr}),
             TokenBuilder({builder: tokenBuilderAddr, builderId: 4}),
             TokenMarket({market: marketAddr, limit: 10})
         );

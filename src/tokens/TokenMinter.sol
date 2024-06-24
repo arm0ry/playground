@@ -59,8 +59,8 @@ contract TokenMinter is ERC1155Batchless {
 
     function svg(uint256 id) public view returns (string memory) {
         (address builder, uint256 builderId) = getTokenBuilder(id);
-        (, address bulletin, uint256 listId, address logger) = getTokenSource(id);
-        return TokenUriBuilder(builder).generateSvg(builderId, bulletin, listId, logger);
+        (address user, address bulletin, uint256 listId, address logger) = getTokenSource(id);
+        return TokenUriBuilder(builder).generateSvg(builderId, user, bulletin, listId, logger);
     }
 
     /// -----------------------------------------------------------------------
@@ -89,25 +89,11 @@ contract TokenMinter is ERC1155Batchless {
         owners[tokenId] = msg.sender;
     }
 
-    /// @notice Minter registration for list users.
-    function registerUserMinter(
-        TokenTitle calldata title,
-        TokenSource calldata source,
-        TokenBuilder calldata builder,
-        TokenMarket calldata market
-    ) external payable {
-        if (builder.builder == address(0)) revert InvalidConfig();
-        if (msg.sender != source.user) revert Unauthorized();
+    function updateMinter(uint256 id, TokenSource calldata source) external payable {
+        List memory list = IBulletin(source.bulletin).getList(source.listId);
+        if (msg.sender != list.owner) revert Unauthorized();
 
-        unchecked {
-            ++tokenId;
-        }
-
-        titles[tokenId] = title;
-        builders[tokenId] = builder;
-        markets[tokenId] = market;
-        sources[tokenId] = source;
-        owners[tokenId] = msg.sender;
+        sources[id] = source;
     }
 
     /// -----------------------------------------------------------------------
@@ -122,10 +108,6 @@ contract TokenMinter is ERC1155Batchless {
     /// @notice Burn function limited to owner of token.
     function burn(address from, uint256 id) external payable {
         _burn(from, id, 1);
-    }
-
-    function updateSource(address user, uint256 id) external payable {
-        if (balanceOf[user][id] == 0) revert Unauthorized();
     }
 
     /// -----------------------------------------------------------------------

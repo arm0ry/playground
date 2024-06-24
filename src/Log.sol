@@ -128,7 +128,7 @@ contract Log is OwnableRoles {
         if (ITokenMinter(token).balanceOf(msg.sender, tokenId) == 0) revert Unauthorized();
 
         // get token source
-        (address bulletin, uint256 listId, address logger) = ITokenMinter(token).getTokenSource(tokenId);
+        (, address bulletin, uint256 listId, address logger) = ITokenMinter(token).getTokenSource(tokenId);
         if (logger != address(this)) revert InvalidLogger();
 
         _log(LogType.TOKEN, msg.sender, bulletin, listId, itemId, feedback, data);
