@@ -85,7 +85,7 @@ contract TokenUriBuilder {
         List memory list;
         (bulletin != address(0)) ? list = IBulletin(bulletin).getList(listId) : list;
 
-        (uint256 flavor, uint256 body, uint256 aroma) = getPerformanceData(bulletin, logger);
+        (uint256 flavor, uint256 body, uint256 aroma) = getPerformanceData(bulletin, listId, logger);
 
         return string.concat(
             '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" style="background:#FFFBF5">',
@@ -123,7 +123,7 @@ contract TokenUriBuilder {
         );
     }
 
-    function getPerformanceData(address bulletin, address logger)
+    function getPerformanceData(address bulletin, uint256 listId, address logger)
         public
         view
         returns (uint256 flavor, uint256 body, uint256 aroma)
@@ -134,11 +134,11 @@ contract TokenUriBuilder {
         uint256 _aroma;
 
         if (logger != address(0)) {
-            uint256 nonce = ILog(logger).getNonceByItemId(bulletin, uint256(0));
+            uint256 nonce = ILog(logger).getNonceByItemId(bulletin, listId, uint256(0));
 
             if (nonce > 0) {
                 for (uint256 i = 1; i <= nonce; ++i) {
-                    tp = ILog(logger).getTouchpointByItemIdByNonce(bulletin, uint256(0), i);
+                    tp = ILog(logger).getTouchpointByItemIdByNonce(bulletin, listId, uint256(0), i);
 
                     // Decode data and count user response.
                     if (tp.logType == LogType.TOKEN) {
@@ -317,7 +317,7 @@ contract TokenUriBuilder {
         List memory list;
         (bulletin != address(0)) ? list = IBulletin(bulletin).getList(listId) : list;
 
-        (uint256 coffee_gram, uint256 water_liter, uint256 compost_gram) = getCoffeeUsageData(bulletin, logger);
+        (uint256 coffee_gram, uint256 water_liter, uint256 compost_gram) = getCoffeeUsageData(bulletin, listId, logger);
 
         return string.concat(
             '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" style="background:#FFFBF5">',
@@ -355,7 +355,7 @@ contract TokenUriBuilder {
         );
     }
 
-    function getCoffeeUsageData(address bulletin, address logger)
+    function getCoffeeUsageData(address bulletin, uint256 listId, address logger)
         public
         view
         returns (uint256 coffee_gram, uint256 water_liter, uint256 compost_gram)
@@ -366,11 +366,11 @@ contract TokenUriBuilder {
         uint256 _compost_gram;
 
         if (logger != address(0)) {
-            uint256 nonce = ILog(logger).getNonceByItemId(bulletin, uint256(0));
+            uint256 nonce = ILog(logger).getNonceByItemId(bulletin, listId, uint256(0));
 
             if (nonce > 0) {
                 for (uint256 i = 1; i <= nonce; ++i) {
-                    tp = ILog(logger).getTouchpointByItemIdByNonce(bulletin, uint256(0), i);
+                    tp = ILog(logger).getTouchpointByItemIdByNonce(bulletin, listId, uint256(0), i);
 
                     // Decode data and count user response.
                     if (tp.logType == LogType.TOKEN) {
@@ -440,7 +440,7 @@ contract TokenUriBuilder {
         returns (string memory)
     {
         List memory list = IBulletin(bulletin).getList(listId);
-        (uint256 flavor, uint256 body, uint256 aroma) = getPerformanceData(bulletin, logger);
+        (uint256 flavor, uint256 body, uint256 aroma) = getPerformanceData(bulletin, listId, logger);
 
         return string.concat(
             '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" style="background:#FFFBF5">',
@@ -463,13 +463,17 @@ contract TokenUriBuilder {
                 ),
                 SVG.NULL
             ),
-            loadPitcherConsumption(bulletin, logger),
+            loadPitcherConsumption(bulletin, listId, logger),
             buildPerformanceBars(flavor, body, aroma),
             "</svg>"
         );
     }
 
-    function loadPitcherConsumption(address bulletin, address logger) public view returns (string memory) {
+    function loadPitcherConsumption(address bulletin, uint256 listId, address logger)
+        public
+        view
+        returns (string memory)
+    {
         return string.concat(
             SVG._text(
                 string.concat(
@@ -478,7 +482,7 @@ contract TokenUriBuilder {
                     SVG._prop("font-size", "40"),
                     SVG._prop("fill", "#00040a")
                 ),
-                SVG._uint2str(loadNumOfRecylcedPitchers(bulletin, logger))
+                SVG._uint2str(loadNumOfRecylcedPitchers(bulletin, listId, logger))
             ),
             SVG._text(
                 string.concat(
@@ -492,7 +496,11 @@ contract TokenUriBuilder {
         );
     }
 
-    function loadNumOfRecylcedPitchers(address bulletin, address logger) public view returns (uint256 numOfRecylced) {
+    function loadNumOfRecylcedPitchers(address bulletin, uint256 listId, address logger)
+        public
+        view
+        returns (uint256 numOfRecylced)
+    {
         Touchpoint memory tp;
         bool recycled;
 
@@ -500,12 +508,12 @@ contract TokenUriBuilder {
         uint256 itemId = 6;
 
         if (logger != address(0)) {
-            uint256 nonce = ILog(logger).getNonceByItemId(bulletin, itemId);
+            uint256 nonce = ILog(logger).getNonceByItemId(bulletin, listId, itemId);
 
             if (nonce > 0) {
                 for (uint256 i = 1; i <= nonce; ++i) {
                     // Decode data and count user response.
-                    tp = ILog(logger).getTouchpointByItemIdByNonce(bulletin, itemId, i);
+                    tp = ILog(logger).getTouchpointByItemIdByNonce(bulletin, listId, itemId, i);
                     if (tp.logType == LogType.TOKEN) {
                         delete recycled;
                         (recycled) = abi.decode(tp.data, (bool));
