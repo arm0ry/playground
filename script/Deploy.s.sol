@@ -35,13 +35,13 @@ contract Deploy is Script {
     bytes constant BYTES = bytes(string("BYTES"));
 
     // Contracts.
-    address bulletinAddr = payable(address(0));
-    address loggerAddr = address(0);
+    address bulletinAddr = payable(address(0xd7A65C912c3e29F4f4A5faD44E901111a8FAe922));
+    address loggerAddr = address(0x116f3f5bF4dC657D185D68B0000262254478575E);
     address factoryAddr = address(0);
     address payable marketAddr = payable(address(0));
 
     // Tokens.
-    address tokenMinterAddr;
+    address tokenMinterAddr = address(0xA018CCC6ED7812F15401D58D42ec7365a4Be1FD4);
     address currencyAddr;
     address currencyAddr2;
     address tokenBuilderAddr;
@@ -52,6 +52,9 @@ contract Deploy is Script {
     address user2 = address(0xFB12B6A543d986A1938d2b3C7d05848D8913AcC4);
     address user3 = address(0x85E70769d04Be1C9d7C3c373b98BD9929f61F428);
     address gasbuddy = address(0x7Cf60ec5A5541b7d4073F795a67A75E383F3FFFf);
+
+    // Roles.
+    uint256 AUTHORIZED_TOKENS = 10;
 
     // Curves.
     Curve curve1;
@@ -75,7 +78,19 @@ contract Deploy is Script {
 
         vm.startBroadcast(privateKey);
 
-        deployCommons(account, user1, gasbuddy);
+        ILog(loggerAddr).grantRoles(
+            address(uint160(uint256(keccak256(abi.encode(tokenMinterAddr, 1))))), AUTHORIZED_TOKENS
+        );
+        ILog(loggerAddr).logByToken(
+            ILog(loggerAddr).MEMBERS(),
+            tokenMinterAddr,
+            1,
+            AUTHORIZED_TOKENS,
+            0,
+            "Flavorful!",
+            abi.encode(uint256(3), uint256(7), uint256(9))
+        );
+        // deployCommons(account, user1, gasbuddy);
         // deployTokenBuilder();
 
         vm.stopBroadcast();

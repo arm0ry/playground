@@ -55,6 +55,15 @@ interface ILog {
         bytes32 r,
         bytes32 s
     ) external payable;
+    function logByToken(
+        uint256 userRole,
+        address token,
+        uint256 tokenId,
+        uint256 tokenRole,
+        uint256 itemId,
+        string calldata feedback,
+        bytes calldata data
+    ) external payable;
     function logByPublic(
         address bulletin,
         uint256 listId,
