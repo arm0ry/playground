@@ -103,8 +103,8 @@ contract TokenUriBuilder {
                     SVG._prop("fill", "#FFBE0B"),
                     SVG._prop("x", "20"),
                     SVG._prop("y", "50"),
-                    SVG._prop("width", SVG._uint2str(160)),
-                    SVG._prop("height", SVG._uint2str(5))
+                    SVG._prop("width", "160"),
+                    SVG._prop("height", "5")
                 ),
                 SVG.NULL
             ),
@@ -203,9 +203,9 @@ contract TokenUriBuilder {
                     SVG._prop("fill", "#ffecb6"),
                     SVG._prop("x", "80"),
                     SVG._prop("y", "145"),
-                    SVG._prop("width", SVG._uint2str(150)),
-                    SVG._prop("height", SVG._uint2str(20)),
-                    SVG._prop("rx", SVG._uint2str(2))
+                    SVG._prop("width", "150"),
+                    SVG._prop("height", "20"),
+                    SVG._prop("rx", "2")
                 ),
                 SVG.NULL
             ),
@@ -215,8 +215,8 @@ contract TokenUriBuilder {
                     SVG._prop("x", "80"),
                     SVG._prop("y", "145"),
                     SVG._prop("width", SVG._uint2str(flavor)),
-                    SVG._prop("height", SVG._uint2str(20)),
-                    SVG._prop("rx", SVG._uint2str(2))
+                    SVG._prop("height", "20"),
+                    SVG._prop("rx", "2")
                 ),
                 SVG.NULL
             )
@@ -239,9 +239,9 @@ contract TokenUriBuilder {
                     SVG._prop("fill", "#ffecb6"),
                     SVG._prop("x", "80"),
                     SVG._prop("y", "185"),
-                    SVG._prop("width", SVG._uint2str(150)),
-                    SVG._prop("height", SVG._uint2str(20)),
-                    SVG._prop("rx", SVG._uint2str(2))
+                    SVG._prop("width", "150"),
+                    SVG._prop("height", "20"),
+                    SVG._prop("rx", "2")
                 ),
                 SVG.NULL
             ),
@@ -251,8 +251,8 @@ contract TokenUriBuilder {
                     SVG._prop("x", "80"),
                     SVG._prop("y", "185"),
                     SVG._prop("width", SVG._uint2str(body)),
-                    SVG._prop("height", SVG._uint2str(20)),
-                    SVG._prop("rx", SVG._uint2str(2))
+                    SVG._prop("height", "20"),
+                    SVG._prop("rx", "2")
                 ),
                 SVG.NULL
             )
@@ -275,9 +275,9 @@ contract TokenUriBuilder {
                     SVG._prop("fill", "#ffecb6"),
                     SVG._prop("x", "80"),
                     SVG._prop("y", "225"),
-                    SVG._prop("width", SVG._uint2str(150)),
-                    SVG._prop("height", SVG._uint2str(20)),
-                    SVG._prop("rx", SVG._uint2str(2))
+                    SVG._prop("width", "150"),
+                    SVG._prop("height", "20"),
+                    SVG._prop("rx", "2")
                 ),
                 SVG.NULL
             ),
@@ -287,8 +287,8 @@ contract TokenUriBuilder {
                     SVG._prop("x", "80"),
                     SVG._prop("y", "225"),
                     SVG._prop("width", SVG._uint2str(aroma)),
-                    SVG._prop("height", SVG._uint2str(20)),
-                    SVG._prop("rx", SVG._uint2str(2))
+                    SVG._prop("height", "20"),
+                    SVG._prop("rx", "2")
                 ),
                 SVG.NULL
             )
@@ -335,8 +335,8 @@ contract TokenUriBuilder {
                     SVG._prop("fill", "#FFBE0B"),
                     SVG._prop("x", "20"),
                     SVG._prop("y", "50"),
-                    SVG._prop("width", SVG._uint2str(160)),
-                    SVG._prop("height", SVG._uint2str(5))
+                    SVG._prop("width", "160"),
+                    SVG._prop("height", "5")
                 ),
                 SVG.NULL
             ),
@@ -373,11 +373,12 @@ contract TokenUriBuilder {
                     tp = ILog(logger).getTouchpointByItemIdByNonce(bulletin, uint256(0), i);
 
                     // Decode data and count user response.
-                    (_coffee_gram, _water_liter, _compost_gram) = abi.decode(tp.data, (uint256, uint256, uint256));
-
-                    coffee_gram += _coffee_gram;
-                    water_liter += _water_liter;
-                    compost_gram += _compost_gram;
+                    if (tp.logType == LogType.TOKEN) {
+                        (_coffee_gram, _water_liter, _compost_gram) = abi.decode(tp.data, (uint256, uint256, uint256));
+                        coffee_gram += _coffee_gram;
+                        water_liter += _water_liter;
+                        compost_gram += _compost_gram;
+                    }
                 }
             }
         }
@@ -392,29 +393,29 @@ contract TokenUriBuilder {
             SVG._text(
                 string.concat(
                     SVG._prop("x", "20"),
-                    SVG._prop("y", "140"),
-                    SVG._prop("font-size", "12"),
+                    SVG._prop("y", "165"),
+                    SVG._prop("font-size", "14"),
                     SVG._prop("fill", "#808080")
                 ),
-                string.concat("Coffee beans: ", SVG._uint2str(coffee_gram), "g")
+                string.concat("Coffee beans: ", SVG._uint2str(coffee_gram), " g")
             ),
             SVG._text(
                 string.concat(
                     SVG._prop("x", "20"),
-                    SVG._prop("y", "160"),
-                    SVG._prop("font-size", "12"),
+                    SVG._prop("y", "195"),
+                    SVG._prop("font-size", "14"),
                     SVG._prop("fill", "#808080")
                 ),
-                string.concat("Filtered water: ", SVG._uint2str(water_liter), "lt")
+                string.concat("Filtered water: ", SVG._uint2str(water_liter), " lt")
             ),
             SVG._text(
                 string.concat(
                     SVG._prop("x", "20"),
-                    SVG._prop("y", "180"),
-                    SVG._prop("font-size", "12"),
+                    SVG._prop("y", "225"),
+                    SVG._prop("font-size", "14"),
                     SVG._prop("fill", "#808080")
                 ),
-                string.concat("Compost: ", SVG._uint2str(compost_gram), "g")
+                string.concat("Compost: ", SVG._uint2str(compost_gram), " g")
             )
         );
     }
@@ -457,25 +458,63 @@ contract TokenUriBuilder {
                     SVG._prop("fill", "#FFBE0B"),
                     SVG._prop("x", "20"),
                     SVG._prop("y", "50"),
-                    SVG._prop("width", SVG._uint2str(160)),
-                    SVG._prop("height", SVG._uint2str(5))
+                    SVG._prop("width", "160"),
+                    SVG._prop("height", "5")
                 ),
                 SVG.NULL
             ),
-            loadPitcherConsumption(bulletin, listId),
+            loadPitcherConsumption(bulletin, logger),
             buildPerformanceBars(flavor, body, aroma),
-            // buildTicker(curve, curveId),
             "</svg>"
         );
     }
 
-    function loadPitcherConsumption(address bulletin, uint256 listId) public view returns (string memory) {
-        return SVG._text(
-            string.concat(
-                SVG._prop("x", "20"), SVG._prop("y", "260"), SVG._prop("font-size", "12"), SVG._prop("fill", "#00040a")
+    function loadPitcherConsumption(address bulletin, address logger) public view returns (string memory) {
+        return string.concat(
+            SVG._text(
+                string.concat(
+                    SVG._prop("x", "70"),
+                    SVG._prop("y", "115"),
+                    SVG._prop("font-size", "40"),
+                    SVG._prop("fill", "#00040a")
+                ),
+                SVG._uint2str(loadNumOfRecylcedPitchers(bulletin, logger))
             ),
-            string.concat("# of Pitchers Delivered: ", SVG._uint2str(IBulletin(bulletin).runsByList(listId)))
+            SVG._text(
+                string.concat(
+                    SVG._prop("x", "155"),
+                    SVG._prop("y", "115"),
+                    SVG._prop("font-size", "12"),
+                    SVG._prop("fill", "#899499")
+                ),
+                "Pitchers Recylced"
+            )
         );
+    }
+
+    function loadNumOfRecylcedPitchers(address bulletin, address logger) public view returns (uint256 numOfRecylced) {
+        Touchpoint memory tp;
+        bool recycled;
+
+        // TODO: Hardcoding itemId for demo purposes.
+        uint256 itemId = 6;
+
+        if (logger != address(0)) {
+            uint256 nonce = ILog(logger).getNonceByItemId(bulletin, itemId);
+
+            if (nonce > 0) {
+                for (uint256 i = 1; i <= nonce; ++i) {
+                    // Decode data and count user response.
+                    tp = ILog(logger).getTouchpointByItemIdByNonce(bulletin, itemId, i);
+                    if (tp.logType == LogType.TOKEN) {
+                        delete recycled;
+                        (recycled) = abi.decode(tp.data, (bool));
+
+                        (recycled) ? ++numOfRecylced : numOfRecylced;
+                    }
+                }
+            }
+        }
     }
 
     // function buildTasksCompletions(address bulletin, List memory list) public view returns (string memory) {
@@ -564,6 +603,7 @@ contract TokenUriBuilder {
         view
         returns (string memory)
     {
+        List memory list = IBulletin(bulletin).getList(listId);
         uint256 logId = (logger != address(0)) ? ILog(logger).getLogId(user, bulletin, listId) : 0;
 
         Touchpoint[] memory tps;
@@ -597,27 +637,38 @@ contract TokenUriBuilder {
                     SVG._prop("fill", "#FFBE0B"),
                     SVG._prop("x", "20"),
                     SVG._prop("y", "50"),
-                    SVG._prop("width", SVG._uint2str(160)),
-                    SVG._prop("height", SVG._uint2str(5))
+                    SVG._prop("width", "160"),
+                    SVG._prop("height", "5")
                 ),
                 SVG.NULL
             ),
-            loadDeliveryTasks(bulletin, listId),
+            SVG._text(
+                string.concat(
+                    SVG._prop("x", "20"),
+                    SVG._prop("y", "100"),
+                    SVG._prop("font-size", "20"),
+                    SVG._prop("fill", "#00040a")
+                ),
+                list.title
+            ),
+            loadDeliveryTasks(bulletin, list.owner, list.itemIds),
             loadDeliveryRecord(fridge, recipient, recycled),
             "</svg>"
         );
     }
 
-    function loadDeliveryTasks(address bulletin, uint256 listId) public view returns (string memory) {
-        List memory list = IBulletin(bulletin).getList(listId);
-
-        if (list.owner != address(0)) {
-            uint256 length = (list.itemIds.length > 3) ? 3 : list.itemIds.length;
+    function loadDeliveryTasks(address bulletin, address owner, uint256[] memory itemIds)
+        public
+        view
+        returns (string memory)
+    {
+        if (owner != address(0)) {
+            uint256 length = (itemIds.length > 3) ? 3 : itemIds.length;
             string memory text;
             Item memory item;
 
             for (uint256 i; i < length; ++i) {
-                item = IBulletin(bulletin).getItem(list.itemIds[i]);
+                item = IBulletin(bulletin).getItem(itemIds[i]);
                 text = string.concat(
                     text,
                     SVG._text(

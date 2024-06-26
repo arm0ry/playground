@@ -35,10 +35,16 @@ interface ILog {
     function hasAnyRole(address user, uint256 roles) external view returns (bool);
     function rolesOf(address user) external view returns (uint256 roles);
 
-    function log(address bulletin, uint256 listId, uint256 itemId, string calldata feedback, bytes calldata data)
-        external
-        payable;
+    function log(
+        uint256 role,
+        address bulletin,
+        uint256 listId,
+        uint256 itemId,
+        string calldata feedback,
+        bytes calldata data
+    ) external payable;
     function logBySig(
+        uint256 role,
         address signer,
         address bulletin,
         uint256 listId,

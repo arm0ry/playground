@@ -255,8 +255,10 @@ contract Deploy is Script {
         Bulletin(payable(bulletinAddr)).transferOwnership(user);
 
         // Submit mock user input.
-        ILog(loggerAddr).log(bulletinAddr, 1, 0, "Flavorful!", abi.encode(uint256(3), uint256(7), uint256(9)));
-        ILog(loggerAddr).log(bulletinAddr, 2, 0, "Wonderful service!", BYTES);
+        ILog(loggerAddr).log(
+            ILog(loggerAddr).MEMBERS(), bulletinAddr, 1, 0, "Flavorful!", abi.encode(uint256(3), uint256(7), uint256(9))
+        );
+        ILog(loggerAddr).log(ILog(loggerAddr).MEMBERS(), bulletinAddr, 2, 0, "Wonderful service!", BYTES);
 
         // Full stablecoin support.
         uint256 price = TokenCurve(marketAddr).getCurvePrice(true, 1, 0);

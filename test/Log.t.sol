@@ -414,40 +414,42 @@ contract LogTest is Test {
     }
 
     function logItem(address user, address _bulletin, uint256 _listId, uint256 _itemId) internal {
+        uint256 MEMBERS = ILog(address(logger)).MEMBERS();
         uint256 id = logger.lookupLogId(user, keccak256(abi.encodePacked(_bulletin, _listId)));
         (,,, uint256 aNonce) = logger.getLog(id);
 
         testSetMember(user);
 
         vm.prank(user);
-        logger.log(_bulletin, _listId, _itemId, TEST, BYTES);
+        logger.log(MEMBERS, _bulletin, _listId, _itemId, TEST, BYTES);
         id = logger.lookupLogId(user, keccak256(abi.encodePacked(_bulletin, _listId)));
         (,,, uint256 _aNonce) = logger.getLog(id);
         assertEq(aNonce + 1, _aNonce);
 
-        uint256 nonceByItemId = logger.getNonceByItemId(_bulletin, _itemId);
-        Touchpoint memory tp = logger.getTouchpointByItemIdByNonce(_bulletin, _itemId, nonceByItemId);
+        uint256 nonceByItemId = logger.getNonceByItemId(_bulletin, _listId, _itemId);
+        Touchpoint memory tp = logger.getTouchpointByItemIdByNonce(_bulletin, _listId, _itemId, nonceByItemId);
         assertEq(BYTES, tp.data);
     }
 
-    // TODO
-    function logItemByTokenOwnership(address user, address token, uint256 tokenId, uint256 _itemId) internal {
-        (, address _bulletin, uint256 _listId,) = ITokenMinter(token).getTokenSource(tokenId);
+    // TODO: Must grant token a role on the logger contract before logging
+    // function logItemByTokenOwnership(address user, address token, uint256 tokenId, uint256 _itemId) internal {
+    //     (, address _bulletin, uint256 _listId,) = ITokenMinter(token).getTokenSource(tokenId);
 
-        uint256 id = logger.lookupLogId(user, keccak256(abi.encodePacked(_bulletin, _listId)));
-        (,,, uint256 aNonce) = logger.getLog(id);
+    //     uint256 id = logger.lookupLogId(user, keccak256(abi.encodePacked(_bulletin, _listId)));
+    //     (,,, uint256 aNonce) = logger.getLog(id);
 
-        testSetMember(user);
+    //     testSetMember(user);
 
-        vm.prank(user);
-        logger.logByToken(token, tokenId, _itemId, TEST, BYTES);
+    //     vm.prank(user);
+    //     logger.logByToken(token, tokenId, _itemId, TEST, BYTES);
 
-        id = logger.lookupLogId(user, keccak256(abi.encodePacked(_bulletin, _listId)));
-        (,,, uint256 _aNonce) = logger.getLog(id);
-        assertEq(aNonce + 1, _aNonce);
-    }
+    //     id = logger.lookupLogId(user, keccak256(abi.encodePacked(_bulletin, _listId)));
+    //     (,,, uint256 _aNonce) = logger.getLog(id);
+    //     assertEq(aNonce + 1, _aNonce);
+    // }
 
     function logItemBySig(string memory user, address _bulletin, uint256 _listId, uint256 _itemId) internal {
+        uint256 MEMBERS = ILog(address(logger)).MEMBERS();
         (address _user, uint256 _userPk) = makeAddrAndKey(user);
 
         uint256 id = logger.lookupLogId(_user, keccak256(abi.encodePacked(_bulletin, _listId)));
@@ -467,7 +469,7 @@ contract LogTest is Test {
         // User signs message.
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_userPk, message);
         vm.prank(buddy);
-        logger.logBySig(_user, _bulletin, _listId, _itemId, TEST, BYTES, v, r, s);
+        logger.logBySig(MEMBERS, _user, _bulletin, _listId, _itemId, TEST, BYTES, v, r, s);
 
         id = logger.lookupLogId(_user, keccak256(abi.encodePacked(_bulletin, _listId)));
         (,,, uint256 _aNonce) = logger.getLog(id);
