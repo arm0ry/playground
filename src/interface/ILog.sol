@@ -1,13 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-enum LogType {
-    MEMBER,
-    SIGNATURE,
-    TOKEN,
-    PUBLIC
-}
-
 struct Activity {
     address user;
     address bulletin;
@@ -18,7 +11,7 @@ struct Activity {
 }
 
 struct Touchpoint {
-    LogType logType;
+    uint256 role;
     bool pass;
     uint256 itemId;
     string feedback;

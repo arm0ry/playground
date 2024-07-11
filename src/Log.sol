@@ -1,20 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.4;
 
-import {ILog, LogType, Activity, Touchpoint} from "src/interface/ILog.sol";
+import {ILog, Activity, Touchpoint} from "src/interface/ILog.sol";
 import {IBulletin, List, Item} from "src/interface/IBulletin.sol";
 import {ICurrency} from "src/interface/ICurrency.sol";
 import {ITokenMinter} from "src/interface/ITokenMinter.sol";
 import {OwnableRoles} from "src/auth/OwnableRoles.sol";
-
-// import {LibBitmap} from "solady/utils/LibBitmap.sol";
 
 /// @title Log
 /// @notice A database management system to log data from interacting with Bulletin.
 /// @author audsssy.eth
 contract Log is OwnableRoles {
     event Logged(
-        LogType logType,
+        uint256 role,
         address user,
         address bulletin,
         uint256 listId,
@@ -33,10 +31,6 @@ contract Log is OwnableRoles {
     /// -----------------------------------------------------------------------
     /// Storage
     /// -----------------------------------------------------------------------
-
-    /// @notice Role constants.
-    uint256 public constant GASBUDDIES = 1 << 0;
-    uint256 public constant MEMBERS = 1 << 1;
 
     /// @notice Currency faucet.
     address public currency;
@@ -117,19 +111,19 @@ contract Log is OwnableRoles {
         string calldata feedback,
         bytes calldata data
     ) external payable onlyRoles(role) checkList(bulletin, listId, itemId) {
-        _log(LogType.MEMBER, msg.sender, bulletin, listId, itemId, feedback, data);
+        _log(role, msg.sender, bulletin, listId, itemId, feedback, data);
     }
 
     /// @notice Token ownership logging.
     function logByToken(
-        uint256 userRole,
+        uint256 role,
         address token,
         uint256 tokenId,
         uint256 tokenRole,
         uint256 itemId,
         string calldata feedback,
         bytes calldata data
-    ) external payable onlyRoles(userRole) {
+    ) external payable onlyRoles(role) {
         // Check token role.
         if (!hasAnyRole(address(uint160(uint256(keccak256(abi.encode(token, tokenId))))), tokenRole)) {
             revert Unauthorized();
@@ -142,14 +136,16 @@ contract Log is OwnableRoles {
         (, address bulletin, uint256 listId, address logger) = ITokenMinter(token).getTokenSource(tokenId);
         if (logger != address(this)) revert InvalidLogger();
 
-        _log(LogType.TOKEN, msg.sender, bulletin, listId, itemId, feedback, data);
+        _log(role, msg.sender, bulletin, listId, itemId, feedback, data);
 
+        // TODO: Consider burn by token curve instead.
         ITokenMinter(token).burnByLogger(msg.sender, tokenId);
     }
 
     /// @notice Permissionless logging by signature.
     function logBySig(
         uint256 role,
+        uint256 signerRole,
         address signer,
         address bulletin,
         uint256 listId,
@@ -159,8 +155,8 @@ contract Log is OwnableRoles {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) external payable onlyRoles(GASBUDDIES) checkList(bulletin, listId, itemId) {
-        if (!hasAnyRole(signer, role)) revert Unauthorized();
+    ) external payable onlyRoles(role) checkList(bulletin, listId, itemId) {
+        if (!hasAnyRole(signer, signerRole)) revert Unauthorized();
 
         // Validate signed message.
         bytes32 digest = keccak256(
@@ -174,22 +170,11 @@ contract Log is OwnableRoles {
         address recoveredAddress = ecrecover(digest, v, r, s);
         if (recoveredAddress == address(0) || recoveredAddress != signer) revert Unauthorized();
 
-        _log(LogType.SIGNATURE, signer, bulletin, listId, itemId, feedback, data);
-    }
-
-    /// @notice An experimental function to enable logging by anyone.
-    function logByPublic(
-        address bulletin,
-        uint256 listId,
-        uint256 itemId,
-        string calldata feedback,
-        bytes calldata data
-    ) external payable onlyRoles(GASBUDDIES) checkList(bulletin, listId, itemId) {
-        _log(LogType.PUBLIC, address(0), bulletin, listId, itemId, feedback, data);
+        _log(signerRole, signer, bulletin, listId, itemId, feedback, data);
     }
 
     function _log(
-        LogType logType,
+        uint256 role,
         address user,
         address bulletin,
         uint256 listId,
@@ -204,8 +189,7 @@ contract Log is OwnableRoles {
         bool review = (item.review) ? false : true;
 
         // Set up touchpoint.
-        Touchpoint memory tp =
-            Touchpoint({logType: logType, pass: review, itemId: itemId, feedback: feedback, data: data});
+        Touchpoint memory tp = Touchpoint({role: role, pass: review, itemId: itemId, feedback: feedback, data: data});
 
         // Store touchpoint by logId.
         if (id == 0) {
@@ -239,22 +223,25 @@ contract Log is OwnableRoles {
 
         // Finally, log data
         if (IBulletin(bulletin).hasAnyRole(address(this), IBulletin(bulletin).LOGGERS()) && review) {
-            IBulletin(bulletin).submit(itemId);
+            IBulletin(bulletin).submit(listId, itemId);
         }
 
-        emit Logged(logType, user, bulletin, listId, itemId, logs[logId].nonce, review, data);
+        emit Logged(role, user, bulletin, listId, itemId, logs[logId].nonce, review, data);
     }
 
     /// -----------------------------------------------------------------------
     /// Evaluate
     /// -----------------------------------------------------------------------
 
-    function evaluate(uint256 id, address bulletin, uint256 listId, uint256 order, uint256 itemId, bool pass)
-        external
-        payable
-        onlyRoles(MEMBERS)
-        checkList(bulletin, listId, itemId)
-    {
+    function evaluate(
+        uint256 role,
+        uint256 id,
+        address bulletin,
+        uint256 listId,
+        uint256 order,
+        uint256 itemId,
+        bool pass
+    ) external payable onlyRoles(role) checkList(bulletin, listId, itemId) {
         // Already reviewed.
         Item memory item = IBulletin(bulletin).getItem(itemId);
         if (!item.review) revert InvalidItem();
@@ -268,7 +255,7 @@ contract Log is OwnableRoles {
         logs[id].touchpoints[order].pass = pass;
 
         if (IBulletin(bulletin).hasAnyRole(address(this), IBulletin(bulletin).LOGGERS()) && pass) {
-            IBulletin(bulletin).submit(itemId);
+            IBulletin(bulletin).submit(listId, itemId);
         }
 
         if (currency != address(0)) {
