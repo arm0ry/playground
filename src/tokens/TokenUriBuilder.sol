@@ -64,7 +64,7 @@ contract TokenUriBuilder {
     }
 
     /// -----------------------------------------------------------------------
-    /// SVG Template #1: Feedback for Coffee
+    /// SVG Template #1: Population
     /// -----------------------------------------------------------------------
 
     function feedbackForBeverages(TokenTitle memory title, TokenSource memory source)
@@ -123,6 +123,8 @@ contract TokenUriBuilder {
         );
     }
 
+    // TODO: Change to something that a coffe shop might want to know about its customers
+    // TODO: 2 groups: coffee vs pitcher customers
     function getPerformanceData(address bulletin, uint256 listId, address logger)
         public
         view

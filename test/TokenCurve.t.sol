@@ -428,7 +428,7 @@ contract TokenCurveTest is Test {
         emit log_string(tokenUriBuilder.generateSvgForBeverages(address(bulletin), 1, address(0)));
 
         (uint256 flavor, uint256 aroma, uint256 body) =
-            tokenUriBuilder.getPerformanceData(address(bulletin), address(0));
+            tokenUriBuilder.getPerformanceData(address(bulletin), 1, address(0));
         // emit log_uint(flavor);
         // emit log_uint(aroma);
         // emit log_uint(body);

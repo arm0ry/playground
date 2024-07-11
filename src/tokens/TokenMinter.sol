@@ -8,7 +8,8 @@ import {ILog} from "src/interface/ILog.sol";
 import {ITokenMinter, TokenTitle, TokenSource, TokenBuilder, TokenMarket} from "src/interface/ITokenMinter.sol";
 import {OwnableRoles} from "src/auth/OwnableRoles.sol";
 
-/// @title Impact NFTs
+// TODO: Consider adding vote delegation to ownership
+/// @title
 /// @notice SVG NFTs displaying impact results and metrics.
 contract TokenMinter is ERC1155Batchless {
     error InvalidConfig();

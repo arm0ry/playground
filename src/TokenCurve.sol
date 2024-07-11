@@ -96,6 +96,8 @@ contract TokenCurve {
 
     /// @notice Pay coin or currency to mint tokens.
     function support(uint256 _curveId, address patron, uint256 amountInCurrency) external payable virtual {
+        if (amountInCurrency == 0) revert InsufficientCurrency();
+
         // Validate mint conditions.
         Curve memory curve = curves[_curveId];
         (, uint256 limit) = ITokenMinter(curve.token).getTokenMarket(curve.id);
@@ -107,7 +109,6 @@ contract TokenCurve {
 
         if (floor > amountInCurrency) {
             if (curve.currency != address(0)) {
-                // TODO: Convert stablecoin to cover any currency amount lower than floor
                 // Partial Currency Support .
                 if (ICurrency(curve.currency).balanceOf(address(this)) >= floor - amountInCurrency) {
                     if (_price - amountInCurrency != msg.value) revert InvalidAmount(); // Assumes 1:1 ratio between base coin and currency.
@@ -121,8 +122,6 @@ contract TokenCurve {
 
                     collected[_curveId].amountInCurrency += floor;
                     collected[_curveId].amountInStablecoin += _price - burnPrice - floor;
-
-                    // TODO: Someone should have access to this amount.
                     collected[_curveId].amountConverted += floor - amountInCurrency;
                 } else {
                     revert InsufficientCurrency();
@@ -256,6 +255,18 @@ contract TokenCurve {
         returns (uint256)
     {
         return constant_a * (supply ** 2) * scale + constant_b * supply * scale + constant_c * scale;
+    }
+
+    /// -----------------------------------------------------------------------
+    /// Claim
+    /// -----------------------------------------------------------------------
+
+    function claim(uint256 _curveId) external {
+        address owner = curves[_curveId].owner; // TODO: change to owner of currency not owner of curve
+        uint256 amount = collected[_curveId].amountConverted;
+
+        if (amount == 0 || owner == msg.sender) revert Unauthorized();
+        safeTransferETH(msg.sender, amount);
     }
 
     /// -----------------------------------------------------------------------

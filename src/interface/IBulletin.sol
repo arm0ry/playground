@@ -51,7 +51,7 @@ interface IBulletin {
     function hasListExpired(uint256 id) external view returns (bool);
     function checkIsItemInList(uint256 itemId, uint256 listId) external view returns (bool);
 
-    function submit(uint256 itemId) external;
+    function submit(uint256 listId, uint256 itemId) external;
     function runsByItem(uint256 itemId) external view returns (uint256);
     function runsByList(uint256 listId) external view returns (uint256);
 }

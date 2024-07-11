@@ -42,6 +42,9 @@ contract Bulletin is OwnableRoles {
     /// @dev itemId => number of interactions produced
     mapping(uint256 => uint256) public runsByItem;
 
+    /// @dev itemId => number of interactions produced
+    mapping(uint256 => uint256) public runsByList;
+
     /// -----------------------------------------------------------------------
     /// Modifier
     /// -----------------------------------------------------------------------
@@ -197,9 +200,9 @@ contract Bulletin is OwnableRoles {
     /// Log Logic - Setter
     /// -----------------------------------------------------------------------
 
-    function submit(uint256 _itemId) external onlyRoles(LOGGERS) {
+    function submit(uint256 _listId, uint256 _itemId) external onlyRoles(LOGGERS) {
         unchecked {
-            ++runsByItem[_itemId];
+            (_itemId == 0) ? ++runsByList[_listId] : ++runsByItem[_itemId];
         }
     }
 
@@ -234,26 +237,6 @@ contract Bulletin is OwnableRoles {
 
     function getListDrip(uint256 id) external view returns (uint256) {
         return lists[id].drip;
-    }
-
-    /// @notice Query the number of times STAFF have completed a list on a bulletin.
-    function runsByList(uint256 id) external view returns (uint256 runs) {
-        List memory list;
-        uint256 itemCount;
-        uint256 runsPerItem;
-
-        // @notice Count number of times completed per activity.
-        list = lists[id];
-        itemCount = list.itemIds.length;
-
-        for (uint256 i; i < itemCount; ++i) {
-            runsPerItem = runsByItem[lists[id].itemIds[i]];
-
-            /// @dev Runs by list represents the number of times a user has completed all of the items in a list.
-            (runsPerItem > 0)
-                ? ((runs > runsPerItem) ? runs = runsPerItem : (runs == 0) ? runs = runsPerItem : runs)
-                : runs = 0;
-        }
     }
 
     function hasListExpired(uint256 id) public view returns (bool) {
