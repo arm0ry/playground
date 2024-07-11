@@ -20,3 +20,4 @@ broadcast
 foundry.toml
 report/
 lcov.info
+lib/
